@@ -123,12 +123,13 @@ GOOGLE_CLOUD_LOCATION="us-central1"
 # Looker API Credentials
 LOOKERSDK_BASE_URL="https://your-instance.looker.app"
 LOOKERSDK_CLIENT_ID="your_client_id"
-LOOKERSDK_CLIENT_SECRET="your_client_secret"
-LOOKER_PROJECT_ID="thelook-antigravity"
+LOOKER_PROJECT_ID="your_looker_project_id"
 
 # Tooling & Repository Paths
 LOOKER_CLI_PATH="~/.local/bin/looker-cli"
-LOOKML_PROJECT_PATH="~/Documents/Projects/thelook-antigravity"
+LOOKML_PROJECT_PATH="/path/to/your/lookml/repo"
+FIRESTORE_DATABASE="looker-healthcheck-db"
+FIRESTORE_COLLECTION="looker_healthchecks"
 ```
 
 ### 3. Running the Multi-Agent System

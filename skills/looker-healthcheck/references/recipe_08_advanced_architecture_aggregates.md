@@ -1,7 +1,7 @@
 # Recipe 08: Advanced Optimization & Aggregate Awareness (Component 8)
 
 ## 1. Objective & Purpose
-Implement advanced database acceleration architectures including Looker **Aggregate Awareness** (`aggregate_table`) and **Hub & Spoke** modular project structures for enterprise scale.
+Implement advanced database acceleration architectures including Looker **Aggregate Awareness** (`aggregate_table`) and **Hub & Spoke** modular project structures for enterprise scale across any business domain.
 
 ---
 
@@ -10,14 +10,14 @@ Implement advanced database acceleration architectures including Looker **Aggreg
 When an Explore queries fact tables with tens of millions of rows, define pre-computed aggregate tables directly inside the LookML explore:
 
 ```lookml
-explore: order_items {
-  aggregate_table: rollup__order_created_date {
+explore: fact_explore_name {
+  aggregate_table: rollup__event_daily {
     query: {
-      dimensions: [order_items.created_date, users.country]
-      measures: [order_items.total_gross_revenue, order_items.count]
+      dimensions: [fact_view.event_date, dimension_view.category]
+      measures: [fact_view.total_amount, fact_view.count]
     }
     materialization: {
-      datagroup_trigger: ecommerce_daily_datagroup
+      datagroup_trigger: warehouse_daily_datagroup
     }
   }
 }

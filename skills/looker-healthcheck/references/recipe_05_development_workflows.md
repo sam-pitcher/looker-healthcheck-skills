@@ -30,15 +30,15 @@ Assess and advance the organization's LookML review, testing, and promotion proc
 ### Tier 2: Automated LookML Testing & CI/CD (For teams with business-critical reports)
 * Define LookML Data Tests in `tests/*.test.lkml`:
   ```lookml
-  test: order_items_primary_key_is_unique {
-    explore_source: order_items {
+  test: view_primary_key_is_unique {
+    explore_source: base_explore {
       column: id {}
       column: count {}
-      sorts: [order_items.count: desc]
+      sorts: [base_explore.count: desc]
       limit: 5
     }
     assert: primary_key_is_unique {
-      expression: ${order_items.count} = 1 ;;
+      expression: ${base_explore.count} = 1 ;;
     }
   }
   ```

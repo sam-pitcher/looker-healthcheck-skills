@@ -60,5 +60,5 @@ def scan_lookml_project(project_dir: str) -> Dict[str, Any]:
     }
 
 if __name__ == "__main__":
-    target = sys.argv[1] if len(sys.argv) > 1 else "/Users/sampitcher/Documents/Projects/thelook-antigravity"
+    target = sys.argv[1] if len(sys.argv) > 1 else os.getenv("LOOKML_PROJECT_PATH", ".")
     print(json.dumps(scan_lookml_project(target), indent=2))

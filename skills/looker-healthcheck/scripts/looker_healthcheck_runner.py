@@ -29,20 +29,13 @@ PSO_BENCHMARKS = {
 }
 
 def load_config():
-    """Load Looker settings from .vscode/settings.json or environment."""
-    settings_path = os.path.expanduser("~/Documents/Projects/thelook-antigravity/.vscode/settings.json")
-    if os.path.exists(settings_path):
-        with open(settings_path, "r") as f:
-            data = json.load(f)
-            return {
-                "base_url": data.get("looker.instanceURL", "").rstrip("/"),
-                "client_id": data.get("looker.clientId", ""),
-                "client_secret": data.get("looker.clientSecret", ""),
-                "project_id": data.get("looker.projectId", "")
-            }
+    """Load Looker settings from environment variables or standard config."""
     return {
         "base_url": os.getenv("LOOKERSDK_BASE_URL", "").rstrip("/"),
         "client_id": os.getenv("LOOKERSDK_CLIENT_ID", ""),
+        "client_secret": os.getenv("LOOKERSDK_CLIENT_SECRET", ""),
+        "project_id": os.getenv("LOOKER_PROJECT_ID", "")
+    }
         "client_secret": os.getenv("LOOKERSDK_CLIENT_SECRET", ""),
         "project_id": os.getenv("LOOKER_PROJECT_ID", "")
     }
@@ -275,8 +268,8 @@ def main():
     token = authenticate(config)
     report_md = generate_healthcheck_report(config, token)
     
-    output_dir = os.path.expanduser("~/Documents/Projects/thelook-antigravity")
-    report_file = os.path.join(output_dir, "LOOKER_HEALTHCHECK_REPORT.md")
+    output_dir = os.getcwd()
+    report_file = os.path.join(output_dir, "AUDIT_REPORT.md")
     with open(report_file, "w") as f:
         f.write(report_md)
     

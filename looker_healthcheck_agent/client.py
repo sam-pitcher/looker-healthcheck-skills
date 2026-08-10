@@ -19,16 +19,19 @@ class LookerDiagnosticsClient:
         self.client_id = os.getenv("LOOKERSDK_CLIENT_ID", "")
         self.client_secret = os.getenv("LOOKERSDK_CLIENT_SECRET", "")
         
-        # 2. Fallback to settings.json
+        # 2. Fallback to standard Looker CLI config if present
         if not (self.base_url and self.client_id and self.client_secret):
-            settings_path = Path.home() / "Documents/Projects/thelook-antigravity/.vscode/settings.json"
-            if settings_path.exists():
+            cli_config_path = Path.home() / ".config/looker-cli/config.yaml"
+            if cli_config_path.exists():
                 try:
-                    with open(settings_path, "r", encoding="utf-8") as f:
-                        settings = json.load(f)
-                    self.base_url = settings.get("looker.connection.instanceUrl", "").rstrip("/")
-                    self.client_id = settings.get("looker.connection.clientId", "")
-                    self.client_secret = settings.get("looker.connection.clientSecret", "")
+                    import yaml
+                    with open(cli_config_path, "r", encoding="utf-8") as f:
+                        cfg = yaml.safe_load(f)
+                    current_ctx = cfg.get("current_context", "default")
+                    ctx = cfg.get("contexts", {}).get(current_ctx, {})
+                    self.base_url = self.base_url or ctx.get("base_url", "").rstrip("/")
+                    self.client_id = self.client_id or ctx.get("client_id", "")
+                    self.client_secret = self.client_secret or ctx.get("client_secret", "")
                 except Exception:
                     pass
 
