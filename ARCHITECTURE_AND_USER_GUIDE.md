@@ -98,24 +98,29 @@ To understand how the agent reasons and acts, it is essential to distinguish bet
 ```
 looker-healthcheck-agent/
 ├── AUDIT_REPORT.md                                   # Root human-readable audit deliverable
+├── ARCHITECTURE_AND_USER_GUIDE.md                    # Complete architecture, tools, and user guide
 ├── README.md                                         # Quickstart and project overview
 ├── requirements.txt                                  # Python dependencies
-├── main.py                                           # Unified entrypoint (CLI audit & Web UI)
+├── main.py                                           # Unified entrypoint (CLI audit & Web UI with Model Selector)
+├── scripts/                                          # Utility and sync scripts
+│   └── sync_skills.py                                # Automated syncer for upstream looker-open-source/looker-skills
 ├── agent/                                            # Core ADK Agent implementation
 │   ├── __init__.py                                   # Agent package exports
 │   ├── agent.py                                      # Master orchestrator & Sub-Agent graph
+│   ├── skills_registry.py                            # Dynamic Looker skills indexer (28 playbooks)
 │   ├── skills/                                       # Progressive agent skills
 │   │   ├── content_audit/skill.md                    # Pillar 1 diagnostic instructions
 │   │   ├── lookml_quality/skill.md                   # Pillar 2 diagnostic instructions
 │   │   └── bq_optimizer/skill.md                     # Pillar 3 diagnostic instructions
 │   └── tools/                                        # Executable Python tools
 │       ├── __init__.py                               # Tool package exports
-│       ├── looker_api.py                             # Looker API & System Activity tools
-│       ├── lookml_fs.py                              # LookML filesystem & Henry tools
-│       ├── bq_client.py                              # BigQuery & INFORMATION_SCHEMA tools
-│       └── storage.py                                # Firestore & Markdown persistence engine
+│       ├── looker_api.py                             # Looker API & System Activity tools (model-scoped)
+│       ├── lookml_fs.py                              # LookML filesystem, safe patching, & Henry tools
+│       ├── bq_client.py                              # BigQuery & INFORMATION_SCHEMA tools (model-scoped)
+│       └── storage.py                                # Firestore & Markdown persistence engine (scoped schema)
 ├── looker_healthcheck_agent/                         # Mirror package for library distribution
 ├── skills/                                           # Extensive reference playbooks & recipes
+│   ├── vendor/looker-skills/                         # Official upstream Google Cloud Looker engineering skills
 │   ├── looker-healthcheck/                           # 8 Component offerings & diagnostic guides
 │   │   ├── SKILL.md                                  # Top-level healthcheck methodology
 │   │   ├── references/                               # Deep-dive diagnostic playbooks (01 to 08)
