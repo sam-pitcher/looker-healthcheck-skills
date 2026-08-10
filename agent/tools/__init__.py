@@ -41,7 +41,8 @@ from .lookml_fs import (
     list_lookml_files,
     read_lookml_file,
     search_lookml_code,
-    apply_lookml_patch
+    apply_lookml_patch,
+    apply_safe_lookml_patch
 )
 
 from .bq_client import (
@@ -56,7 +57,13 @@ from .bq_client import (
 
 from .storage import (
     save_audit_report,
-    get_audit_history
+    get_audit_history,
+    get_audit_document
+)
+
+from agent.skills_registry import (
+    get_skill_content,
+    list_registered_skills
 )
 
 __all__ = [
@@ -96,6 +103,7 @@ __all__ = [
     "read_lookml_file",
     "search_lookml_code",
     "apply_lookml_patch",
+    "apply_safe_lookml_patch",
     "audit_partition_cluster_filters",
     "audit_datagroup_sync",
     "audit_query_costs_and_bytes_billed",
@@ -104,5 +112,8 @@ __all__ = [
     "optimize_table_layout",
     "estimate_query_cost_dry_run",
     "save_audit_report",
-    "get_audit_history"
+    "get_audit_history",
+    "get_audit_document",
+    "get_skill_content",
+    "list_registered_skills"
 ]

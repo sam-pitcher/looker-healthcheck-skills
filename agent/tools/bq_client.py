@@ -1,5 +1,5 @@
 """
-Generic BigQuery Client & Database Optimization Tools.
+Generic BigQuery Client & Database Optimization Tools with Model Scoping.
 Implements Pillar 3 & BigQuery Performance Checks (Tasks 21, 25, 30).
 """
 
@@ -25,7 +25,7 @@ def _get_bq_client(project_id: Optional[str] = None):
 # PILLAR 3: BIGQUERY INTEGRATION & DATABASE OPTIMIZATION (Tasks 21 to 30)
 # ==============================================================================
 
-def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = None) -> str:
+def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = None, model_name: Optional[str] = None) -> str:
     """
     Task 21: Partition & Cluster Alignment.
     Audits table partitioning and clustering layout to ensure LookML views enforce `conditionally_filter` or `require_partition_filter: yes`.
@@ -57,7 +57,7 @@ def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = N
     except Exception as e:
         return f"Partition audit error: {str(e)}"
 
-def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24) -> str:
+def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """
     Task 25: Caching Strategies (Datagroups).
     Queries BigQuery INFORMATION_SCHEMA to map warehouse ELT completion timestamps to Looker datagroup triggers.
@@ -93,15 +93,19 @@ def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str]
     except Exception as e:
         return f"Datagroup ELT audit query:\n```sql\n{query}\n```\n*(Execution note: {str(e)})*"
 
-def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24) -> str:
+def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """
-    Task 30: Query Cost Optimization.
+    Task 30: Query Cost Optimization with Model Scoping.
     Audits bytes scanned, GB billed, and on-demand costs for all queries executed by Looker using BigQuery INFORMATION_SCHEMA.
     """
     pid = project_id or GCP_PROJECT_ID
     reg = region or GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us"
     client = _get_bq_client(pid)
     
+    filter_clause = "(query LIKE '%Looker%' OR query LIKE '%-- Looker%')"
+    if model_name:
+        filter_clause += f" AND (query LIKE '%{model_name}%' OR query LIKE '%lookml_model: {model_name}%')"
+
     query = f"""
     SELECT
       TIMESTAMP_TRUNC(creation_time, HOUR) as hour_window,
@@ -112,7 +116,7 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
       `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
     WHERE
       creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR)
-      AND (query LIKE '%Looker%' OR query LIKE '%-- Looker%')
+      AND {filter_clause}
     GROUP BY 1
     ORDER BY hour_window DESC
     LIMIT 24;
@@ -124,11 +128,12 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
     try:
         query_job = client.query(query)
         results = [dict(row) for row in query_job.result()]
-        return f"### 💰 Looker BigQuery Cost & Bytes Billed (Past {hours} Hours):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
+        scope_str = f"for model `{model_name}`" if model_name else "across instance"
+        return f"### 💰 Looker BigQuery Cost & Bytes Billed (Past {hours}h - {scope_str}):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
     except Exception as e:
         return f"Cost audit query:\n```sql\n{query}\n```\n*(Execution note: {str(e)})*"
 
-def audit_bq_slots(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24) -> str:
+def audit_bq_slots(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """Audits slot consumption and reservation ceilings."""
     pid = project_id or GCP_PROJECT_ID
     reg = region or GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us"

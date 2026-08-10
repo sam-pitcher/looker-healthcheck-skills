@@ -1,5 +1,5 @@
 """
-Generic Looker API, Telemetry, and Administration Tools.
+Generic Looker API, Telemetry, and Administration Tools with Model Scoping.
 Implements Pillar 1 & System Activity Telemetry Checks (Tasks 01-10, 20, 22, 23, 26, 27, 29).
 """
 
@@ -87,7 +87,7 @@ def check_subsystem_status() -> str:
     is_healthy = all(v.get("healthy") for v in results.values())
     return f"### 🩺 Subsystem Status ({'HEALTHY' if is_healthy else 'CRITICAL'}):\n```json\n{json.dumps(results, indent=2)}\n```"
 
-def audit_connections() -> str:
+def audit_connections(model_name: Optional[str] = None) -> str:
     """Task 02: Stale Connections Audit."""
     try:
         conns = _client.get("connections")
@@ -96,22 +96,26 @@ def audit_connections() -> str:
     except Exception as e:
         return f"Connection audit notice: {str(e)}"
 
-def get_tile_bloat_dashboards(tile_threshold: int = 25) -> str:
-    """Task 03: Dashboard Query Density (>25 Tiles)."""
+def get_tile_bloat_dashboards(tile_threshold: int = 25, model_name: Optional[str] = None) -> str:
+    """Task 03: Dashboard Query Density (>25 Tiles) with Model Scoping."""
     try:
+        filters = {"dashboard.deleted_date": "NULL", "dashboard_element.count": f">{tile_threshold}"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="dashboard",
             fields=["dashboard.id", "dashboard.title", "dashboard_element.count", "user.name"],
-            filters={"dashboard.deleted_date": "NULL", "dashboard_element.count": f">{tile_threshold}"},
+            filters=filters,
             sorts=["dashboard_element.count desc"],
             limit="50"
         )
-        return f"### 📊 Dashboard Density Audit (> {tile_threshold} Tiles):\n```json\n{json.dumps(results, indent=2)}\n```"
+        scope_str = f"for model `{model_name}`" if model_name else "across instance"
+        return f"### 📊 Dashboard Density Audit (> {tile_threshold} Tiles - {scope_str}):\n```json\n{json.dumps(results, indent=2)}\n```"
     except Exception as e:
         return f"Tile bloat audit notice: {str(e)}"
 
-def get_auto_refresh_dashboards() -> str:
+def get_auto_refresh_dashboards(model_name: Optional[str] = None) -> str:
     """Task 04: Auto-Refresh Rate Limits."""
     try:
         results = _client.run_query(
@@ -126,7 +130,7 @@ def get_auto_refresh_dashboards() -> str:
     except Exception as e:
         return f"Auto-refresh audit: 0 high-frequency auto-refreshes identified."
 
-def get_schedule_distribution() -> str:
+def get_schedule_distribution(model_name: Optional[str] = None) -> str:
     """Task 05: Schedule Time Spacing."""
     try:
         results = _client.run_query(
@@ -140,43 +144,53 @@ def get_schedule_distribution() -> str:
     except Exception as e:
         return f"Schedule distribution notice: {str(e)}"
 
-def get_concurrency_peaks() -> str:
+def get_concurrency_peaks(model_name: Optional[str] = None) -> str:
     """Task 06: Concurrent Query Limits."""
     try:
+        filters = {"history.created_date": "24 hours"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="history",
             fields=["history.created_hour", "history.query_run_count", "history.total_runtime"],
-            filters={"history.created_date": "24 hours"},
+            filters=filters,
             sorts=["history.created_hour desc"],
             limit="24"
         )
-        return f"### 📈 Query Concurrency Peaks (Past 24h):\n```json\n{json.dumps(results, indent=2)}\n```"
+        scope_str = f"for model `{model_name}`" if model_name else "instance-wide"
+        return f"### 📈 Query Concurrency Peaks (Past 24h - {scope_str}):\n```json\n{json.dumps(results, indent=2)}\n```"
     except Exception as e:
         return f"Concurrency audit notice: {str(e)}"
 
-def get_unused_content_and_folders(days: int = 90) -> str:
+def get_unused_content_and_folders(days: int = 90, model_name: Optional[str] = None) -> str:
     """Task 07: Unused Content Purge."""
     try:
+        filters = {"dashboard.id": "NOT NULL", "history.most_recent_query_date": f"before {days} days ago"}
+        if model_name:
+            filters["query.model"] = model_name
         stale = _client.run_query(
             model="system__activity",
             view="history",
             fields=["dashboard.id", "dashboard.title", "history.most_recent_query_date"],
-            filters={"dashboard.id": "NOT NULL", "history.most_recent_query_date": f"before {days} days ago"},
+            filters=filters,
             limit="20"
         )
         return f"### 🧹 Stale Content Purge (0 Views in >{days}d):\n```json\n{json.dumps(stale, indent=2)}\n```"
     except Exception as e:
         return f"Unused content notice: {str(e)}"
 
-def get_unfiltered_dashboards() -> str:
+def get_unfiltered_dashboards(model_name: Optional[str] = None) -> str:
     """Task 08: Frontend Filter Enforcement."""
     try:
+        filters = {"dashboard.title": "NOT NULL", "query.filters": "NULL", "history.created_date": "30 days"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="history",
             fields=["dashboard.title", "query.id", "history.query_run_count"],
-            filters={"dashboard.title": "NOT NULL", "query.filters": "NULL", "history.created_date": "30 days"},
+            filters=filters,
             sorts=["history.query_run_count desc"],
             limit="25"
         )
@@ -184,14 +198,17 @@ def get_unfiltered_dashboards() -> str:
     except Exception as e:
         return f"Unfiltered query audit: 0 unfiltered queries found."
 
-def get_merged_queries() -> str:
+def get_merged_queries(model_name: Optional[str] = None) -> str:
     """Task 09: Merged Results Evaluation."""
     try:
+        filters = {"history.source": "merge_query", "history.created_date": "30 days"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="history",
             fields=["dashboard.title", "history.source", "history.query_run_count", "history.average_runtime"],
-            filters={"history.source": "merge_query", "history.created_date": "30 days"},
+            filters=filters,
             limit="25"
         )
         return f"### 🔀 Merged Query Audit:\n```json\n{json.dumps(results, indent=2)}\n```"
@@ -211,14 +228,17 @@ def get_legacy_features() -> str:
 # TELEMETRY & SYSTEM ACTIVITY (Tasks 20, 22, 23, 27, 29)
 # ==============================================================================
 
-def get_table_calculation_heavy_queries() -> str:
+def get_table_calculation_heavy_queries(model_name: Optional[str] = None) -> str:
     """Task 20: Frontend Calculation Audit."""
     try:
+        filters = {"history.created_date": "30 days"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="history",
             fields=["query.id", "dashboard.title", "history.table_calculation_count"],
-            filters={"history.created_date": "30 days"},
+            filters=filters,
             sorts=["history.table_calculation_count desc"],
             limit="20"
         )
@@ -227,21 +247,24 @@ def get_table_calculation_heavy_queries() -> str:
     except Exception:
         return "Table calculation audit: 0 heavy table calculations detected."
 
-def get_bi_engine_metrics() -> str:
+def get_bi_engine_metrics(model_name: Optional[str] = None) -> str:
     """Task 22: BI Engine Reservation Audit."""
     try:
+        filters = {"history.created_date": "30 days"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="history",
             fields=["query.model", "query.view", "history.query_run_count"],
-            filters={"history.created_date": "30 days"},
+            filters=filters,
             limit="10"
         )
         return f"### ⚡ BI Engine Acceleration Audit:\n```json\n{json.dumps(results, indent=2)}\n```"
     except Exception as e:
         return f"BI Engine audit notice: {str(e)}"
 
-def get_pdt_failure_audit() -> str:
+def get_pdt_failure_audit(model_name: Optional[str] = None) -> str:
     """Task 23: PDT Build Monitoring."""
     try:
         results = _client.run_query(
@@ -255,14 +278,17 @@ def get_pdt_failure_audit() -> str:
     except Exception:
         return "PDT Build audit: 0 failing PDT builds in past 7 days (PASSED)."
 
-def get_aggregate_awareness_hits() -> str:
+def get_aggregate_awareness_hits(model_name: Optional[str] = None) -> str:
     """Task 27: Aggregate Awareness Audit."""
     try:
+        filters = {"history.created_date": "30 days"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="history",
             fields=["query.model", "query.view", "history.query_run_count"],
-            filters={"history.created_date": "30 days"},
+            filters=filters,
             sorts=["history.query_run_count desc"],
             limit="15"
         )
@@ -270,14 +296,17 @@ def get_aggregate_awareness_hits() -> str:
     except Exception as e:
         return f"Aggregate awareness notice: {str(e)}"
 
-def get_complex_join_explores() -> str:
+def get_complex_join_explores(model_name: Optional[str] = None) -> str:
     """Task 29: Table Denormalization Audit."""
     try:
+        filters = {"history.created_date": "30 days"}
+        if model_name:
+            filters["query.model"] = model_name
         results = _client.run_query(
             model="system__activity",
             view="history",
             fields=["query.model", "query.view", "history.average_runtime"],
-            filters={"history.created_date": "30 days"},
+            filters=filters,
             sorts=["history.average_runtime desc"],
             limit="15"
         )
@@ -306,7 +335,7 @@ def get_explore_schema(model_name: str, explore_name: str) -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
-def run_system_activity_kpis() -> str:
+def run_system_activity_kpis(model_name: Optional[str] = None) -> str:
     """Runs query metrics."""
     try:
         metrics = _client.run_query("system__activity", "query_metrics", [
@@ -316,5 +345,5 @@ def run_system_activity_kpis() -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
-def run_healthcheck_audit(component_id: Optional[int] = None) -> str:
-    return run_system_activity_kpis()
+def run_healthcheck_audit(component_id: Optional[int] = None, model_name: Optional[str] = None) -> str:
+    return run_system_activity_kpis(model_name=model_name)
