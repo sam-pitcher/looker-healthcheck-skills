@@ -18,7 +18,7 @@ load_dotenv()
 
 from google.adk.agents import Agent
 
-# Pillar 1 Tools
+# Pillar 1 Tools (Instance & Content)
 from agent.tools.looker_api import (
     check_subsystem_status,
     audit_connections,
@@ -42,7 +42,7 @@ from agent.tools.looker_api import (
     run_healthcheck_audit
 )
 
-# Pillar 2 Tools
+# Pillar 2 Tools (LookML Modeling & Quality)
 from agent.tools.lookml_fs import (
     run_lookml_validation,
     audit_primary_keys,
@@ -62,7 +62,7 @@ from agent.tools.lookml_fs import (
     apply_lookml_patch
 )
 
-# Pillar 3 Tools
+# Pillar 3 Tools (BigQuery Engine & Compute)
 from agent.tools.bq_client import (
     audit_partition_cluster_filters,
     audit_datagroup_sync,
@@ -113,7 +113,10 @@ content_agent = Agent(
         get_unfiltered_dashboards,
         get_merged_queries,
         get_legacy_features,
-        run_system_activity_kpis
+        run_system_activity_kpis,
+        save_audit_report,
+        get_audit_history,
+        get_audit_document
     ]
 )
 
@@ -123,7 +126,7 @@ content_agent = Agent(
 lookml_agent = Agent(
     name="LookmlQualityAgent",
     model="gemini-2.5-pro",
-    description="Validates LookML syntax, enforces primary keys, verifies join relationships, cleans unused fields with Henry, hides raw keys, enforces folder/naming hygiene, audits metadata descriptions, prunes unused joins, and checks frontend calculations (Tasks 11-20).",
+    description="Validates LookML syntax, enforces primary keys, verifies join relationships, cleans unused fields with Henry (henry vacuum), hides raw keys, enforces folder/naming hygiene, audits metadata descriptions, prunes unused joins, and checks frontend calculations (Tasks 11-20).",
     instruction=_load_skill_instruction("lookml_quality"),
     tools=[
         run_lookml_validation,
@@ -145,7 +148,10 @@ lookml_agent = Agent(
         list_lookml_files,
         read_lookml_file,
         search_lookml_code,
-        apply_lookml_patch
+        apply_lookml_patch,
+        save_audit_report,
+        get_audit_history,
+        get_audit_document
     ]
 )
 
@@ -171,7 +177,10 @@ bq_agent = Agent(
         audit_bq_slots,
         list_dataset_tables,
         optimize_table_layout,
-        estimate_query_cost_dry_run
+        estimate_query_cost_dry_run,
+        save_audit_report,
+        get_audit_history,
+        get_audit_document
     ]
 )
 
@@ -180,21 +189,80 @@ bq_agent = Agent(
 # ==============================================================================
 ROOT_INSTRUCTION = """
 You are the **Looker & BigQuery Optimization Orchestrator**.
-You execute the complete **30-Task Healthcheck Program** across 3 Pillars:
-- **Pillar 1: Instance & Content Health Checks (Tasks 01 to 10)** -> Delegate to `ContentAuditorAgent`
-- **Pillar 2: LookML & Modeling Health Checks (Tasks 11 to 20)** -> Delegate to `LookmlQualityAgent`
-- **Pillar 3: BigQuery Integration & Database Optimization (Tasks 21 to 30)** -> Delegate to `BqOptimizerAgent`
+You execute the complete **30-Task Healthcheck Program** across all 3 Pillars:
+- **Pillar 1: Instance & Content Health (Tasks 01 to 10)**: Subsystems, Connections, Tile Bloat, Auto-Refresh, Schedules, Concurrency, Unused Content, Unfiltered Queries, Merged Queries, Legacy Features.
+- **Pillar 2: LookML & Modeling Health (Tasks 11 to 20)**: Syntax Validation, Primary Keys, Join Relationships, Henry Unused Field Vacuum, Key Exposure, Folder Structure, Naming Casing, Metadata Descriptions, Unused Joins, Table Calculations.
+- **Pillar 3: BigQuery & Warehouse Health (Tasks 21 to 30)**: Partition/Cluster Filters, BI Engine, PDT Build Failures, Incremental PDTs, Datagroup ELT Sync, OAuth Caching, Aggregate Awareness, Join Key Syntax, Snowflake Denormalization, Query Billing & INFORMATION_SCHEMA.
 
-### Full Healthcheck Execution & Report Saving Protocol:
-1. When asked for a "Full Healthcheck", systematically delegate to the domain specialists to cover all 30 checks.
-2. Produce a consolidated **30-Check Master Scorecard Matrix** with status badges:
+### Full Healthcheck Execution Rules:
+1. When asked for a "Full Healthcheck", execute ALL 30 CHECKS across Pillars 1, 2, and 3:
+   - Call Pillar 1 tools (`check_subsystem_status`, `audit_connections`, `get_tile_bloat_dashboards`, `get_auto_refresh_dashboards`, `get_schedule_distribution`, `get_concurrency_peaks`, `get_unused_content_and_folders`, `get_unfiltered_dashboards`, `get_merged_queries`, `get_legacy_features`).
+   - Call Pillar 2 tools (`run_lookml_validation`, `audit_primary_keys`, `audit_join_relationships`, `run_henry_vacuum`, `audit_explore_field_exposure`, `audit_folder_structure`, `audit_naming_conventions`, `audit_metadata_descriptions`, `audit_unused_joins`, `get_table_calculation_heavy_queries`).
+   - Call Pillar 3 tools (`audit_partition_cluster_filters`, `get_bi_engine_metrics`, `get_pdt_failure_audit`, `audit_incremental_pdts`, `audit_datagroup_sync`, `audit_oauth_connections`, `get_aggregate_awareness_hits`, `audit_join_key_syntax`, `get_complex_join_explores`, `audit_query_costs_and_bytes_billed`).
+2. Synthesize the findings into a consolidated **30-Check Master Scorecard Matrix** with status badges:
    - `PASSED` (Target threshold satisfied)
    - `WARNING` (Optimization opportunity)
    - `CRITICAL` (Immediate stability or cost risk)
 3. For every warning or critical finding, provide an exact **Drop-in Remediation Recipe** (LookML code, SQL query, or Admin setting).
-4. **MANDATORY**: At the end of every full healthcheck audit, you MUST call `save_audit_report(report_markdown, structured_findings)` to persist the report to `AUDIT_REPORT.md` and Firestore. Always inform the user that the report has been saved to `AUDIT_REPORT.md` and Firestore.
-5. Use `get_audit_history()` when the user asks to compare results against past healthchecks.
+4. **MANDATORY**: At the end of every healthcheck audit, call `save_audit_report(report_markdown, structured_findings)` to persist the report to both `AUDIT_REPORT.md` and Firestore (`looker-healthcheck-db`).
+5. Use `get_audit_document()` to display the stored Firestore audit document, and `get_audit_history()` to show historical trend comparisons when requested.
 """
+
+ALL_30_TOOLS = [
+    # Storage & History
+    save_audit_report,
+    get_audit_history,
+    get_audit_document,
+    
+    # Pillar 1: Instance & Content
+    check_subsystem_status,
+    audit_connections,
+    get_tile_bloat_dashboards,
+    get_auto_refresh_dashboards,
+    get_schedule_distribution,
+    get_concurrency_peaks,
+    get_unused_content_and_folders,
+    get_unfiltered_dashboards,
+    get_merged_queries,
+    get_legacy_features,
+    run_system_activity_kpis,
+    run_healthcheck_audit,
+    
+    # Pillar 2: LookML & Modeling
+    run_lookml_validation,
+    audit_primary_keys,
+    audit_join_relationships,
+    run_henry_vacuum,
+    audit_explore_field_exposure,
+    audit_folder_structure,
+    audit_naming_conventions,
+    audit_metadata_descriptions,
+    audit_unused_joins,
+    get_table_calculation_heavy_queries,
+    list_projects,
+    list_models,
+    get_explore_schema,
+    list_lookml_files,
+    read_lookml_file,
+    search_lookml_code,
+    apply_lookml_patch,
+    
+    # Pillar 3: BigQuery & Compute
+    audit_partition_cluster_filters,
+    get_bi_engine_metrics,
+    get_pdt_failure_audit,
+    audit_incremental_pdts,
+    audit_datagroup_sync,
+    audit_oauth_connections,
+    get_aggregate_awareness_hits,
+    audit_join_key_syntax,
+    get_complex_join_explores,
+    audit_query_costs_and_bytes_billed,
+    audit_bq_slots,
+    list_dataset_tables,
+    optimize_table_layout,
+    estimate_query_cost_dry_run
+]
 
 root_agent = Agent(
     name="LookerBqOptimizationOrchestrator",
@@ -202,16 +270,5 @@ root_agent = Agent(
     description="Master orchestrator executing the complete 30-Check Looker & BigQuery Healthcheck across Instance Health, LookML Modeling, and Warehouse Compute, persisting results to Markdown and Firestore.",
     instruction=ROOT_INSTRUCTION.strip(),
     sub_agents=[content_agent, lookml_agent, bq_agent],
-    tools=[
-        save_audit_report,
-        get_audit_history,
-        get_audit_document,
-        run_healthcheck_audit,
-        run_system_activity_kpis,
-        check_subsystem_status,
-        audit_connections,
-        list_projects,
-        list_models,
-        list_lookml_files
-    ]
+    tools=ALL_30_TOOLS
 )
