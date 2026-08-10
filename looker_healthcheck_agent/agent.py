@@ -16,6 +16,7 @@ from dotenv import load_dotenv
 load_dotenv()
 os.environ.setdefault("SSL_CERT_FILE", certifi.where())
 os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+os.environ.setdefault("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH", certifi.where())
 
 from google.adk.agents import Agent
 from .skills_loader import SkillsLoader

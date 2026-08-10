@@ -4,8 +4,14 @@ Built with Google Agent Development Kit (ADK) and Modular Multi-Agent Architectu
 """
 
 import os
+import certifi
 from pathlib import Path
 from dotenv import load_dotenv
+
+# Auto-configure SSL certificate bundle for macOS / aiohttp / Vertex AI
+os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+os.environ.setdefault("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH", certifi.where())
 
 # Configure environment
 load_dotenv()
