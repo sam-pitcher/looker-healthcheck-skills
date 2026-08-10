@@ -1,7 +1,7 @@
 """
 Core Orchestration Layer for Looker & BigQuery Optimizer Agent System.
 Built with Google Agent Development Kit (ADK) and Modular Multi-Agent Architecture.
-Executes the Complete 30-Check Healthcheck Across 3 Pillars.
+Executes the Complete 30-Check Healthcheck Across 3 Pillars with Dual-Layer Persistence.
 """
 
 import os
@@ -71,6 +71,12 @@ from agent.tools.bq_client import (
     list_dataset_tables,
     optimize_table_layout,
     estimate_query_cost_dry_run
+)
+
+# Dual-Layer Storage Tools (Markdown + Firestore)
+from agent.tools.storage import (
+    save_audit_report,
+    get_audit_history
 )
 
 # Progressive Skill Loader
@@ -178,22 +184,26 @@ You execute the complete **30-Task Healthcheck Program** across 3 Pillars:
 - **Pillar 2: LookML & Modeling Health Checks (Tasks 11 to 20)** -> Delegate to `LookmlQualityAgent`
 - **Pillar 3: BigQuery Integration & Database Optimization (Tasks 21 to 30)** -> Delegate to `BqOptimizerAgent`
 
-### Full 30-Task Execution Protocol:
+### Full Healthcheck Execution & Report Saving Protocol:
 1. When asked for a "Full Healthcheck", systematically delegate to the domain specialists to cover all 30 checks.
 2. Produce a consolidated **30-Check Master Scorecard Matrix** with status badges:
    - `PASSED` (Target threshold satisfied)
    - `WARNING` (Optimization opportunity)
    - `CRITICAL` (Immediate stability or cost risk)
 3. For every warning or critical finding, provide an exact **Drop-in Remediation Recipe** (LookML code, SQL query, or Admin setting).
+4. **MANDATORY**: At the end of every full healthcheck audit, you MUST call `save_audit_report(report_markdown, structured_findings)` to persist the report to `AUDIT_REPORT.md` and Firestore. Always inform the user that the report has been saved to `AUDIT_REPORT.md` and Firestore.
+5. Use `get_audit_history()` when the user asks to compare results against past healthchecks.
 """
 
 root_agent = Agent(
     name="LookerBqOptimizationOrchestrator",
     model="gemini-2.5-pro",
-    description="Master orchestrator executing the complete 30-Check Looker & BigQuery Healthcheck across Instance Health, LookML Modeling, and Warehouse Compute.",
+    description="Master orchestrator executing the complete 30-Check Looker & BigQuery Healthcheck across Instance Health, LookML Modeling, and Warehouse Compute, persisting results to Markdown and Firestore.",
     instruction=ROOT_INSTRUCTION.strip(),
     sub_agents=[content_agent, lookml_agent, bq_agent],
     tools=[
+        save_audit_report,
+        get_audit_history,
         run_healthcheck_audit,
         run_system_activity_kpis,
         check_subsystem_status,

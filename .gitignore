@@ -11,3 +11,7 @@ venv/
 *.db
 *.log
 *.bak
+.terraform/
+*.tfstate
+*.tfstate.*
+reports/
