@@ -13,7 +13,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "")
-FIRESTORE_DATABASE = os.getenv("FIRESTORE_DATABASE", "(default)")
+FIRESTORE_DATABASE = os.getenv("FIRESTORE_DATABASE", "looker-healthcheck-db")
 FIRESTORE_COLLECTION = os.getenv("FIRESTORE_COLLECTION", "looker_healthchecks")
 REPORTS_DIR = Path(__file__).resolve().parent.parent.parent / "reports"
 ROOT_AUDIT_FILE = Path(__file__).resolve().parent.parent.parent / "AUDIT_REPORT.md"
@@ -45,7 +45,7 @@ def save_audit_report(report_markdown: str, structured_findings: Optional[Dict[s
     try:
         ROOT_AUDIT_FILE.write_text(report_markdown, encoding="utf-8")
         markdown_saved = True
-    except Exception as e:
+    except Exception:
         markdown_saved = False
 
     # 2. Prepare structured record
@@ -54,7 +54,7 @@ def save_audit_report(report_markdown: str, structured_findings: Optional[Dict[s
         "timestamp": timestamp_str,
         "instance_url": os.getenv("LOOKERSDK_BASE_URL", ""),
         "findings": structured_findings or {},
-        "markdown_report_preview": report_markdown[:1500]
+        "markdown_report": report_markdown
     }
 
     # Save local JSON snapshot in /reports/
@@ -131,3 +131,47 @@ def get_audit_history(limit: int = 5) -> str:
     if history:
         return f"### 📜 Historical Healthchecks (from Local Snapshots):\n```json\n{json.dumps(history, indent=2)}\n```"
     return "No previous healthcheck audits found in Firestore or local archives."
+
+def get_audit_document(audit_id: Optional[str] = None) -> str:
+    """
+    Retrieves the complete structured document and report for a specific audit (or the latest audit) from Firestore.
+    
+    Args:
+        audit_id (str, optional): The specific audit ID (e.g. 'audit_20260810_124540'). If omitted, fetches the latest.
+    """
+    client = _get_firestore_client()
+    data = None
+    
+    if client:
+        try:
+            if audit_id:
+                doc = client.collection(FIRESTORE_COLLECTION).document(audit_id).get()
+                if doc.exists:
+                    data = doc.to_dict()
+            else:
+                docs = list(client.collection(FIRESTORE_COLLECTION).order_by("timestamp", direction="DESCENDING").limit(1).stream())
+                if docs:
+                    data = docs[0].to_dict()
+        except Exception:
+            pass
+
+    if not data and REPORTS_DIR.exists():
+        if audit_id:
+            f = REPORTS_DIR / f"{audit_id}.json"
+            if f.exists():
+                data = json.loads(f.read_text(encoding="utf-8"))
+        else:
+            files = sorted(REPORTS_DIR.glob("*.json"), reverse=True)
+            if files:
+                data = json.loads(files[0].read_text(encoding="utf-8"))
+
+    if not data:
+        return f"No audit document found for ID: {audit_id or 'latest'}."
+
+    return (
+        f"### 📄 Firestore Audit Document (`{data.get('audit_id')}`):\n"
+        f"- **Timestamp:** `{data.get('timestamp')}`\n"
+        f"- **Instance:** `{data.get('instance_url')}`\n"
+        f"- **Structured Scores:**\n```json\n{json.dumps(data.get('findings', {}), indent=2)}\n```\n\n"
+        f"**Report Content:**\n\n{data.get('markdown_report', 'No markdown report attached.')}"
+    )

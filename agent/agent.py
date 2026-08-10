@@ -76,7 +76,8 @@ from agent.tools.bq_client import (
 # Dual-Layer Storage Tools (Markdown + Firestore)
 from agent.tools.storage import (
     save_audit_report,
-    get_audit_history
+    get_audit_history,
+    get_audit_document
 )
 
 # Progressive Skill Loader
@@ -204,6 +205,7 @@ root_agent = Agent(
     tools=[
         save_audit_report,
         get_audit_history,
+        get_audit_document,
         run_healthcheck_audit,
         run_system_activity_kpis,
         check_subsystem_status,
