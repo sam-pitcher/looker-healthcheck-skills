@@ -1,6 +1,6 @@
 """
-Looker API & Administration Tools for Content & System Auditing.
-Interacts with Looker API 4.0 and system__activity models.
+Generic Looker API & Administration Tools for Content & System Auditing.
+Works on ANY Looker instance and LookML project.
 """
 
 import os
@@ -34,9 +34,12 @@ class LookerAdminClient:
             raise RuntimeError(f"Looker Auth failed ({resp.status_code}): {resp.text}")
         self.token = resp.json().get("access_token")
 
-    def run_query(self, model: str, view: str, fields: List[str], filters: Optional[Dict[str, str]] = None, sorts: Optional[List[str]] = None, limit: str = "500") -> List[Dict[str, Any]]:
+    def _headers(self) -> Dict[str, str]:
         if not self.token:
             self.authenticate()
+        return {"Authorization": f"token {self.token}", "Content-Type": "application/json"}
+
+    def run_query(self, model: str, view: str, fields: List[str], filters: Optional[Dict[str, str]] = None, sorts: Optional[List[str]] = None, limit: str = "500") -> List[Dict[str, Any]]:
         url = f"{self.base_url}/api/4.0/queries/run/json"
         body = {
             "model": model,
@@ -46,36 +49,101 @@ class LookerAdminClient:
             "sorts": sorts or [],
             "limit": str(limit)
         }
-        headers = {"Authorization": f"token {self.token}", "Content-Type": "application/json"}
-        resp = requests.post(url, headers=headers, json=body, verify=False, timeout=60)
+        resp = requests.post(url, headers=self._headers(), json=body, verify=False, timeout=60)
         if resp.status_code != 200:
             raise RuntimeError(f"Looker query error ({resp.status_code}): {resp.text}")
         return resp.json()
 
-    def get_dashboard(self, dashboard_id: str) -> Dict[str, Any]:
-        if not self.token:
-            self.authenticate()
-        url = f"{self.base_url}/api/4.0/dashboards/{dashboard_id}"
-        headers = {"Authorization": f"token {self.token}"}
-        resp = requests.get(url, headers=headers, verify=False, timeout=30)
+    def get(self, endpoint: str) -> Any:
+        url = f"{self.base_url}/api/4.0/{endpoint.lstrip('/')}"
+        resp = requests.get(url, headers=self._headers(), verify=False, timeout=30)
         if resp.status_code != 200:
-            raise RuntimeError(f"Failed to fetch dashboard {dashboard_id}: {resp.text}")
+            raise RuntimeError(f"API request failed ({resp.status_code}): {resp.text}")
         return resp.json()
 
-    def delete_dashboard(self, dashboard_id: str) -> bool:
-        if not self.token:
-            self.authenticate()
-        url = f"{self.base_url}/api/4.0/dashboards/{dashboard_id}"
-        headers = {"Authorization": f"token {self.token}"}
-        resp = requests.delete(url, headers=headers, verify=False, timeout=30)
+    def delete(self, endpoint: str) -> bool:
+        url = f"{self.base_url}/api/4.0/{endpoint.lstrip('/')}"
+        resp = requests.delete(url, headers=self._headers(), verify=False, timeout=30)
         return resp.status_code in [200, 204]
 
 _client = LookerAdminClient()
 
+def list_projects() -> str:
+    """
+    Discovers all LookML projects configured on the target Looker instance.
+    """
+    try:
+        data = _client.get("projects")
+        projects = []
+        for p in data:
+            projects.append({
+                "id": p.get("id"),
+                "name": p.get("name"),
+                "git_remote_url": p.get("git_remote_url"),
+                "git_username": p.get("git_username"),
+                "uses_git": p.get("uses_git")
+            })
+        return f"### 📦 Looker Projects on Instance:\n```json\n{json.dumps(projects, indent=2)}\n```"
+    except Exception as e:
+        return f"Error listing projects: {str(e)}"
+
+def list_models() -> str:
+    """
+    Discovers all LookML models configured across the Looker instance.
+    """
+    try:
+        data = _client.get("lookml_models")
+        models = []
+        for m in data:
+            explores = [e.get("name") for e in m.get("explores", [])]
+            models.append({
+                "model_name": m.get("name"),
+                "project_name": m.get("project_name"),
+                "total_explores": len(explores),
+                "explores": explores
+            })
+        return f"### 📊 LookML Models on Instance:\n```json\n{json.dumps(models, indent=2)}\n```"
+    except Exception as e:
+        return f"Error listing models: {str(e)}"
+
+def get_explore_schema(model_name: str, explore_name: str) -> str:
+    """
+    Retrieves the compiled LookML schema for any Explore (dimensions, measures, joins, and filters) directly via API.
+    
+    Args:
+        model_name (str): The LookML model name.
+        explore_name (str): The Explore name within the model.
+    """
+    try:
+        data = _client.get(f"lookml_models/{model_name}/explores/{explore_name}")
+        fields = data.get("fields", {})
+        dimensions = [d.get("name") for d in fields.get("dimensions", [])]
+        measures = [m.get("name") for m in fields.get("measures", [])]
+        joins = [j.get("name") for j in data.get("joins", [])]
+        
+        summary = {
+            "model": model_name,
+            "explore": explore_name,
+            "label": data.get("label"),
+            "connection_name": data.get("connection_name"),
+            "total_joins": len(joins),
+            "joins": joins,
+            "total_dimensions": len(dimensions),
+            "total_measures": len(measures),
+            "dimensions_sample": dimensions[:20],
+            "measures_sample": measures[:20]
+        }
+        return f"### 🔍 Explore Schema (`{model_name}/{explore_name}`):\n```json\n{json.dumps(summary, indent=2)}\n```"
+    except Exception as e:
+        return f"Error retrieving explore schema for `{model_name}/{explore_name}`: {str(e)}"
+
 def get_stale_schedules(days: int = 90) -> str:
     """
-    Identifies scheduled plans and emails belonging to inactive users (no login in X days)
-    or schedules that have not delivered successfully.
+    Identifies scheduled plans and emails belonging to inactive users (no UI login in X days)
+    across the entire Looker instance.
+    
+    Args:
+        days (int): Inactive threshold in days (default: 90).
     """
     try:
         results = _client.run_query(
@@ -109,8 +177,11 @@ def get_stale_schedules(days: int = 90) -> str:
 
 def get_tile_bloat_dashboards(tile_threshold: int = 25) -> str:
     """
-    Scans Looker dashboards to identify tile bloat (>25 tiles), merged query usage,
-    and excessive data scans from hidden table columns.
+    Scans instance dashboards to identify tile bloat (>25 tiles), merged queries,
+    and excessive data scans from hidden table calculation columns.
+    
+    Args:
+        tile_threshold (int): Maximum recommended tile count per dashboard (default: 25).
     """
     try:
         results = _client.run_query(
@@ -143,9 +214,12 @@ def get_tile_bloat_dashboards(tile_threshold: int = 25) -> str:
 def archive_dashboard(dashboard_id: str) -> str:
     """
     Soft-deletes or archives an unused or deprecated Looker dashboard.
+    
+    Args:
+        dashboard_id (str): The ID of the dashboard to delete.
     """
     try:
-        success = _client.delete_dashboard(dashboard_id)
+        success = _client.delete(f"dashboards/{dashboard_id}")
         if success:
             return f"✅ Dashboard `{dashboard_id}` successfully archived/deleted."
         return f"❌ Failed to archive dashboard `{dashboard_id}`."
@@ -154,7 +228,11 @@ def archive_dashboard(dashboard_id: str) -> str:
 
 def deactivate_inactive_users(days: int = 90, dry_run: bool = True) -> str:
     """
-    Identifies or deactivates user accounts that have had zero UI logins for > 90 days.
+    Identifies user accounts that have had zero UI logins for > 90 days for license reclamation.
+    
+    Args:
+        days (int): Inactivity threshold in days (default: 90).
+        dry_run (bool): If True, only lists candidates without modifying user state (default: True).
     """
     try:
         results = _client.run_query(
@@ -225,7 +303,7 @@ def run_system_activity_kpis() -> str:
 
 def run_healthcheck_audit(component_id: Optional[int] = None) -> str:
     """
-    Executes live healthcheck diagnostics against Looker system__activity across 8 components.
+    Executes live healthcheck diagnostics against Looker system__activity across the 8 standard components.
     """
     try:
         if component_id is None or component_id == 2:

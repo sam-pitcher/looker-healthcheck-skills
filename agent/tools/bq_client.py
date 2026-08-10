@@ -1,6 +1,6 @@
 """
-BigQuery Client & Compute Optimization Tools.
-Audits slot reservations, INFORMATION_SCHEMA queries, table partitioning/clustering, and dry-run query costs.
+Generic BigQuery Client & Compute Optimization Tools.
+Audits slot reservations, INFORMATION_SCHEMA queries, table partitioning/clustering, and dry-run costs across ANY dataset.
 """
 
 import os
@@ -10,27 +10,29 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "sampitcher-playground")
+GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
 def _get_bq_client(project_id: Optional[str] = None):
     try:
         from google.cloud import bigquery
-        proj = project_id or GCP_PROJECT_ID
+        proj = project_id or GCP_PROJECT_ID or None
         return bigquery.Client(project=proj, location=GCP_LOCATION)
-    except Exception as e:
+    except Exception:
         return None
 
-def audit_bq_slots(project_id: Optional[str] = None, hours: int = 24) -> str:
+def audit_bq_slots(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24) -> str:
     """
     Audits BigQuery slot consumption and reservation ceilings using INFORMATION_SCHEMA.
-    Detects if queries suffered slot starvation during peak dashboard refresh hours.
+    Detects slot starvation during peak dashboard refresh hours.
     
     Args:
-        project_id (str, optional): GCP project ID to audit.
+        project_id (str, optional): Target GCP project ID.
+        region (str, optional): BigQuery region (e.g. 'us', 'us-central1', 'eu').
         hours (int): Number of past hours to analyze (default: 24).
     """
     pid = project_id or GCP_PROJECT_ID
+    reg = region or GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us"
     client = _get_bq_client(pid)
     
     query = f"""
@@ -42,7 +44,7 @@ def audit_bq_slots(project_id: Optional[str] = None, hours: int = 24) -> str:
       ROUND(MAX(period_slot_ms) / 1000, 2) as peak_slots_consumed,
       SUM(IF(error_result.reason = 'rateLimitExceeded', 1, 0)) as slot_limit_errors
     FROM
-      `region-{GCP_LOCATION.split('-')[0]}`.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT
+      `region-{reg}`.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT
     WHERE
       period_start >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR)
     GROUP BY 1, 2
@@ -52,12 +54,11 @@ def audit_bq_slots(project_id: Optional[str] = None, hours: int = 24) -> str:
     
     if not client:
         return (
-            f"### ⚡ BigQuery Slot Audit Recipe (Project: `{pid}`):\n"
-            f"*BigQuery Client offline or credentials missing. Run the following diagnostic query in BigQuery Studio:*\n\n"
+            f"### ⚡ BigQuery Slot Audit (Project: `{pid or 'current'}`):\n"
+            f"*Run the following diagnostic query in BigQuery Studio:*\n\n"
             f"```sql\n{query}\n```\n\n"
             f"**Remediation Guidance:**\n"
-            f"- If `peak_slots_consumed` hits the reservation ceiling (e.g. 500 or 1000 slots), queries will queue.\n"
-            f"- Establish a dedicated **Looker BI Reservation** separate from heavy ETL/PDT builds.\n"
+            f"- If `peak_slots_consumed` approaches reservation ceilings, create a dedicated BI reservation.\n"
             f"- Configure **PDT Billing Project Override** in Looker Connection settings."
         )
 
@@ -67,23 +68,52 @@ def audit_bq_slots(project_id: Optional[str] = None, hours: int = 24) -> str:
         output = {
             "status": "success",
             "project_id": pid,
+            "region": reg,
             "hours_analyzed": hours,
             "metrics": results
         }
         return f"### ⚡ BigQuery Slot Ceiling & Starvation Audit ({pid}):\n```json\n{json.dumps(output, indent=2, default=str)}\n```"
     except Exception as e:
-        return (
-            f"### ⚡ BigQuery Slot Audit SQL (Project: `{pid}`):\n"
-            f"*Query failed via API ({str(e)}). Run directly in BigQuery Studio:*\n\n"
-            f"```sql\n{query}\n```"
-        )
+        return f"### ⚡ BigQuery Slot Audit SQL:\n```sql\n{query}\n```\n*(Execution note: {str(e)})*"
+
+def list_dataset_tables(dataset_id: str, project_id: Optional[str] = None) -> str:
+    """
+    Discovers and audits all tables within a BigQuery dataset (rows, sizes, partitioning, and clustering).
+    
+    Args:
+        dataset_id (str): Target BigQuery dataset name.
+        project_id (str, optional): Target GCP project ID.
+    """
+    pid = project_id or GCP_PROJECT_ID
+    client = _get_bq_client(pid)
+    if not client:
+        return f"BigQuery Client unavailable to list tables for dataset `{dataset_id}`."
+    
+    try:
+        tables = list(client.list_tables(dataset_id))
+        summaries = []
+        for t in tables[:50]:
+            table_obj = client.get_table(t.reference)
+            p_type = table_obj.time_partitioning.type_ if table_obj.time_partitioning else None
+            p_field = table_obj.time_partitioning.field if table_obj.time_partitioning else None
+            summaries.append({
+                "table_id": table_obj.table_id,
+                "num_rows": table_obj.num_rows,
+                "size_mb": round((table_obj.num_bytes or 0) / (1024 * 1024), 2),
+                "partition_type": p_type,
+                "partition_field": p_field,
+                "clustering_fields": list(table_obj.clustering_fields) if table_obj.clustering_fields else []
+            })
+        return f"### 📊 Tables in Dataset `{dataset_id}`:\n```json\n{json.dumps(summaries, indent=2)}\n```"
+    except Exception as e:
+        return f"Error listing tables in dataset `{dataset_id}`: {str(e)}"
 
 def optimize_table_layout(table_id: str, project_id: Optional[str] = None) -> str:
     """
-    Analyzes a BigQuery table's partitioning and clustering layout and returns optimization recommendations.
+    Analyzes a BigQuery table's partitioning and clustering layout and returns actionable schema recommendations.
     
     Args:
-        table_id (str): Full table identifier (e.g. 'my_project.dataset.events' or 'dataset.orders').
+        table_id (str): Full table identifier (e.g. 'dataset.table_name' or 'project.dataset.table_name').
         project_id (str, optional): Target GCP project ID.
     """
     pid = project_id or GCP_PROJECT_ID
@@ -91,11 +121,10 @@ def optimize_table_layout(table_id: str, project_id: Optional[str] = None) -> st
     
     if not client:
         return (
-            f"### 🎯 BigQuery Table Layout Optimizer for `{table_id}`:\n"
-            f"**Recommended PSO Schema Strategy:**\n"
-            f"1. **Partitioning**: Ensure table is partitioned **Daily** on event/creation date (e.g. `created_date`) rather than Monthly.\n"
-            f"2. **Clustering**: Add clustering keys ordered by filter frequency: `[high_cardinality_filter_col, join_foreign_key]` (e.g. `cluster_by = ['status', 'user_id']`).\n"
-            f"3. **LookML Alignment**: Ensure the LookML view declares `partition_keys: [\"created_date\"]` with `require_partition_filter: yes`."
+            f"### 🎯 BigQuery Table Optimization Strategy for `{table_id}`:\n"
+            f"1. **Partitioning**: Ensure table is partitioned **Daily** on creation/event date.\n"
+            f"2. **Clustering**: Cluster on high-frequency UI filter columns first, foreign keys second.\n"
+            f"3. **LookML Filter Enforcement**: Add `always_filter` or `require_partition_filter: yes` in LookML view."
         )
 
     try:
@@ -113,16 +142,16 @@ def optimize_table_layout(table_id: str, project_id: Optional[str] = None) -> st
 
         assessment = []
         if not partitioning_info:
-            assessment.append("🔴 Table is UNPARTITIONED. Full table scans will occur on every query.")
+            assessment.append("🔴 UNPARTITIONED: Full table scan on every query.")
         elif partitioning_info.get("type") == "MONTH":
-            assessment.append("🟡 Table uses MONTHLY partitioning. Switch to DAILY partitioning for granular pruning.")
+            assessment.append("🟡 MONTHLY PARTITIONING: Migrate to DAILY partitioning for granular block pruning.")
         else:
-            assessment.append("🟢 Table uses DAILY partitioning.")
+            assessment.append("🟢 DAILY PARTITIONING: Healthy layout.")
 
         if not clustering_fields:
-            assessment.append("🔴 Table has NO CLUSTERING. Queries filtering on user_id, status, or category cannot prune data blocks.")
+            assessment.append("🔴 NO CLUSTERING: Block pruning disabled for high-cardinality filters.")
         else:
-            assessment.append(f"🟢 Table is clustered on: {clustering_fields}")
+            assessment.append(f"🟢 CLUSTERED: {clustering_fields}")
 
         analysis = {
             "table_id": table_id,
@@ -134,8 +163,8 @@ def optimize_table_layout(table_id: str, project_id: Optional[str] = None) -> st
             "assessment": assessment,
             "recommendations": [
                 "Cluster on high-cardinality UI filter columns first, foreign keys second.",
-                "Enforce `require_partition_filter: yes` in LookML view to prevent inadvertent full table scans.",
-                "For high-volume dashboard tiles, implement Aggregate Awareness (aggregate_table) in the LookML model."
+                "Enforce `require_partition_filter: yes` in LookML view to prevent unpruned scans.",
+                "For high-volume dashboard tiles, implement Looker Aggregate Awareness (aggregate_table)."
             ]
         }
         return f"### 🎯 BigQuery Table Structure Analysis (`{table_id}`):\n```json\n{json.dumps(analysis, indent=2)}\n```"
@@ -147,7 +176,7 @@ def estimate_query_cost_dry_run(sql_query: str, project_id: Optional[str] = None
     Executes a BigQuery dry-run to estimate the scanned data volume (MB/GB) and on-demand query cost.
     
     Args:
-        sql_query (str): The raw SQL query to test.
+        sql_query (str): The raw SQL query string to dry-run.
         project_id (str, optional): Target GCP project ID.
     """
     pid = project_id or GCP_PROJECT_ID
@@ -164,7 +193,6 @@ def estimate_query_cost_dry_run(sql_query: str, project_id: Optional[str] = None
         bytes_scanned = query_job.total_bytes_processed
         mb_scanned = bytes_scanned / (1024 * 1024)
         gb_scanned = bytes_scanned / (1024 * 1024 * 1024)
-        # Assuming standard on-demand pricing: $6.25 per TB ($0.00625 per GB)
         estimated_cost_usd = gb_scanned * 0.00625
         
         report = {

@@ -5,7 +5,7 @@
 | Metric Name | Observed Value | Target Benchmark | Status |
 | :--- | :---: | :---: | :---: |
 | **Average Async Runtime** | `0.56s` | `< 5.00s` | **HEALTHY** |
-| **Indicative Looker Overhead** | `54.1%` | `< 20.0%` | **CRITICAL** |
+| **Indicative Looker Overhead** | `54.2%` | `< 20.0%` | **CRITICAL** |
 | **Cache Hit Percentage** | `0.0%` | `> 50.0%` | **CRITICAL** |
 | **Execute Main Query (DB)** | `0.25s` | `< 4.87s` | **HEALTHY** |
 | **Acquire Connection** | `0.013s` | `< 0.238s` | **HEALTHY** |
@@ -17,7 +17,7 @@
 | **Explore Init (Compute)** | `0.000s` | `< 0.233s` | **HEALTHY** |
 | **Explore Init (Cache)** | `0.000s` | `< 0.351s` | **HEALTHY** |
 | **SQL Prepare Time** | `0.112s` | `< 0.439s` | **HEALTHY** |
-| **Stream to Cache** | `0.239s` | `< 0.223s` | **WARNING** |
+| **Stream to Cache** | `0.240s` | `< 0.223s` | **WARNING** |
 | **Post Processing** | `0.003s` | `< 0.223s` | **HEALTHY** |
 
 ## 2. Component 1: Strategy & Developer Baseline

@@ -31,7 +31,9 @@ refactor_data = refactor_loader.load_skill()
 
 looker = LookerDiagnosticsClient()
 LOOKER_CLI_BIN = os.path.expanduser(os.getenv("LOOKER_CLI_PATH", "~/.local/bin/looker-cli"))
-LOOKML_PROJECT_DIR = Path(os.path.expanduser(os.getenv("LOOKML_PROJECT_PATH", "~/Documents/Projects/thelook-antigravity")))
+_raw_proj_path = os.getenv("LOOKML_PROJECT_PATH", "")
+LOOKML_PROJECT_DIR = Path(os.path.expanduser(_raw_proj_path)) if _raw_proj_path else None
+LOOKER_PROJECT_ID = os.getenv("LOOKER_PROJECT_ID", "")
 
 # ---------------------------------------------------------------------------
 # Deterministic Diagnostic & Telemetry Tools
@@ -192,7 +194,7 @@ def list_lookml_files(project_id: Optional[str] = None) -> str:
     """
     pid = project_id or LOOKER_PROJECT_ID
     # 1. If local project directory exists, read from local filesystem
-    if LOOKML_PROJECT_DIR.exists():
+    if LOOKML_PROJECT_DIR and LOOKML_PROJECT_DIR.exists():
         try:
             models = [str(p.relative_to(LOOKML_PROJECT_DIR)) for p in LOOKML_PROJECT_DIR.rglob("*.model.lkml")]
             views = [str(p.relative_to(LOOKML_PROJECT_DIR)) for p in LOOKML_PROJECT_DIR.rglob("*.view.lkml")]
@@ -239,7 +241,7 @@ def read_lookml_file(relative_path: str, project_id: Optional[str] = None) -> st
     """
     pid = project_id or LOOKER_PROJECT_ID
     # 1. Try local filesystem if path exists
-    if LOOKML_PROJECT_DIR.exists():
+    if LOOKML_PROJECT_DIR and LOOKML_PROJECT_DIR.exists():
         file_path = LOOKML_PROJECT_DIR / relative_path.lstrip("/")
         if file_path.exists():
             try:
@@ -267,7 +269,7 @@ def search_lookml_code(pattern: str, project_id: Optional[str] = None) -> str:
     pid = project_id or LOOKER_PROJECT_ID
     try:
         results = []
-        if LOOKML_PROJECT_DIR.exists():
+        if LOOKML_PROJECT_DIR and LOOKML_PROJECT_DIR.exists():
             for lkml_file in LOOKML_PROJECT_DIR.rglob("*.lkml"):
                 try:
                     content = lkml_file.read_text(encoding="utf-8")

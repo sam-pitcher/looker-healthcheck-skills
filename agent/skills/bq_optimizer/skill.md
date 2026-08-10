@@ -24,49 +24,26 @@ You are the **BigQuery Engine Optimizer**. Your mission is to eliminate slot sta
 ## 2. Table Partitioning & Clustering Strategy
 
 ### Diagnostic Step:
-1. Run `optimize_table_layout(table_id)` on slow-running base tables.
+1. Run `list_dataset_tables(dataset_id)` or `optimize_table_layout(table_id)` on slow-running base tables.
 2. Inspect whether the table is unpartitioned, monthly partitioned, or missing clustering.
 
 ### Remediation Recipe:
-* **Daily Partitioning**: Switch monthly partition layouts to **Daily partitioning** on high-frequency date filters (e.g. `order_date`, `event_timestamp`).
+* **Daily Partitioning**: Switch monthly partition layouts to **Daily partitioning** on high-frequency date filters.
 * **Ordered Clustering Keys**:
-  - Cluster key 1: Most frequently filtered high-cardinality dimension (e.g. `status`, `country_code`, `channel`).
-  - Cluster key 2: Join foreign key (e.g. `user_id`, `product_id`).
+  - Cluster key 1: Most frequently filtered high-cardinality dimension.
+  - Cluster key 2: Join foreign key.
 * **Enforce Partition Filters in LookML**:
-  ```lookml
-  view: events {
-    sql_table_name: `my_project.analytics.events` ;;
-    # Prevents accidental full table scans
-  }
-  ```
+  Add partition filter requirements in the LookML view to prevent inadvertent full table scans.
 
 ---
 
 ## 3. SQL Refactoring & Aggregate Awareness
 
 ### Diagnostic Step:
-1. Search derived tables for expensive window functions (`ROW_NUMBER() OVER (...)`) or full scans on high-level rollups.
+1. Search derived tables for expensive window functions or full scans on high-level rollups.
 
 ### Remediation Recipe:
 * **Use `QUALIFY` Instead of CTE Subqueries**:
-  ```sql
-  -- Efficient BigQuery pruning
-  SELECT user_id, order_id, created_at
-  FROM `my_project.analytics.orders`
-  QUALIFY ROW_NUMBER() OVER (PARTITION BY user_id ORDER BY created_at DESC) = 1
-  ```
+  Filter window results directly using the `QUALIFY` clause to reduce memory spill-to-disk overheads.
 * **Implement Looker Aggregate Awareness (`aggregate_table`)**:
-  For Explores scanning millions of rows to display monthly/yearly KPI summaries, declare pre-aggregated tables directly in the LookML model:
-  ```lookml
-  explore: orders {
-    aggregate_table: rollup__monthly_sales {
-      query: {
-        dimensions: [orders.created_month, orders.status]
-        measures: [orders.total_sales, orders.count]
-      }
-      materialization: {
-        datagroup_trigger: orders_etl_datagroup
-      }
-    }
-  }
-  ```
+  For Explores scanning millions of rows to display high-level KPI summaries, declare pre-aggregated tables directly in the LookML model to serve dashboard queries from compact rollup tables.
