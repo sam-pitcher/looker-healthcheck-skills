@@ -119,16 +119,18 @@ looker-healthcheck-agent/
 │       ├── bq_client.py                              # BigQuery & INFORMATION_SCHEMA tools (model-scoped)
 │       └── storage.py                                # Firestore & Markdown persistence engine (scoped schema)
 ├── looker_healthcheck_agent/                         # Mirror package for library distribution
-├── skills/                                           # Extensive reference playbooks & recipes
-│   ├── vendor/looker-skills/                         # Official upstream Google Cloud Looker engineering skills
-│   ├── looker-healthcheck/                           # 8 Component offerings & diagnostic guides
-│   │   ├── SKILL.md                                  # Top-level healthcheck methodology
-│   │   ├── references/                               # Deep-dive diagnostic playbooks (01 to 08)
-│   │   └── scripts/looker_healthcheck_runner.py      # Standalone diagnostic runner script
-│   └── looker-refactoring-skill/                     # Refactoring, Henry, & migration guides
-│       ├── SKILL.md                                  # Refactoring workflow
-│       ├── references/                               # Henry guide, Spectacles CI, runtime recipes
-│       └── scripts/                                  # Henry, looker-cli, and runtime migrator scripts
+├── skills/                                           # Unified Playbook & Reference Registry
+│   ├── custom/                                       # In-house custom recipes & diagnostic playbooks
+│   │   ├── healthcheck/                              # 8 Component offerings & diagnostic guides
+│   │   │   ├── SKILL.md                              # Top-level healthcheck methodology
+│   │   │   ├── references/                           # Deep-dive diagnostic playbooks (01 to 08)
+│   │   │   └── scripts/looker_healthcheck_runner.py  # Standalone diagnostic runner script
+│   │   └── refactoring/                              # Refactoring, Henry, & migration guides
+│   │       ├── SKILL.md                              # Refactoring workflow
+│   │       ├── references/                           # Henry guide, Spectacles CI, runtime recipes
+│   │       └── scripts/                              # Henry, looker-cli, and runtime migrator scripts
+│   └── vendor/                                       # Isolated upstream repositories
+│       └── looker-skills/                            # Official upstream Google Cloud Looker engineering skills (23 skills)
 ├── terraform/                                        # Infrastructure as Code for Firestore
 │   ├── main.tf                                       # Provisions APIs, Firestore Native DB, Index
 │   ├── variables.tf                                  # Configurable project, region, database ID

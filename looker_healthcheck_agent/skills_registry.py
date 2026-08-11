@@ -1,7 +1,7 @@
 """
 Dynamic Looker Skill Registry & Injection Engine.
-Discovers, indexes, and injects official upstream Looker skills from looker-open-source/looker-skills
-and local diagnostic playbooks into ADK agent contexts on demand.
+Discovers, indexes, and injects official upstream Looker skills from skills/vendor/looker-skills,
+custom in-house playbooks from skills/custom, and runtime sub-agent instructions from agent/skills.
 """
 
 import os
@@ -19,14 +19,14 @@ class LookerSkillRegistry:
         else:
             self.base_dirs = [
                 ROOT_DIR / "skills" / "vendor" / "looker-skills" / "skills",
-                ROOT_DIR / "skills",
+                ROOT_DIR / "skills" / "custom",
                 ROOT_DIR / "agent" / "skills"
             ]
         self.registry: Dict[str, Dict[str, Any]] = {}
         self.load_all_skills()
 
     def load_all_skills(self):
-        """Discovers and indexes all SKILL.md and skill.md files across vendor and local directories."""
+        """Discovers and indexes all SKILL.md and skill.md files across vendor, custom, and agent directories."""
         self.registry = {}
         for base_dir in self.base_dirs:
             if not base_dir.exists():
@@ -39,13 +39,14 @@ class LookerSkillRegistry:
                 skill_data = self._parse_skill_file(filepath)
                 if skill_data and "name" in skill_data:
                     name = skill_data["name"]
+                    source = "vendor" if "vendor" in str(filepath) else ("custom" if "custom" in str(filepath) else "agent-system")
                     if name not in self.registry:
                         self.registry[name] = {
                             "name": name,
                             "path": str(filepath),
                             "description": skill_data.get("description", ""),
                             "content": skill_data.get("body", ""),
-                            "source": "vendor" if "vendor" in str(filepath) else "local"
+                            "source": source
                         }
 
     def _parse_skill_file(self, filepath: Path) -> Optional[Dict[str, Any]]:
@@ -68,16 +69,18 @@ class LookerSkillRegistry:
         except Exception:
             return None
 
-    def list_available_skills(self) -> List[Dict[str, str]]:
-        """Returns a list of all indexed skills with their descriptions."""
-        return [
-            {
+    def list_available_skills(self, source_filter: Optional[str] = None) -> List[Dict[str, str]]:
+        """Returns a list of all indexed skills with their descriptions and sources."""
+        items = []
+        for k, v in sorted(self.registry.items()):
+            if source_filter and v.get("source") != source_filter:
+                continue
+            items.append({
                 "name": k,
                 "description": v.get("description", ""),
-                "source": v.get("source", "local")
-            }
-            for k, v in sorted(self.registry.items())
-        ]
+                "source": v.get("source", "custom")
+            })
+        return items
 
     def get_skill(self, skill_name: str) -> Optional[Dict[str, Any]]:
         """Retrieves complete metadata and content for a given skill."""
@@ -103,14 +106,16 @@ class LookerSkillRegistry:
 skill_registry = LookerSkillRegistry()
 
 def get_skill_content(skill_name: str) -> str:
-    """Tool function to dynamically retrieve official Looker skill content for an agent."""
+    """Tool function to dynamically retrieve official or custom Looker skill content for an agent."""
     content = skill_registry.get_skill_prompt(skill_name)
+    skill = skill_registry.get_skill(skill_name)
+    source = skill.get("source", "custom") if skill else "unknown"
     if content:
-        return f"### 📘 Looker Official Skill: `{skill_name}`\n\n{content}"
+        return f"### 📘 Looker Skill (`{source}`): `{skill_name}`\n\n{content}"
     return f"Skill `{skill_name}` not found in registry. Available: {', '.join(list(skill_registry.registry.keys())[:10])}..."
 
-def list_registered_skills() -> str:
-    """Tool function to list all official Looker and local healthcheck skills."""
-    skills = skill_registry.list_available_skills()
+def list_registered_skills(source: Optional[str] = None) -> str:
+    """Tool function to list all registered Looker skills (vendor, custom, or all)."""
+    skills = skill_registry.list_available_skills(source_filter=source)
     import json
-    return f"### 📚 Registered Looker Skills ({len(skills)} Available):\n```json\n{json.dumps(skills, indent=2)}\n```"
+    return f"### 📚 Registered Looker Skills ({len(skills)} Available - Filter: {source or 'All'}):\n```json\n{json.dumps(skills, indent=2)}\n```"

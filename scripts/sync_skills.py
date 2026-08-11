@@ -2,6 +2,10 @@
 """
 Syncs upstream Looker engineering skills from official GitHub repository:
 https://github.com/looker-open-source/looker-skills
+
+ISOLATION GUARANTEE:
+- Writes strictly into: skills/vendor/looker-skills/
+- Never modifies or overwrites custom playbooks in skills/custom/ or runtime prompts in agent/skills/.
 """
 
 import os
@@ -14,14 +18,14 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 TARGET_DIR = ROOT_DIR / "skills" / "vendor" / "looker-skills"
 
 def sync_looker_skills() -> bool:
-    """Clones or pulls the latest skills from looker-open-source/looker-skills."""
+    """Clones or pulls the latest skills strictly into skills/vendor/looker-skills."""
     TARGET_DIR.parent.mkdir(parents=True, exist_ok=True)
     
     if not TARGET_DIR.exists():
         print(f"📦 Cloning upstream looker-skills from {REPO_URL} into {TARGET_DIR}...")
         try:
             subprocess.run(["git", "clone", "--depth", "1", REPO_URL, str(TARGET_DIR)], check=True)
-            print("✅ Successfully cloned looker-skills.")
+            print("✅ Successfully cloned looker-skills into vendor directory.")
             return True
         except Exception as e:
             print(f"⚠️ Failed to clone looker-skills: {e}", file=sys.stderr)
@@ -30,7 +34,7 @@ def sync_looker_skills() -> bool:
         print(f"🔄 Pulling latest updates for {TARGET_DIR}...")
         try:
             subprocess.run(["git", "-C", str(TARGET_DIR), "pull"], check=True)
-            print("✅ Successfully updated looker-skills.")
+            print("✅ Successfully updated upstream vendor looker-skills.")
             return True
         except Exception as e:
             print(f"⚠️ Failed to pull looker-skills: {e}", file=sys.stderr)
