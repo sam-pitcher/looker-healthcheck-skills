@@ -1,12 +1,6 @@
 # Looker Healthcheck Delivery Engagement Guide
 
-This document defines the official **End-to-End Healthcheck Engagement Methodology**, stakeholder interview frameworks, thematic review structures, and consultant delivery deliverables structured across the **4 Strategic Pillars**.
-
----
-
-## 1. Engagement Lifecycle: The 4 Strategic Healthcheck Pillars
-
-The Looker Health Check is delivered across **4 Strategic Engagement Pillars**:
+This document defines the official **End-to-End Healthcheck Engagement Methodology**, stakeholder interview frameworks, thematic review structures, and consultant deliverables structured across the **4 Strategic Pillars**.
 
 ```
  ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -27,7 +21,7 @@ The Looker Health Check is delivered across **4 Strategic Engagement Pillars**:
 
 ---
 
-## 2. Pillar 1: Discovery & Developer Walkthrough
+## 1. Pillar 1: Discovery & Developer Walkthrough
 
 Following the initial kickoff, the consultant conducts an environment walkthrough to assess architecture and developer strategy.
 
@@ -43,23 +37,23 @@ Following the initial kickoff, the consultant conducts an environment walkthroug
 
 ---
 
-## 3. Pillar 2: Diagnostics & System Activity Auditing
+## 2. Pillar 2: Diagnostics & System Activity Auditing
 
 Execute live diagnostic tooling, query profiling, and automated code scans across the environment:
 
-### Core Diagnostic Executions
+### Core Diagnostic Protocols
 1. **Live System Activity Telemetry**:
-   * Execute `run_healthcheck_audit()` to benchmark Query Lifecycles, Looker Overhead %, Cache Hit %, and Connection Pool limits against target thresholds.
+   * Query `system__activity.query_metrics` to benchmark Query Lifecycles, Looker Overhead %, Cache Hit %, and Connection Pool limits against target thresholds.
 2. **Forensic Outlier Drill-Downs**:
-   * Execute `diagnose_finding()` to isolate the top slowest database queries, congested scheduler queues, and massive dashboards (>25 tiles).
+   * Query `system__activity.query_metrics` and `history` to isolate the top slowest database queries, congested scheduler queues, and massive dashboards (>25 tiles).
 3. **Model Bloat & Inactive Code Scans**:
-   * Run Henry Pulse (`henry pulse --timeframe=90`) and Vacuum to catalog 0-query Explores, Views, and Fields.
+   * Run Henry Pulse (`henry pulse --timeframe=90`) and Henry Vacuum (`henry vacuum --model=<model>`) to catalog 0-query Explores, Views, and Fields.
 4. **LookML Syntax & Modern Runtime Audit**:
-   * Run `scan_legacy_runtime_syntax()` to locate missing `primary_key: yes` declarations and deprecated triggers.
+   * Run LookML compilation and validation via `looker-cli project validate <project_id>` to locate missing `primary_key: yes` declarations and deprecated syntax.
 
 ---
 
-## 4. Pillar 3: Thematic Customer Review
+## 3. Pillar 3: Thematic Customer Review
 
 Consultant review deliverables must **not be organized by raw tile**, but by **theme**:
 
@@ -68,12 +62,12 @@ Consultant review deliverables must **not be organized by raw tile**, but by **t
    * Record `% Results from Cache`. If `< 50%`, sync Looker caching with warehouse ETL pipelines using named **Datagroups**.
    * Define datagroups in a dedicated shared config file and `include:` across models.
    * Ensure every user-facing explore has an assigned `persist_with:` datagroup.
-2. **Query Latencies (<10s Target Benchmark)**:
+2. **Query Latencies (< 10s Target Benchmark)**:
    * Target: Majority of user-issued queries must complete in `< 10 seconds`.
    * Prioritize high-usage explores that exhibit long runtimes (weighted by usage volume $\times$ latency).
 3. **PDT Concurrency & Build Patterns**:
    * Inspect hourly PDT builds by connection. Note that PDTs build sequentially per connection and cause queue bottlenecks.
-   * If PDTs rebuild hourly, verify if source ETL updates hourly. If not, switch to event-based datagroups (`sql_trigger`).
+   * If PDTs rebuild hourly, verify if source ETL updates hourly. If not, switch to event-based datagroups (`sql_trigger_value`).
    * For very long-running PDTs, recommend moving logic upstream into warehouse ETL or partitioning tables.
 
 ### Performance Theme 2: Operational & Instance Load
@@ -100,12 +94,12 @@ Evaluate model quality across 4 focus areas (**LookML, Customer Success, Archite
  │ 2  │ Meets Expectations │ Average customer: Follows best practice 90% of the time           │
  │ 3  │ Exceeds            │ Organized with developer intent, clean comments, field grouping   │
  │ 4  │ Exceptional        │ Innovative use (e.g. dynamic sets per use case, full DRY modeling)│
- └────┴────────────────────┴───────────────────────────────────────────────────────────────────┘
+ │ └────┴────────────────────┴───────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 5. Pillar 4: Remediation Roadmap & Handover
+## 4. Pillar 4: Remediation Roadmap & Handover
 
 Deliver prioritized, concrete, and actionable improvements for the customer's engineering team:
 

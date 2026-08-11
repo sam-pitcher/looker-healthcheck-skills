@@ -36,9 +36,6 @@ def load_config():
         "client_secret": os.getenv("LOOKERSDK_CLIENT_SECRET", ""),
         "project_id": os.getenv("LOOKER_PROJECT_ID", "")
     }
-        "client_secret": os.getenv("LOOKERSDK_CLIENT_SECRET", ""),
-        "project_id": os.getenv("LOOKER_PROJECT_ID", "")
-    }
 
 def authenticate(config):
     """Authenticate and obtain API access token."""
