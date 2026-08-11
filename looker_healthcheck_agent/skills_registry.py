@@ -1,7 +1,8 @@
 """
 Dynamic Looker Skill Registry & Injection Engine.
-Discovers, indexes, and injects official upstream Looker skills from skills/vendor/looker-skills,
-custom in-house playbooks from skills/custom, and runtime sub-agent instructions from agent/skills.
+Discovers, indexes, and injects pure knowledge playbooks from:
+  1. skills/vendor/looker-skills/ (Official upstream Google Cloud Looker engineering skills)
+  2. skills/custom/ (In-house healthcheck diagnostic playbooks and refactoring guides)
 """
 
 import os
@@ -19,14 +20,13 @@ class LookerSkillRegistry:
         else:
             self.base_dirs = [
                 ROOT_DIR / "skills" / "vendor" / "looker-skills" / "skills",
-                ROOT_DIR / "skills" / "custom",
-                ROOT_DIR / "agent" / "skills"
+                ROOT_DIR / "skills" / "custom"
             ]
         self.registry: Dict[str, Dict[str, Any]] = {}
         self.load_all_skills()
 
     def load_all_skills(self):
-        """Discovers and indexes all SKILL.md and skill.md files across vendor, custom, and agent directories."""
+        """Discovers and indexes all pure knowledge SKILL.md files across vendor and custom directories."""
         self.registry = {}
         for base_dir in self.base_dirs:
             if not base_dir.exists():
@@ -39,7 +39,7 @@ class LookerSkillRegistry:
                 skill_data = self._parse_skill_file(filepath)
                 if skill_data and "name" in skill_data:
                     name = skill_data["name"]
-                    source = "vendor" if "vendor" in str(filepath) else ("custom" if "custom" in str(filepath) else "agent-system")
+                    source = "vendor" if "vendor" in str(filepath) else "custom"
                     if name not in self.registry:
                         self.registry[name] = {
                             "name": name,
@@ -87,7 +87,7 @@ class LookerSkillRegistry:
         return self.registry.get(skill_name)
 
     def get_skill_prompt(self, skill_name: str) -> str:
-        """Retrieves raw markdown prompt content for injection into LLM system instruction."""
+        """Retrieves raw markdown prompt content for injection into LLM context."""
         skill = self.registry.get(skill_name)
         if skill:
             return skill.get("content", "")

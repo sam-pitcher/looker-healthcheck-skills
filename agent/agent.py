@@ -82,26 +82,22 @@ from agent.tools.storage import (
     get_audit_document
 )
 
-# Dynamic Looker Skills Registry
+# Dynamic Looker Skills Registry (Pure Knowledge Playbooks)
 from agent.skills_registry import (
     get_skill_content,
     list_registered_skills,
     skill_registry
 )
 
-# Progressive Skill Loader
-SKILLS_ROOT = Path(__file__).parent / "skills"
+# Sub-Agent System Instructions Loader (Runtime Prompts & Tool Bindings)
+PROMPTS_ROOT = Path(__file__).parent / "prompts"
 
-def _load_skill_instruction(skill_name: str) -> str:
-    skill_file = SKILLS_ROOT / skill_name / "skill.md"
-    if skill_file.exists():
-        content = skill_file.read_text(encoding="utf-8")
-        if content.startswith("---"):
-            parts = content.split("---", 2)
-            if len(parts) >= 3:
-                return parts[2].strip()
+def _load_agent_instruction(prompt_name: str) -> str:
+    prompt_file = PROMPTS_ROOT / f"{prompt_name}.md"
+    if prompt_file.exists():
+        content = prompt_file.read_text(encoding="utf-8")
         return content.strip()
-    return f"Execute diagnostics and remediation for domain: {skill_name}"
+    return f"Execute diagnostics and remediation for domain: {prompt_name}"
 
 # ==============================================================================
 # SUB-AGENT 1: Content & Administration Auditor (Pillar 1: Tasks 01 to 10)
@@ -110,7 +106,7 @@ content_agent = Agent(
     name="ContentAuditorAgent",
     model="gemini-2.5-flash",
     description="Audits Looker instance subsystems, connections, tile bloat, auto-refresh rates, schedule spacing, concurrency bottlenecks, unused content, unfiltered queries, merged results, and legacy features (Tasks 01-10) with optional model scoping.",
-    instruction=_load_skill_instruction("content_audit"),
+    instruction=_load_agent_instruction("content_auditor"),
     tools=[
         check_subsystem_status,
         audit_connections,
@@ -138,7 +134,7 @@ lookml_agent = Agent(
     name="LookmlQualityAgent",
     model="gemini-2.5-pro",
     description="Validates LookML syntax, enforces primary keys, verifies join relationships, cleans unused fields with Henry (henry vacuum), hides raw keys, enforces folder/naming hygiene, audits metadata descriptions, prunes unused joins, and checks frontend calculations (Tasks 11-20) with interactive safe git patching.",
-    instruction=_load_skill_instruction("lookml_quality"),
+    instruction=_load_agent_instruction("lookml_quality"),
     tools=[
         run_lookml_validation,
         audit_primary_keys,
@@ -176,7 +172,7 @@ bq_agent = Agent(
     name="BqOptimizerAgent",
     model="gemini-2.5-pro",
     description="Audits partition/cluster alignment, BI Engine reservations, PDT build failures, incremental PDT configs, datagroup ETL sync, OAuth caching, Aggregate Awareness hits, join SQL hash keys, snowflake schema denormalization, and BigQuery query billing (Tasks 21-30).",
-    instruction=_load_skill_instruction("bq_optimizer"),
+    instruction=_load_agent_instruction("bq_optimizer"),
     tools=[
         audit_partition_cluster_filters,
         get_bi_engine_metrics,

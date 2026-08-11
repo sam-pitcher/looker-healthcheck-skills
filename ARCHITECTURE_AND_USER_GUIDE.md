@@ -67,27 +67,28 @@ graph TD
 
 ## 3. Core Concept: Tools vs. Skills
 
-To understand how the agent reasons and acts, it is essential to distinguish between **Tools** and **Skills**:
+To understand how the system operates and stays modular, it is essential to distinguish between **Tools**, **Agent Prompts**, and **Pure Knowledge Skills**:
 
-| Concept | What It Is | Purpose | Where Defined |
-| :--- | :--- | :--- | :--- |
-| **Tool** | **Executable Python Function** | Performs concrete operations: executes HTTP calls against Looker API, queries BigQuery, invokes Henry/looker-cli subprocesses, modifies `.lkml` files on disk, or writes to Firestore. | [`agent/tools/*.py`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/tools/) |
-| **Skill** | **Domain Knowledge & Markdown Playbook** | Domain instructions, threshold benchmarks, diagnostic rules, and step-by-step remediation recipes injected into the LLM's prompt context to guide its reasoning. | [`agent/skills/*/skill.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/skills/) and [`skills/`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/) |
+| Concept | What It Is | Purpose | Where Defined | Portability |
+| :--- | :--- | :--- | :--- | :--- |
+| **Tool** | **Executable Python Function** | Performs concrete operations: executes HTTP calls against Looker API, queries BigQuery, invokes Henry/looker-cli subprocesses, modifies `.lkml` files on disk, or writes to Firestore. | [`agent/tools/*.py`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/tools/) | Python / ADK Runtime |
+| **Agent Prompt** | **ADK Sub-Agent System Instruction** | Tells the Gemini LLM *which Python tools to call* for a specific pillar in this ADK graph. | [`agent/prompts/*.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/prompts/) | Bound to this ADK Agent |
+| **Skill** | **Pure Knowledge & Decision Playbook** | 100% tool-agnostic domain guidelines, LookML modeling patterns, decision matrices, SQL queries, and diagnostic benchmarks. | [`skills/custom/`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/) and [`skills/vendor/`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/) | **100% Portable** (Claude, Cursor, Copilot, Humans) |
 
 ### Tool Breakdown:
 1. **`agent/tools/looker_api.py`**:
    * Communicates with Looker 4.0 API and executes SQL queries against Looker's internal `system__activity` model (`history`, `dashboard`, `scheduled_plan`, `pdt_event_log`).
    * *Exported Tools*: `check_subsystem_status`, `audit_connections`, `get_tile_bloat_dashboards`, `get_auto_refresh_dashboards`, `get_schedule_distribution`, `get_concurrency_peaks`, `get_unused_content_and_folders`, `get_unfiltered_dashboards`, `get_merged_queries`, `get_legacy_features`, `get_table_calculation_heavy_queries`, `get_bi_engine_metrics`, `get_pdt_failure_audit`, `get_aggregate_awareness_hits`, `get_complex_join_explores`.
 2. **`agent/tools/lookml_fs.py`**:
-   * Scans local and remote LookML projects, parses view and explore blocks, checks primary keys, audits `relationship:` declarations, runs `henry vacuum` for dead field detection, enforces `fields: []` exposure, audits folder structure and snake_case casing, and applies automated AST patches.
-   * *Exported Tools*: `run_lookml_validation`, `audit_primary_keys`, `audit_join_relationships`, `run_henry_vacuum`, `audit_explore_field_exposure`, `audit_folder_structure`, `audit_naming_conventions`, `audit_metadata_descriptions`, `audit_unused_joins`, `audit_incremental_pdts`, `audit_oauth_connections`, `audit_join_key_syntax`, `list_lookml_files`, `read_lookml_file`, `search_lookml_code`, `apply_lookml_patch`.
+   * Scans local and remote LookML projects, parses view and explore blocks, checks primary keys, audits `relationship:` declarations, runs `henry vacuum` for dead field detection, enforces `fields: []` exposure, audits folder structure and snake_case casing, and safely patches files via isolated Git branches.
+   * *Exported Tools*: `run_lookml_validation`, `audit_primary_keys`, `audit_join_relationships`, `run_henry_vacuum`, `audit_explore_field_exposure`, `audit_folder_structure`, `audit_naming_conventions`, `audit_metadata_descriptions`, `audit_unused_joins`, `audit_incremental_pdts`, `audit_oauth_connections`, `audit_join_key_syntax`, `list_lookml_files`, `read_lookml_file`, `search_lookml_code`, `apply_lookml_patch`, `apply_safe_lookml_patch`.
 3. **`agent/tools/bq_client.py`**:
    * Connects to BigQuery via Google Cloud client library, queries `INFORMATION_SCHEMA.JOBS_BY_PROJECT` across regions, estimates query costs via dry runs, inspects table partitioning/clustering metadata, and audits slot reservation utilization.
    * *Exported Tools*: `audit_partition_cluster_filters`, `audit_datagroup_sync`, `audit_query_costs_and_bytes_billed`, `audit_bq_slots`, `list_dataset_tables`, `optimize_table_layout`, `estimate_query_cost_dry_run`.
 4. **`agent/tools/storage.py`**:
    * Manages the dual-layer persistence engine.
    * *Exported Tools*:
-     * `save_audit_report(report_markdown, structured_findings)`: Writes `AUDIT_REPORT.md` in root and persists to Firestore.
+     * `save_audit_report(report_markdown, structured_findings, model_name, project_id)`: Writes `AUDIT_REPORT.md` in root and persists to Firestore.
      * `get_audit_history(limit)`: Fetches past audit runs from Firestore or local `./reports/`.
      * `get_audit_document(audit_id)`: Retrieves a specific or latest complete audit document from Firestore.
 
@@ -107,11 +108,11 @@ looker-healthcheck-agent/
 ├── agent/                                            # Core ADK Agent implementation
 │   ├── __init__.py                                   # Agent package exports
 │   ├── agent.py                                      # Master orchestrator & Sub-Agent graph
-│   ├── skills_registry.py                            # Dynamic Looker skills indexer (28 playbooks)
-│   ├── skills/                                       # Progressive agent skills
-│   │   ├── content_audit/skill.md                    # Pillar 1 diagnostic instructions
-│   │   ├── lookml_quality/skill.md                   # Pillar 2 diagnostic instructions
-│   │   └── bq_optimizer/skill.md                     # Pillar 3 diagnostic instructions
+│   ├── skills_registry.py                            # Dynamic Looker skills indexer (25 playbooks)
+│   ├── prompts/                                      # Runtime Sub-Agent System Instructions (Tool Bindings)
+│   │   ├── content_auditor.md                        # Pillar 1 diagnostic tool binding instructions
+│   │   ├── lookml_quality.md                         # Pillar 2 diagnostic tool binding instructions
+│   │   └── bq_optimizer.md                           # Pillar 3 diagnostic tool binding instructions
 │   └── tools/                                        # Executable Python tools
 │       ├── __init__.py                               # Tool package exports
 │       ├── looker_api.py                             # Looker API & System Activity tools (model-scoped)
@@ -119,7 +120,7 @@ looker-healthcheck-agent/
 │       ├── bq_client.py                              # BigQuery & INFORMATION_SCHEMA tools (model-scoped)
 │       └── storage.py                                # Firestore & Markdown persistence engine (scoped schema)
 ├── looker_healthcheck_agent/                         # Mirror package for library distribution
-├── skills/                                           # Unified Playbook & Reference Registry
+├── skills/                                           # 100% Tool-Agnostic Knowledge & Playbook Registry
 │   ├── custom/                                       # In-house custom recipes & diagnostic playbooks
 │   │   ├── healthcheck/                              # 8 Component offerings & diagnostic guides
 │   │   │   ├── SKILL.md                              # Top-level healthcheck methodology
