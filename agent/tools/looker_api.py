@@ -457,7 +457,7 @@ def execute_complete_healthcheck(
 
     findings: List[Dict[str, Any]] = []
     
-    def _add_finding(check_id: str, task_num: int, pillar: str, name: str, status: str, summary: str, details: Any, remediation: str, skill: str):
+    def _add_finding(check_id: str, task_num: int, pillar: str, name: str, status: str, summary: str, evidence: Any, impact: str, remediation: str, skill: str):
         findings.append({
             "check_id": check_id,
             "task_number": task_num,
@@ -466,7 +466,8 @@ def execute_complete_healthcheck(
             "status": status,
             "score": 100 if status == "PASSED" else (50 if status == "WARNING" else 0),
             "summary": summary,
-            "details": details if isinstance(details, (dict, list, str, int, float, bool)) else str(details),
+            "diagnostic_evidence": evidence if isinstance(evidence, (dict, list, str, int, float, bool)) else str(evidence),
+            "architectural_impact": impact,
             "prescribed_remediation": remediation,
             "recommended_skill": skill
         })
@@ -482,71 +483,91 @@ def execute_complete_healthcheck(
     sub_res = check_subsystem_status()
     sub_status = "PASSED" if "HEALTHY" in sub_res else "CRITICAL"
     _add_finding("P1-01", 1, "Pillar 1: Instance & Content", "Subsystem Status & Endpoint Health", sub_status,
-                 "Looker endpoints /alive and /availability verified.", sub_res,
-                 "Verify instance load balancer and JVM memory allocation.", "looker-healthcheck")
+                 "Looker cluster endpoints `/alive` and `/availability` verified.",
+                 sub_res,
+                 "Looker JVM nodes are healthy and responding to reverse-proxy health checks, ensuring uninterrupted HTTP user sessions.",
+                 "Verify instance load balancer configuration and JVM memory allocation.", "benchmarks.md")
 
     # Task 02: Connections
     conn_res = audit_connections(model_name)
     conn_status = "PASSED" if "Active" in conn_res or "notice" not in conn_res.lower() else "WARNING"
     _add_finding("P1-02", 2, "Pillar 1: Instance & Content", "Database Connections & Pool Limits", conn_status,
-                 "Active connection pools and host parameters audited.", conn_res,
-                 "Tune max_connections and verify SSL/TLS connection parameters.", "connecting-looker-to-bigquery")
+                 "Active connection pools and host parameters audited.",
+                 conn_res,
+                 "Connection pools regulate query concurrency. Optimal pool sizing prevents `acquire_connection` thread starvation and query timeouts.",
+                 "Tune `max_connections` and verify SSL/TLS connection parameters.", "performance_audit_playbook.md")
 
     # Task 03: Tile Bloat (>25 Tiles)
     bloat_res = get_tile_bloat_dashboards(tile_threshold=25, model_name=model_name)
     bloat_status = "WARNING" if "[\n  {" in bloat_res else "PASSED"
     _add_finding("P1-03", 3, "Pillar 1: Instance & Content", "Dashboard Query Density (>25 Tiles)", bloat_status,
-                 "Audited dashboards for query density exceeding 25 tiles.", bloat_res,
-                 "Split large dashboards into tabbed layouts or link via HTML drill-downs.", "creating-looker-dashboard")
+                 "Audited dashboards for query density exceeding 25 tiles.",
+                 bloat_res,
+                 "Dashboards with >25 tiles fire 25+ simultaneous queries upon load, exhausting connection pools and overwhelming browser WebWorkers.",
+                 "Split large dashboards into tabbed layouts or link via HTML drill-downs.", "large_dashboards_optimization.md")
 
     # Task 04: Auto-Refresh (<30 min)
     refresh_res = get_auto_refresh_dashboards(model_name=model_name)
     refresh_status = "WARNING" if "Configured" in refresh_res and "0 Configured" not in refresh_res else "PASSED"
     _add_finding("P1-04", 4, "Pillar 1: Instance & Content", "Auto-Refresh Rate Limits (<30m)", refresh_status,
-                 "Audited high-frequency dashboard auto-refresh intervals.", refresh_res,
-                 "Ensure auto-refresh interval does not exceed underlying data warehouse ETL frequency.", "looker-performance-optimizer")
+                 "Audited high-frequency dashboard auto-refresh intervals.",
+                 refresh_res,
+                 "Auto-refresh intervals faster than underlying warehouse ETL waste warehouse compute and invalidate Looker cache prematurely.",
+                 "Ensure auto-refresh interval does not exceed underlying data warehouse ETL frequency.", "large_dashboards_optimization.md")
 
     # Task 05: Schedule Distribution
     sched_res = get_schedule_distribution(model_name=model_name)
     sched_status = "PASSED"
     _add_finding("P1-05", 5, "Pillar 1: Instance & Content", "Schedule Time Spacing & Distribution", sched_status,
-                 "Scheduled plans analyzed for cron distribution.", sched_res,
-                 "Stagger cron schedules away from top-of-the-hour (:00) spikes.", "looker-healthcheck")
+                 "Scheduled plans analyzed for cron distribution.",
+                 sched_res,
+                 "Staggering delivery schedules away from top-of-the-hour (:00) spikes prevents scheduler queue saturation and delivery delays.",
+                 "Stagger cron schedules away from top-of-the-hour (:00) spikes to off-peak minutes (:07, :22, :37).", "content_delivery_schedules.md")
 
     # Task 06: Concurrency Peaks
     conc_res = get_concurrency_peaks(model_name=model_name)
     conc_status = "PASSED"
     _add_finding("P1-06", 6, "Pillar 1: Instance & Content", "Query Concurrency Peaks & Queue Limits", conc_status,
-                 "Query concurrency peaks analyzed over past 24h.", conc_res,
-                 "Implement datagroup caching to alleviate concurrent database load.", "looker-performance-optimizer")
+                 "Query concurrency peaks analyzed over past 24h.",
+                 conc_res,
+                 "High concurrency spikes trigger queue wait times (`queued > 0.1s`). Datagroup caching absorbs repetitive concurrent queries.",
+                 "Implement datagroup caching to alleviate concurrent database load.", "benchmarks.md")
 
     # Task 07: Unused Content (>90d)
     unused_res = get_unused_content_and_folders(days=90, model_name=model_name)
     unused_status = "WARNING" if "[\n  {" in unused_res else "PASSED"
     _add_finding("P1-07", 7, "Pillar 1: Instance & Content", "Stale Content & Unused Folder Purge", unused_status,
-                 "Content unqueried for >90 days audited.", unused_res,
-                 "Soft delete stale dashboards and move orphaned looks to an archive folder.", "looker-refactoring-skill")
+                 "Content unqueried for >90 days audited.",
+                 unused_res,
+                 "Stale dashboards and unused folders clutter navigation, bloat instance metadata, and degrade user search relevance.",
+                 "Execute 3-stage deprecation funnel: Soft delete stale dashboards and archive unqueried looks.", "unused_content_cleanup.md")
 
     # Task 08: Unfiltered Queries
     unfilt_res = get_unfiltered_dashboards(model_name=model_name)
     unfilt_status = "WARNING" if "[\n  {" in unfilt_res else "PASSED"
     _add_finding("P1-08", 8, "Pillar 1: Instance & Content", "Frontend Filter Enforcement", unfilt_status,
-                 "Queries running without frontend dashboard filters audited.", unfilt_res,
-                 "Add conditionally_filter or always_filter to explore definitions.", "lookml-modeling-guidelines")
+                 "Queries running without frontend dashboard filters audited.",
+                 unfilt_res,
+                 "Unfiltered queries against wide warehouse tables trigger full-table scans, increasing BigQuery byte scan costs and query runtimes.",
+                 "Add `conditionally_filter` or `always_filter` to explore definitions.", "single_dashboard_optimization.md")
 
     # Task 09: Merged Queries
     merge_res = get_merged_queries(model_name=model_name)
     merge_status = "WARNING" if "[\n  {" in merge_res else "PASSED"
     _add_finding("P1-09", 9, "Pillar 1: Instance & Content", "Merged Queries In Production", merge_status,
-                 "Client-side in-memory merged query usage checked.", merge_res,
-                 "Refactor merged results into native LookML joins in Explore definitions.", "looker-healthcheck")
+                 "Client-side in-memory merged query usage checked.",
+                 merge_res,
+                 "Merged queries download unindexed result sets and join them in Looker JVM memory, risking JVM memory exhaustion and UI lag.",
+                 "Refactor merged results into native LookML joins in Explore definitions.", "merged_queries_remediation.md")
 
     # Task 10: Legacy Features
     legacy_res = get_legacy_features()
     legacy_status = "PASSED" if "PASSED" in legacy_res or "0 Active" in legacy_res else "WARNING"
     _add_finding("P1-10", 10, "Pillar 1: Instance & Content", "Legacy Feature Deprecation Audit", legacy_status,
-                 "Looker instance legacy feature flags verified.", legacy_res,
-                 "Disable deprecated legacy features in Admin > Legacy Features.", "looker-refactoring-skill")
+                 "Looker instance legacy feature flags verified.",
+                 legacy_res,
+                 "Relying on deprecated legacy features creates technical debt and risks breaking reporting workflows during Looker major upgrades.",
+                 "Disable deprecated legacy features in Admin > Legacy Features.", "unused_content_cleanup.md")
 
     # --------------------------------------------------------------------------
     # PILLAR 2: LookML & Modeling Quality (Tasks 11 to 20)
@@ -556,71 +577,91 @@ def execute_complete_healthcheck(
     val_res = run_lookml_validation(project_id, model_name)
     val_status = "CRITICAL" if "FAILED" in val_res else "PASSED"
     _add_finding("P2-11", 11, "Pillar 2: LookML & Modeling", "LookML Syntax & Compilation Health", val_status,
-                 "LookML compiler validation executed.", val_res,
-                 "Resolve compilation errors in LookML project.", "lookml-diagnostics")
+                 "LookML compiler validation executed.",
+                 val_res,
+                 "Compiler errors break explores for end-users, block scheduled deliveries, and prevent automated CI/CD deployments.",
+                 "Resolve compilation errors in LookML project via `looker-cli project validate`.", "development_workflows_and_ci.md")
 
     # Task 12: Primary Keys
     pk_res = audit_primary_keys(model_name, project_id, project_path)
     pk_status = "CRITICAL" if "CRITICAL" in pk_res else "PASSED"
     _add_finding("P2-12", 12, "Pillar 2: LookML & Modeling", "Primary Key Integrity (primary_key: yes)", pk_status,
-                 "Audited views for declared primary keys.", pk_res,
-                 "Add `primary_key: yes` to unique ID dimensions to prevent fanout calculation errors.", "lookml-modeling-guidelines")
+                 "Audited views for declared primary keys.",
+                 pk_res,
+                 "Missing primary keys disable symmetric aggregation, leading to silent calculation errors (fanout multiplication) in joined measures.",
+                 "Add `primary_key: yes` to unique ID dimensions across all joined views.", "lookml_style_guide.md")
 
     # Task 13: Join Relationships
     rel_res = audit_join_relationships(model_name, project_id, project_path)
     rel_status = "CRITICAL" if "CRITICAL" in rel_res else "PASSED"
     _add_finding("P2-13", 13, "Pillar 2: LookML & Modeling", "Explicit Join Relationships (relationship:)", rel_status,
-                 "Audited joins for explicit relationship declarations.", rel_res,
-                 "Declare `relationship: many_to_one` (or appropriate cardinality) on all joins.", "lookml-modeling-guidelines")
+                 "Audited joins for explicit relationship declarations.",
+                 rel_res,
+                 "Omitting explicit `relationship:` parameters risks improper symmetric aggregation SQL generation on `one_to_many` joins.",
+                 "Declare explicit `relationship: many_to_one` (or appropriate cardinality) on all joins.", "lookml_style_guide.md")
 
     # Task 14: Henry Vacuum
     henry_res = run_henry_vacuum(model_name=model_name)
     henry_status = "PASSED"
     _add_finding("P2-14", 14, "Pillar 2: LookML & Modeling", "Dead Field Detection (Henry Vacuum)", henry_status,
-                 "Scanned models for unused dimensions and measures.", henry_res,
-                 "Prune unused fields using `henry vacuum` to streamline explore field lists.", "looker-refactoring-skill")
+                 "Scanned models for unused dimensions and measures in past 90 days.",
+                 henry_res,
+                 "Unused fields clutter the Explore field picker, confuse business users, and increase explore metadata compile times.",
+                 "Prune unused fields using `henry vacuum` to streamline explore field lists.", "unused_content_cleanup.md")
 
     # Task 15: Key Exposure
     exp_res = audit_explore_field_exposure(model_name, project_path)
     exp_status = "WARNING" if "WARNING" in exp_res else "PASSED"
     _add_finding("P2-15", 15, "Pillar 2: LookML & Modeling", "Raw Foreign Key & Technical Field Exposure", exp_status,
-                 "Audited technical ID/hash dimensions for hidden: yes.", exp_res,
-                 "Add `hidden: yes` to foreign keys and technical surrogate hash dimensions.", "looker-healthcheck")
+                 "Audited technical ID/hash dimensions for hidden: yes.",
+                 exp_res,
+                 "Exposing raw database keys and surrogate hashes clutters UI field lists and leads users to build un-joined ad-hoc reports.",
+                 "Add `hidden: yes` to foreign keys and technical surrogate hash dimensions.", "lookml_style_guide.md")
 
     # Task 16: Folder Hygiene
     folder_res = audit_folder_structure(project_path)
     folder_status = "WARNING" if "WARNING" in folder_res else "PASSED"
     _add_finding("P2-16", 16, "Pillar 2: LookML & Modeling", "Folder Structure & File Hygiene", folder_status,
-                 "Verified standard /views, /models, /explores repository directories.", folder_res,
-                 "Organize project files into dedicated subdirectories.", "looker-architect")
+                 "Verified standard /views, /models, /explores repository directories.",
+                 folder_res,
+                 "A clean modular folder layout is essential for multi-developer collaboration, code reviews, and Hub & Spoke project architecture.",
+                 "Organize project files into dedicated subdirectories (`/views`, `/models`, `/explores`, `/tests`).", "aggregate_awareness_and_architecture.md")
 
     # Task 17: snake_case Casing
     case_res = audit_naming_conventions(model_name, project_path)
     case_status = "WARNING" if "WARNING" in case_res else "PASSED"
     _add_finding("P2-17", 17, "Pillar 2: LookML & Modeling", "Standard snake_case Naming Conventions", case_status,
-                 "Enforced lowercase snake_case across views and fields.", case_res,
-                 "Convert CamelCase or kebab-case field names to lowercase snake_case.", "looker-healthcheck")
+                 "Enforced lowercase snake_case across views and fields.",
+                 case_res,
+                 "Inconsistent naming violates DRY standards and causes syntax parsing issues with Liquid template variables.",
+                 "Convert CamelCase or kebab-case field names to lowercase snake_case.", "lookml_style_guide.md")
 
     # Task 18: Metadata Descriptions
     desc_res = audit_metadata_descriptions(model_name, project_path)
     desc_status = "WARNING" if "WARNING" in desc_res else "PASSED"
     _add_finding("P2-18", 18, "Pillar 2: LookML & Modeling", "User-Facing Metadata Descriptions", desc_status,
-                 "Audited explores and measures for description: parameter.", desc_res,
-                 "Add `description:` tags to all measures and user-facing explores.", "looker-healthcheck")
+                 "Audited explores and measures for description: parameter.",
+                 desc_res,
+                 "Clear metric descriptions provide business context, preventing metric misinterpretation and reducing ad-hoc questions.",
+                 "Add `description:` tags to all measures and user-facing explores.", "lookml_style_guide.md")
 
     # Task 19: Unused Joins / Bloat (>6)
     join_res = audit_unused_joins(model_name, project_path)
     join_status = "WARNING" if "WARNING" in join_res else "PASSED"
     _add_finding("P2-19", 19, "Pillar 2: LookML & Modeling", "Explore Join Bloat (>6 Joins)", join_status,
-                 "Audited explores for excessive join chains (>6 joins).", join_res,
-                 "Refactor bloated explores into targeted domain-specific explores.", "lookml-modeling-guidelines")
+                 "Audited explores for excessive join chains (>6 joins).",
+                 join_res,
+                 "Bloated explores with >6 joins increase SQL prepare latency (`prepare > 0.44s`) and generate needlessly wide SQL queries.",
+                 "Refactor bloated explores into targeted domain-specific explores.", "performance_audit_playbook.md")
 
     # Task 20: Table Calculation Heavy Queries
     calc_res = get_table_calculation_heavy_queries(model_name=model_name)
     calc_status = "WARNING" if "[\n  {" in calc_res else "PASSED"
     _add_finding("P2-20", 20, "Pillar 2: LookML & Modeling", "Client-Side Table Calculation Bloat", calc_status,
-                 "Identified queries running heavy table calculations in browser.", calc_res,
-                 "Migrate frontend table calculations into native LookML measures.", "looker-healthcheck")
+                 "Identified queries running heavy table calculations in browser.",
+                 calc_res,
+                 "Heavy table calculations execute in browser JavaScript, freezing client browser tabs on large datasets.",
+                 "Migrate frontend table calculations into native LookML measures.", "performance_audit_playbook.md")
 
     # --------------------------------------------------------------------------
     # PILLAR 3: BigQuery & Warehouse Compute (Tasks 21 to 30)
@@ -630,71 +671,91 @@ def execute_complete_healthcheck(
     part_res = audit_partition_cluster_filters("looker_orders", project_id, model_name)
     part_status = "PASSED"
     _add_finding("P3-21", 21, "Pillar 3: BigQuery & Compute", "Partition & Cluster Filter Alignment", part_status,
-                 "Audited BigQuery table partitioning and conditionally_filter enforcement.", part_res,
-                 "Enforce `conditionally_filter` or `require_partition_filter: yes` on partition dates.", "lookml-modeling-guidelines")
+                 "Audited BigQuery table partitioning and conditionally_filter enforcement.",
+                 part_res,
+                 "Aligning LookML filters with BigQuery partition/cluster keys enables partition pruning, reducing bytes scanned and compute cost.",
+                 "Enforce `conditionally_filter` or `require_partition_filter: yes` on partition dates.", "performance_audit_playbook.md")
 
     # Task 22: BI Engine
     bi_res = get_bi_engine_metrics(model_name=model_name)
     bi_status = "PASSED"
     _add_finding("P3-22", 22, "Pillar 3: BigQuery & Compute", "BigQuery BI Engine Acceleration", bi_status,
-                 "Audited BI Engine reservation and acceleration candidates.", bi_res,
-                 "Configure BigQuery BI Engine reservation for top explored tables.", "connecting-looker-to-bigquery")
+                 "Audited BI Engine reservation and acceleration candidates.",
+                 bi_res,
+                 "BigQuery BI Engine provides sub-second in-memory query execution for interactive dashboard queries.",
+                 "Configure BigQuery BI Engine reservation for top explored tables.", "aggregate_awareness_and_architecture.md")
 
     # Task 23: PDT Build Failures
     pdt_res = get_pdt_failure_audit(model_name=model_name)
     pdt_status = "CRITICAL" if "error" in pdt_res.lower() and "PASSED" not in pdt_res else "PASSED"
     _add_finding("P3-23", 23, "Pillar 3: BigQuery & Compute", "PDT Build Failures & Monitoring", pdt_status,
-                 "Audited PDT event logs for build errors in past 7 days.", pdt_res,
-                 "Resolve failing PDT SQL definitions and inspect database temp schema permissions.", "lookml-pdt-guidelines")
+                 "Audited PDT event logs for build errors in past 7 days.",
+                 pdt_res,
+                 "Failing PDT builds force queries to fall back to raw tables or fail outright, degrading user trust in dashboard data freshness.",
+                 "Resolve failing PDT SQL definitions and inspect database temp schema permissions.", "performance_audit_playbook.md")
 
     # Task 24: Incremental PDTs
     inc_res = audit_incremental_pdts(model_name, project_path)
     inc_status = "WARNING" if "WARNING" in inc_res else "PASSED"
     _add_finding("P3-24", 24, "Pillar 3: BigQuery & Compute", "Incremental PDT Strategy", inc_status,
-                 "Audited large PDTs for increment_key and increment_offset configuration.", inc_res,
-                 "Add `increment_key` and `increment_offset` to large derived tables.", "lookml-pdt-guidelines")
+                 "Audited large PDTs for increment_key and increment_offset configuration.",
+                 inc_res,
+                 "Rebuilding multi-million row PDTs from scratch consumes massive warehouse compute. Incremental builds only process new records.",
+                 "Add `increment_key` and `increment_offset` to large derived tables.", "performance_audit_playbook.md")
 
     # Task 25: Datagroup ELT Sync
     data_res = audit_datagroup_sync(project_id=project_id, model_name=model_name)
     data_status = "PASSED"
     _add_finding("P3-25", 25, "Pillar 3: BigQuery & Compute", "Datagroup Caching & ELT Sync", data_status,
-                 "Mapped BigQuery ELT completion timestamps to datagroup triggers.", data_res,
-                 "Synchronize datagroup `sql_trigger_value` queries with ELT pipeline completion.", "looker-healthcheck")
+                 "Mapped BigQuery ELT completion timestamps to datagroup triggers.",
+                 data_res,
+                 "Triggering datagroups upon ELT completion guarantees users see fresh data immediately without wasteful polling intervals.",
+                 "Synchronize datagroup `sql_trigger_value` queries with ELT pipeline completion.", "benchmarks.md")
 
     # Task 26: OAuth Caching
     oauth_res = audit_oauth_connections(model_name)
     oauth_status = "PASSED"
     _add_finding("P3-26", 26, "Pillar 3: BigQuery & Compute", "OAuth & User Attribute Cache Sharing", oauth_status,
-                 "Audited database connection caching configurations.", oauth_res,
-                 "Configure persist_for cache sharing where user attributes permit.", "connecting-looker-to-bigquery")
+                 "Audited database connection caching configurations.",
+                 oauth_res,
+                 "Shared connection credentials maximize Looker query cache reuse (>50% target) across users with identical access scopes.",
+                 "Configure `persist_for` cache sharing where user attributes permit.", "security_roles_and_access_control.md")
 
     # Task 27: Aggregate Awareness
     agg_res = get_aggregate_awareness_hits(model_name=model_name)
     agg_status = "PASSED"
     _add_finding("P3-27", 27, "Pillar 3: BigQuery & Compute", "Aggregate Awareness Rollup Candidates", agg_status,
-                 "Identified high-traffic explore queries suitable for aggregate_table.", agg_res,
-                 "Implement `aggregate_table:` rollups in LookML explore definitions.", "looker-healthcheck")
+                 "Identified high-traffic explore queries suitable for aggregate_table.",
+                 agg_res,
+                 "Aggregate awareness dynamically routes summary queries to compact pre-aggregated rollups, reducing query time from 15s to <1s.",
+                 "Implement `aggregate_table:` rollups in LookML explore definitions.", "aggregate_awareness_and_architecture.md")
 
     # Task 28: Join Key SQL Expressions
     jsyntax_res = audit_join_key_syntax(model_name, project_path)
     jsyntax_status = "WARNING" if "WARNING" in jsyntax_res else "PASSED"
     _add_finding("P3-28", 28, "Pillar 3: BigQuery & Compute", "Join Key SQL Syntax (No CONCAT/LOWER in sql_on)", jsyntax_status,
-                 "Audited sql_on parameters for CPU-heavy SQL expressions.", jsyntax_res,
-                 "Pre-calculate join hash keys in upstream view dimensions or physical table columns.", "lookml-modeling-guidelines")
+                 "Audited sql_on parameters for CPU-heavy SQL expressions.",
+                 jsyntax_res,
+                 "Applying functions like `LOWER()` or `CONCAT()` inside `sql_on` prevents database index usage and forces expensive full joins.",
+                 "Pre-calculate join hash keys in upstream view dimensions or physical table columns.", "performance_audit_playbook.md")
 
     # Task 29: Complex Joins / Denormalization
     cjoin_res = get_complex_join_explores(model_name=model_name)
     cjoin_status = "PASSED"
     _add_finding("P3-29", 29, "Pillar 3: BigQuery & Compute", "Table Denormalization & Query Runtime", cjoin_status,
-                 "Audited explore queries with long database execution runtimes.", cjoin_res,
-                 "Denormalize deeply nested snowflake schemas into single wide tables in BigQuery.", "looker-healthcheck")
+                 "Audited explore queries with long database execution runtimes.",
+                 cjoin_res,
+                 "Deeply normalized snowflake join chains cause extensive data shuffling in BigQuery. Denormalizing wide tables cuts execution time.",
+                 "Denormalize deeply nested snowflake schemas into single wide tables in BigQuery.", "query_outliers_diagnosis.md")
 
     # Task 30: Query Costs & Bytes Billed
     cost_res = audit_query_costs_and_bytes_billed(project_id=project_id, model_name=model_name)
     cost_status = "PASSED"
     _add_finding("P3-30", 30, "Pillar 3: BigQuery & Compute", "BigQuery Query Cost & Bytes Billed", cost_status,
-                 "Analyzed Looker query billing and data scanned in INFORMATION_SCHEMA.", cost_res,
-                 "Enforce partition filters and materialization to reduce scanned GB billed.", "looker-performance-optimizer")
+                 "Analyzed Looker query billing and data scanned in INFORMATION_SCHEMA.",
+                 cost_res,
+                 "Monitoring top-billed queries and slot utilization identifies expensive exploration patterns and enforces cost guardrails.",
+                 "Enforce partition filters and materialization to reduce scanned GB billed.", "performance_audit_playbook.md")
 
     # --------------------------------------------------------------------------
     # Calculate Overall Health Score & Aggregates
@@ -745,7 +806,23 @@ def execute_complete_healthcheck(
         report_lines.append(f"| **{v['label']}** | `{k}` | `< {v['target']}{v['unit']}` | `> {v['warning']}{v['unit']}` | `> {v['critical']}{v['unit']}` | 🟢 Optimal |")
 
     report_lines.append("\n---\n")
-    report_lines.append("## 3. High-Priority Remediation Actions & Playbooks\n")
+    report_lines.append("## 3. Comprehensive Forensic Analysis (All 30 Diagnostic Checks)\n")
+
+    current_pillar = ""
+    for f in findings:
+        if f["pillar"] != current_pillar:
+            current_pillar = f["pillar"]
+            report_lines.append(f"\n### 🏛️ {current_pillar}\n")
+        
+        badge = "🟢 PASSED" if f["status"] == "PASSED" else ("🟡 WARNING" if f["status"] == "WARNING" else "🔴 CRITICAL")
+        report_lines.append(f"#### **[{badge}] {f['name']} (`{f['check_id']}`)**")
+        report_lines.append(f"- **Observable Diagnostic Evidence:** {f['summary']}")
+        report_lines.append(f"- **Architectural Impact & Risk Assessment:** {f['architectural_impact']}")
+        report_lines.append(f"- **Prescribed Remediation / Best Practice:** {f['prescribed_remediation']}")
+        report_lines.append(f"- **Governing Skill Playbook:** `{f['recommended_skill']}`\n")
+
+    report_lines.append("---\n")
+    report_lines.append("## 4. High-Priority Remediation Actions\n")
     
     warning_or_critical = [f for f in findings if f["status"] in ("WARNING", "CRITICAL")]
     if not warning_or_critical:
@@ -755,12 +832,13 @@ def execute_complete_healthcheck(
             badge = "🔴 CRITICAL" if item["status"] == "CRITICAL" else "🟡 WARNING"
             report_lines.append(f"### {idx}. [{badge}] {item['name']} (`{item['check_id']}`)")
             report_lines.append(f"- **Summary:** {item['summary']}")
+            report_lines.append(f"- **Impact:** {item['architectural_impact']}")
             report_lines.append(f"- **Prescribed Action:** {item['prescribed_remediation']}")
             report_lines.append(f"- **Official Skill Playbook:** `{item['recommended_skill']}`\n")
 
     report_lines.append("---\n")
-    report_lines.append("## 4. Telemetry & Long-Term State Persistence\n")
-    report_lines.append(f"All **{total_checks} diagnostic evaluations (both healthy and flagged)** are structured and stored to Firestore database `looker-healthcheck-db` under collection `looker_healthchecks` for time-series trend analysis.")
+    report_lines.append("## 5. Telemetry & Long-Term State Persistence\n")
+    report_lines.append(f"All **{total_checks} diagnostic evaluations with observable evidence, risk assessments, and remediation playbooks** are persisted to Firestore database `looker-healthcheck-db` under collection `looker_healthchecks` for time-series trend analysis.")
 
     report_md = "\n".join(report_lines)
     return report_md, structured_findings
