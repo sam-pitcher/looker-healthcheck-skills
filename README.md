@@ -6,7 +6,7 @@ An enterprise-grade, autonomous Looker instance performance auditor, LookML refa
 
 ## 1. Modular, Spec-Driven Multi-Agent Architecture
 
-To prevent context window dilution ("context rot"), this system uses a **Master Orchestrator (`root_agent`)** that coordinates with three specialized, domain-focused sub-agents. Each sub-agent loads its highly detailed markdown recipes (**Skills**) progressively on demand.
+To prevent context window dilution ("context rot"), this system uses a **Master Orchestrator (`root_agent`)** that coordinates with three specialized, domain-focused sub-agents. Each agent draws upon domain-specific **Skill Playbooks** and executes deterministic Python **ADK Tools**.
 
 ```mermaid
 graph TD
@@ -18,16 +18,17 @@ graph TD
         ROOT --> SUB3["BqOptimizerAgent<br/>(gemini-2.5-pro)"]
     end
 
-    subgraph Progressive_Skills["Progressive Disclosure Skills"]
-        SKILL1["agent/skills/content_audit/skill.md"]
-        SKILL2["agent/skills/lookml_quality/skill.md"]
-        SKILL3["agent/skills/bq_optimizer/skill.md"]
+    subgraph Progressive_Skills["Progressive Disclosure Skills (skills/)"]
+        SKILL1["skills/custom/healthcheck/references/01_healthcheck_delivery.md<br/>• 15 Topic Playbooks<br/>• Google PSO Latency Benchmarks<br/>• Transcriber 0–4 Scoring Rubric"]
+        SKILL2["skills/custom/refactoring/<br/>• LookML Refactoring<br/>• Automated Testing & CI/CD"]
+        SKILL3["skills/vendor/looker-skills/<br/>• Performance Optimizer<br/>• Modeling & Liquid Guidelines"]
     end
 
     subgraph Deterministic_Tools["Python ADK Toolset (agent/tools/)"]
-        TOOL1["looker_api.py<br/>• get_stale_schedules<br/>• get_tile_bloat_dashboards<br/>• archive_dashboard<br/>• deactivate_inactive_users"]
-        TOOL2["lookml_fs.py<br/>• list_lookml_files<br/>• read_lookml_file<br/>• search_lookml_code<br/>• run_henry_vacuum<br/>• apply_lookml_patch<br/>• run_lookml_validation"]
-        TOOL3["bq_client.py<br/>• audit_bq_slots<br/>• optimize_table_layout<br/>• estimate_query_cost_dry_run"]
+        TOOL1["looker_api.py<br/>• check_subsystem_status<br/>• audit_connections<br/>• get_tile_bloat_dashboards<br/>• get_schedule_distribution<br/>• get_merged_queries"]
+        TOOL2["lookml_fs.py<br/>• run_lookml_validation<br/>• audit_primary_keys<br/>• run_henry_vacuum<br/>• apply_safe_lookml_patch"]
+        TOOL3["bq_client.py<br/>• audit_partition_cluster_filters<br/>• audit_bq_slots<br/>• audit_datagroup_sync<br/>• audit_query_costs_and_bytes_billed"]
+        TOOL4["storage.py<br/>• save_audit_report (Firestore)<br/>• get_audit_history"]
     end
 
     SUB1 -.-> SKILL1
@@ -37,6 +38,10 @@ graph TD
     SUB1 --> TOOL1
     SUB2 --> TOOL2
     SUB3 --> TOOL3
+    ROOT --> TOOL4
+    SUB1 --> TOOL4
+    SUB2 --> TOOL4
+    SUB3 --> TOOL4
 ```
 
 ---
@@ -45,62 +50,88 @@ graph TD
 
 ```text
 looker-healthcheck-agent/
-├── .env                        # Environment configurations (GCP Project ID, Looker API keys, Tooling paths)
-├── requirements.txt            # Python dependencies (google-adk, looker-sdk, google-cloud-bigquery)
+├── .env                              # GCP Project ID, Looker API keys, Firestore config
+├── requirements.txt                  # google-adk, looker-sdk, google-cloud-bigquery, google-cloud-firestore
+├── main.py                           # CLI & Interactive Web Hub entrypoint (:8080)
 ├── agent/
-│   ├── __init__.py             # Exports root_agent and sub-agents
-│   ├── agent.py                # Core Orchestration file (declares root_agent and sub-agents)
-│   ├── tools/                  # Python functions decorated for ADK execution
-│   │   ├── __init__.py
-│   │   ├── looker_api.py       # Looker API 4.0 calls (dashboards, schedules, user deactivation, KPIs)
-│   │   ├── lookml_fs.py        # LookML file read/write, search, and looker-cli/Henry wrappers
-│   │   └── bq_client.py        # BigQuery Client (INFORMATION_SCHEMA, Table layout, Dry-runs)
-│   └── skills/                 # Progressive-disclosure skill packages
-│       ├── content_audit/
-│       │   └── skill.md        # Recipes for stale schedules, folder cleanups, and tile bloat
-│       ├── lookml_quality/
-│       │   └── skill.md        # Recipes for henry vacuuming, metadata checklist, and LookML linter
-│       └── bq_optimizer/
-│           └── skill.md        # Recipes for slot reservation, partitioning, clustering, and join orders
-├── main.py                     # CLI & Web UI entrypoint (:8080)
-└── AUDIT_REPORT.md             # Generated executive healthcheck report
+│   ├── __init__.py                   # Package exports (root_agent, sub-agents, tools)
+│   ├── agent.py                      # Multi-Agent orchestration declarations & instructions
+│   ├── skills_registry.py            # Dynamic markdown skill loader & indexer
+│   ├── prompts/                      # Sub-agent runtime system prompts
+│   │   ├── content_auditor.md        # Pillar 1 Auditor instructions
+│   │   ├── lookml_quality.md         # Pillar 2 Quality Specialist instructions
+│   │   └── bq_optimizer.md           # Pillar 3 BigQuery Optimizer instructions
+│   └── tools/                        # Deterministic ADK execution tools
+│       ├── __init__.py
+│       ├── looker_api.py             # Looker API 4.0 calls (Subsystems, connections, schedules, KPIs)
+│       ├── lookml_fs.py              # LookML file read/write, AST parsing, and safe git patching
+│       ├── bq_client.py              # BigQuery Client (INFORMATION_SCHEMA, slots, costs)
+│       └── storage.py                # Firestore persistence & historical trend retrieval
+├── skills/
+│   ├── custom/                       # Healthcheck & Refactoring domain knowledge
+│   │   ├── healthcheck/
+│   │   │   ├── SKILL.md              # Looker healthcheck master entrypoint
+│   │   │   └── references/           # 15 Specialized Diagnostic & Remediation Playbooks
+│   │   │       ├── 01_healthcheck_delivery.md           # Master 4-Pillar Delivery Playbook
+│   │   │       ├── benchmarks.md                        # Google Cloud PSO 12-stage latency benchmarks
+│   │   │       ├── performance_audit_playbook.md        # 3-Way forensic performance triage
+│   │   │       ├── query_outliers_diagnosis.md          # Slow query outlier isolation
+│   │   │       ├── history_query_analysis.md            # Persona & error rate profiling
+│   │   │       ├── large_dashboards_optimization.md     # >25 tile rule & auto-refresh
+│   │   │       ├── single_dashboard_optimization.md    # 10-point forensic single dashboard checklist
+│   │   │       ├── content_delivery_schedules.md        # Top-of-hour schedule stacking & zombie crons
+│   │   │       ├── merged_queries_remediation.md        # In-memory merged query elimination
+│   │   │       ├── unused_content_cleanup.md            # 90-day 3-stage deprecation funnel
+│   │   │       ├── lookml_style_guide.md                # Style pyramid & snake_case standards
+│   │   │       ├── aggregate_awareness_and_architecture.md # Aggregate tables & Hub-Spoke
+│   │   │       ├── development_workflows_and_ci.md      # LookML data tests & CI/CD pipelines
+│   │   │       ├── security_roles_and_access_control.md # GBAC & access grant security
+│   │   │       ├── transcriber_scoring_rubric.md        # Official 0–4 scoring rubric
+│   │   │       └── system_activity_queries.md           # System Activity JSON query bank
+│   │   └── refactoring/
+│   │       └── SKILL.md              # LookML refactoring & data test generation
+│   └── vendor/looker-skills/         # Upstream Google Cloud Looker developer skills
+└── terraform/                        # Cloud Run & Firestore infrastructure as code
 ```
 
 ---
 
-## 3. Sub-Agent Breakdown & Diagnostic Recipes
+## 3. The 30-Check Diagnostic Framework
 
-### 📊 Sub-Agent 1: Content & Administration Auditor (`ContentAuditorAgent`)
-* **Model**: `gemini-2.5-flash`
-* **Skill Playbook**: [`skills/custom/healthcheck/references/unused_content_cleanup.md`](skills/custom/healthcheck/references/unused_content_cleanup.md)
-* **Tools**: `get_stale_schedules`, `get_tile_bloat_dashboards`, `archive_dashboard`, `deactivate_inactive_users`
-* **Key Diagnostic Recipes**:
-  1. **Tile Bloat (>25 Tiles)**: Deconstructs dashboards exceeding 25 tiles into tabbed sections or linked drilldowns. Detects merged queries and unneeded hidden columns.
-  2. **Zombie Schedules**: Identifies and deactivates schedules owned by users inactive for >90 days. Staggers hourly schedules away from `:00`.
-  3. **License Reclamation**: Flags users with zero logins in >90 days for license deactivation.
+The agent executes an exhaustive 30-check audit across 3 core pillars, evaluating both PASSED and FAILING checks:
 
----
-
-### 🛠️ Sub-Agent 2: LookML Quality Specialist (`LookmlQualityAgent`)
-* **Model**: `gemini-2.5-pro`
-* **Skill Playbook**: [`skills/custom/healthcheck/references/lookml_style_guide.md`](skills/custom/healthcheck/references/lookml_style_guide.md)
-* **Tools**: `run_henry_vacuum`, `apply_lookml_patch`, `list_lookml_files`, `read_lookml_file`, `search_lookml_code`, `run_lookml_validation`
-* **Key Diagnostic Recipes**:
-  1. **Henry Vacuuming**: Identifies explores, views, and dimensions with 0 queries in 90 days.
-  2. **Primary Key Enforcement**: Enforces `primary_key: yes` on every view to eliminate symmetric aggregation fanout errors.
-  3. **Datagroup Caching**: Replaces static `persist_for` with event-driven `datagroup` triggers linked to ETL updates to reach **> 50.0% Cache Hit Rate**.
-
----
-
-### ⚡ Sub-Agent 3: BigQuery Engine Optimizer (`BqOptimizerAgent`)
-* **Model**: `gemini-2.5-pro`
-* **Skill Playbook**: [`skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md)
-* **Tools**: `audit_bq_slots`, `optimize_table_layout`, `estimate_query_cost_dry_run`
-* **Key Diagnostic Recipes**:
-  1. **Slot Starvation Detection**: Audits `INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` for reservation ceiling timeouts. Recommends dedicated BI slot reservations and PDT billing project overrides.
-  2. **Daily Partitioning & Ordered Clustering**: Converts monthly partitions to Daily, and orders clusters by `[filter_columns, foreign_keys]`.
-  3. **SQL Refactoring**: Replaces analytic CTE windows with the `QUALIFY` clause.
-  4. **Aggregate Awareness**: Injects `aggregate_table` blocks into LookML models to eliminate full table scans on high-level rollups.
+| Check ID | Pillar | Diagnostic Check | Recommended Skill / Playbook |
+| :--- | :--- | :--- | :--- |
+| **`P1-01`** | Pillar 1 | **Subsystem Status & Endpoint Health** | [`benchmarks.md`](skills/custom/healthcheck/references/benchmarks.md) |
+| **`P1-02`** | Pillar 1 | **Database Connections & Pool Limits** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
+| **`P1-03`** | Pillar 1 | **Dashboard Query Density (>25 Tiles)** | [`large_dashboards_optimization.md`](skills/custom/healthcheck/references/large_dashboards_optimization.md) |
+| **`P1-04`** | Pillar 1 | **Auto-Refresh Rate Limits (<30m)** | [`large_dashboards_optimization.md`](skills/custom/healthcheck/references/large_dashboards_optimization.md) |
+| **`P1-05`** | Pillar 1 | **Schedule Time Spacing & Distribution** | [`content_delivery_schedules.md`](skills/custom/healthcheck/references/content_delivery_schedules.md) |
+| **`P1-06`** | Pillar 1 | **Query Concurrency Peaks & Queue Limits** | [`benchmarks.md`](skills/custom/healthcheck/references/benchmarks.md) |
+| **`P1-07`** | Pillar 1 | **Stale Content & Unused Folder Purge** | [`unused_content_cleanup.md`](skills/custom/healthcheck/references/unused_content_cleanup.md) |
+| **`P1-08`** | Pillar 1 | **Frontend Filter Enforcement** | [`single_dashboard_optimization.md`](skills/custom/healthcheck/references/single_dashboard_optimization.md) |
+| **`P1-09`** | Pillar 1 | **Merged Queries In Production** | [`merged_queries_remediation.md`](skills/custom/healthcheck/references/merged_queries_remediation.md) |
+| **`P1-10`** | Pillar 1 | **Legacy Feature Deprecation Audit** | [`unused_content_cleanup.md`](skills/custom/healthcheck/references/unused_content_cleanup.md) |
+| **`P2-11`** | Pillar 2 | **LookML Syntax & Compilation Health** | [`development_workflows_and_ci.md`](skills/custom/healthcheck/references/development_workflows_and_ci.md) |
+| **`P2-12`** | Pillar 2 | **Primary Key Integrity (`primary_key: yes`)** | [`lookml_style_guide.md`](skills/custom/healthcheck/references/lookml_style_guide.md) |
+| **`P2-13`** | Pillar 2 | **Explicit Join Relationships (`relationship:`)** | [`lookml_style_guide.md`](skills/custom/healthcheck/references/lookml_style_guide.md) |
+| **`P2-14`** | Pillar 2 | **Dead Field Detection (Henry Vacuum)** | [`unused_content_cleanup.md`](skills/custom/healthcheck/references/unused_content_cleanup.md) |
+| **`P2-15`** | Pillar 2 | **Raw Foreign Key & Technical Field Exposure** | [`lookml_style_guide.md`](skills/custom/healthcheck/references/lookml_style_guide.md) |
+| **`P2-16`** | Pillar 2 | **Folder Structure & File Hygiene** | [`aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md) |
+| **`P2-17`** | Pillar 2 | **Standard snake_case Naming Conventions** | [`lookml_style_guide.md`](skills/custom/healthcheck/references/lookml_style_guide.md) |
+| **`P2-18`** | Pillar 2 | **User-Facing Metadata Descriptions** | [`lookml_style_guide.md`](skills/custom/healthcheck/references/lookml_style_guide.md) |
+| **`P2-19`** | Pillar 2 | **Explore Join Bloat (>6 Joins)** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
+| **`P2-20`** | Pillar 2 | **Client-Side Table Calculation Bloat** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
+| **`P3-21`** | Pillar 3 | **Partition & Cluster Filter Alignment** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
+| **`P3-22`** | Pillar 3 | **BigQuery BI Engine Acceleration** | [`aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md) |
+| **`P3-23`** | Pillar 3 | **PDT Build Failures & Monitoring** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
+| **`P3-24`** | Pillar 3 | **Incremental PDT Strategy** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
+| **`P3-25`** | Pillar 3 | **Datagroup Caching & ELT Sync** | [`benchmarks.md`](skills/custom/healthcheck/references/benchmarks.md) |
+| **`P3-26`** | Pillar 3 | **OAuth & User Attribute Cache Sharing** | [`security_roles_and_access_control.md`](skills/custom/healthcheck/references/security_roles_and_access_control.md) |
+| **`P3-27`** | Pillar 3 | **Aggregate Awareness Rollup Candidates** | [`aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md) |
+| **`P3-28`** | Pillar 3 | **Join Key SQL Syntax (No CONCAT/LOWER in `sql_on`)** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
+| **`P3-29`** | Pillar 3 | **Table Denormalization & Query Runtime** | [`query_outliers_diagnosis.md`](skills/custom/healthcheck/references/query_outliers_diagnosis.md) |
+| **`P3-30`** | Pillar 3 | **BigQuery Query Cost & Bytes Billed** | [`performance_audit_playbook.md`](skills/custom/healthcheck/references/performance_audit_playbook.md) |
 
 ---
 
@@ -115,45 +146,62 @@ pip install -r requirements.txt
 
 ### 2. Configure Environment (`.env`)
 ```bash
-# Google Vertex AI Configuration for ADK
+# Google Cloud & Vertex AI Configuration
 GOOGLE_GENAI_USE_VERTEXAI=true
 GOOGLE_CLOUD_PROJECT="your-gcp-project-id"
 GOOGLE_CLOUD_LOCATION="us-central1"
 
-# Looker API Credentials
-LOOKERSDK_BASE_URL="https://your-instance.looker.app"
-LOOKERSDK_CLIENT_ID="your_client_id"
-LOOKER_PROJECT_ID="your_looker_project_id"
-
-# Tooling & Repository Paths
-LOOKER_CLI_PATH="~/.local/bin/looker-cli"
-LOOKML_PROJECT_PATH="/path/to/your/lookml/repo"
+# Firestore Persistence (Audit History & Trends)
 FIRESTORE_DATABASE="looker-healthcheck-db"
 FIRESTORE_COLLECTION="looker_healthchecks"
+
+# Looker API 4.0 Credentials
+LOOKERSDK_BASE_URL="https://your-instance.looker.app"
+LOOKERSDK_CLIENT_ID="your_client_id"
+LOOKERSDK_CLIENT_SECRET="your_client_secret"
+LOOKER_PROJECT_ID="your_looker_project_id"
+LOOKER_VERIFY_SSL="true"
+
+# Local LookML Repository Path
+LOOKML_PROJECT_PATH="/path/to/your/lookml/repo"
+LOOKER_CLI_PATH="~/.local/bin/looker-cli"
 ```
 
-### 3. Running the Multi-Agent System
+### 3. Running Audits
 
-#### Interactive ADK Execution
-Import and run the `root_agent` or any specialized sub-agent:
-```python
-from agent.agent import root_agent, content_agent, lookml_agent, bq_agent
-
-# Run full healthcheck orchestration
-response = root_agent.run("Perform a full 3-pillar healthcheck audit on our Looker instance and BigQuery backend.")
-```
-
-#### CLI Healthcheck Audit
+#### CLI Execution (Instance-Wide or Model-Scoped)
 ```bash
+# Run full 30-check audit across all models
 python main.py
+
+# Run audit scoped to a specific LookML model
+python main.py --model=ecommerce_analytics
 ```
 
-#### Web Dashboard
+#### Interactive Web Hub
 ```bash
 python main.py --web
+# Open http://localhost:8080 to trigger audits and view live telemetry
+```
+
+#### Programmatic Agent Execution
+```python
+from agent.agent import root_agent
+
+# Run full healthcheck orchestration
+response = root_agent.run("Perform a full 3-pillar healthcheck audit on our Looker instance.")
+print(response)
 ```
 
 ---
 
-## 5. License
+## 5. Persistence & Delivery
+
+* **Direct User Relay**: Findings are presented thematically in chat responses, console output, and web UI.
+* **Firestore Telemetry**: Every audit is persisted to Firestore (`looker_healthchecks` collection) with model scoping and timestamps for time-series trend analysis (`get_audit_history()`).
+* **Safe Git Branching**: LookML fixes are applied to isolated Git branches with automated syntax compilation validation and instant rollback on failure.
+
+---
+
+## 6. License
 Apache-2.0
