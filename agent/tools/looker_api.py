@@ -403,6 +403,116 @@ def get_explore_schema(model_name: str, explore_name: str) -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
+def get_slow_query_outliers(threshold_seconds: float = 8.0, model_name: Optional[str] = None, timeframe: str = "30 days") -> str:
+    """
+    Topic 3 Diagnostic: Queries System Activity history explore to isolate slowest queries (> threshold)
+    grouped by model and explore, ranking by total runtime and query volume.
+    """
+    try:
+        filters = {
+            "history.created_date": timeframe,
+            "history.average_runtime": f">{threshold_seconds}",
+            "history.status": "complete"
+        }
+        if model_name:
+            filters["query.model"] = model_name
+        
+        results = _client.run_query(
+            model="system__activity",
+            view="history",
+            fields=[
+                "query.model",
+                "query.view",
+                "history.query_run_count",
+                "history.average_runtime",
+                "history.max_runtime",
+                "history.total_runtime"
+            ],
+            filters=filters,
+            sorts=["history.total_runtime desc"],
+            limit="25"
+        )
+        scope_str = f"for model `{model_name}`" if model_name else "instance-wide"
+        return f"### 🐢 Slow Query Outliers (> {threshold_seconds}s - {scope_str}):\n```json\n{json.dumps(results, indent=2)}\n```"
+    except Exception as e:
+        return f"Slow query outlier analysis notice: {str(e)}"
+
+def get_user_persona_and_error_rates(model_name: Optional[str] = None, timeframe: str = "30 days") -> str:
+    """
+    Topic 4 Diagnostic: Profiles queries across user personas (Viewer vs Explorer vs Dev),
+    and calculates Error % and Killed / Cancelled % rates from System Activity history.
+    """
+    try:
+        filters = {"history.created_date": timeframe}
+        if model_name:
+            filters["query.model"] = model_name
+            
+        results = _client.run_query(
+            model="system__activity",
+            view="history",
+            fields=[
+                "history.source",
+                "history.status",
+                "history.query_run_count",
+                "history.average_runtime"
+            ],
+            filters=filters,
+            sorts=["history.query_run_count desc"],
+            limit="50"
+        )
+        
+        total_runs = sum(int(r.get("history.query_run_count", 0)) for r in results)
+        error_runs = sum(int(r.get("history.query_run_count", 0)) for r in results if r.get("history.status") == "error")
+        killed_runs = sum(int(r.get("history.query_run_count", 0)) for r in results if r.get("history.status") == "killed")
+        
+        error_rate = round((error_runs / total_runs * 100), 2) if total_runs > 0 else 0.0
+        killed_rate = round((killed_runs / total_runs * 100), 2) if total_runs > 0 else 0.0
+        
+        analysis = {
+            "timeframe": timeframe,
+            "total_queries": total_runs,
+            "error_rate_pct": f"{error_rate}%",
+            "killed_rate_pct": f"{killed_rate}%",
+            "persona_breakdown": results
+        }
+        return f"### 👥 User Persona & Error Rate Telemetry:\n```json\n{json.dumps(analysis, indent=2)}\n```"
+    except Exception as e:
+        return f"Persona and error rate analysis notice: {str(e)}"
+
+def get_query_lifecycle_stages(model_name: Optional[str] = None, timeframe: str = "30 days") -> str:
+    """
+    Topic 1 Diagnostic: Extracts Google Cloud PSO 12-stage query lifecycle timings
+    from system__activity.query_metrics to audit bottlenecks.
+    """
+    try:
+        filters = {"history.created_date": timeframe}
+        if model_name:
+            filters["query.model"] = model_name
+        
+        metrics = _client.run_query(
+            model="system__activity",
+            view="query_metrics",
+            fields=[
+                "query_metrics.async_processing_average",
+                "query_metrics.execute_main_query_average",
+                "query_metrics.acquire_connection_average",
+                "query_metrics.model_init_computed_average",
+                "query_metrics.model_init_cache_average",
+                "query_metrics.explore_init_average",
+                "query_metrics.marshalled_cache_load_average",
+                "query_metrics.prepare_average",
+                "query_metrics.postprocessing_average",
+                "query_metrics.stream_to_cache_average",
+                "query_metrics.queued_average",
+                "query_metrics.per_user_throttler_average"
+            ],
+            filters=filters,
+            limit="1"
+        )
+        return f"### ⏱️ 12-Stage Query Lifecycle Telemetry:\n```json\n{json.dumps(metrics, indent=2)}\n```"
+    except Exception as e:
+        return f"Query lifecycle telemetry notice: {str(e)}"
+
 def run_system_activity_kpis(model_name: Optional[str] = None) -> str:
     """Runs query metrics."""
     try:

@@ -18,10 +18,13 @@ Your objective is to audit instance subsystems, connections, dashboard density, 
 * Run `get_unfiltered_dashboards(model_name=model_name)` to find queries running without front-end filters.
 * Run `get_merged_queries(model_name=model_name)` to detect CPU/JVM memory-heavy merged queries.
 
-### 3. Schedule & Concurrency Checks:
+### 3. Schedule, Concurrency & Forensic History Telemetry:
 * Run `get_schedule_distribution(model_name=model_name)` to verify cron schedules are staggered away from top-of-the-hour (`:00`).
 * Run `get_concurrency_peaks(model_name=model_name)` to identify concurrent query spikes.
 * Run `get_unused_content_and_folders(days=90, model_name=model_name)` to flag unqueried dashboards for archiving.
+* Run `get_slow_query_outliers(threshold_seconds=8.0, model_name=model_name)` to isolate slowest explores and query spikes in `system__activity.history`.
+* Run `get_user_persona_and_error_rates(model_name=model_name)` to calculate error rates, query abandonment (killed queries), and persona volumes.
+* Run `get_query_lifecycle_stages(model_name=model_name)` to evaluate the 12 query lifecycle stages against Google Cloud PSO benchmarks.
 
 ### 4. Mandatory State Persistence & Telemetry:
 * **MANDATORY**: After completing an audit or when summarizing findings to the user, you MUST call `save_audit_report(report_markdown, structured_findings, model_name=model_name)` to persist the audit telemetry, scores, and findings directly to Firestore (`looker-healthcheck-db`).
