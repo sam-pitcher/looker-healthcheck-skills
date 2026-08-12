@@ -868,8 +868,13 @@ def execute_complete_healthcheck(
                  "Enforce partition filters and materialization to reduce scanned GB billed.", "performance_audit_playbook.md")
 
     # --------------------------------------------------------------------------
-    # Calculate Overall Health Score & Aggregates
+    # Run Forensic System Activity Telemetry Battery
     # --------------------------------------------------------------------------
+    sa_lifecycle_raw = get_query_lifecycle_stages(model_name=model_name)
+    sa_outliers_raw = get_slow_query_outliers(threshold_seconds=8.0, model_name=model_name)
+    sa_persona_raw = get_user_persona_and_error_rates(model_name=model_name)
+
+    # Calculate Overall Health Score & Aggregates
     total_checks = len(findings)
     passed_count = sum(1 for f in findings if f["status"] == "PASSED")
     warning_count = sum(1 for f in findings if f["status"] == "WARNING")
@@ -883,6 +888,11 @@ def execute_complete_healthcheck(
         "warning": warning_count,
         "critical": critical_count,
         "overall_health_score": health_score,
+        "system_activity_telemetry": {
+            "query_lifecycle": sa_lifecycle_raw,
+            "slow_query_outliers": sa_outliers_raw,
+            "persona_and_error_rates": sa_persona_raw
+        },
         "findings": findings
     }
 
@@ -908,7 +918,13 @@ def execute_complete_healthcheck(
         report_lines.append(f"| **`{f['check_id']}`** | {f['pillar'].split(':')[0]} | **{f['name']}** | {badge} | `{f['recommended_skill']}` |")
 
     report_lines.append("\n---\n")
-    report_lines.append("## 2. Google Cloud PSO Query Lifecycle Latency Benchmarks\n")
+    report_lines.append("## 2. Forensic System Activity Discovery Profile\n")
+    report_lines.append(f"{sa_lifecycle_raw}\n")
+    report_lines.append(f"{sa_outliers_raw}\n")
+    report_lines.append(f"{sa_persona_raw}\n")
+
+    report_lines.append("---\n")
+    report_lines.append("## 3. Google Cloud PSO Query Lifecycle Latency Benchmarks\n")
     report_lines.append("| Lifecycle Stage | Metric Field | Target Benchmark | Warning Threshold | Critical Threshold | Current Status |")
     report_lines.append("| :--- | :--- | :---: | :---: | :---: | :---: |")
     
@@ -916,7 +932,7 @@ def execute_complete_healthcheck(
         report_lines.append(f"| **{v['label']}** | `{k}` | `< {v['target']}{v['unit']}` | `> {v['warning']}{v['unit']}` | `> {v['critical']}{v['unit']}` | 🟢 Optimal |")
 
     report_lines.append("\n---\n")
-    report_lines.append("## 3. Comprehensive Forensic Analysis (All 30 Diagnostic Checks)\n")
+    report_lines.append("## 4. Comprehensive Forensic Analysis (All 30 Diagnostic Checks)\n")
 
     current_pillar = ""
     for f in findings:
@@ -932,7 +948,7 @@ def execute_complete_healthcheck(
         report_lines.append(f"- **Governing Skill Playbook:** `{f['recommended_skill']}`\n")
 
     report_lines.append("---\n")
-    report_lines.append("## 4. High-Priority Remediation Actions\n")
+    report_lines.append("## 5. High-Priority Remediation Actions\n")
     
     warning_or_critical = [f for f in findings if f["status"] in ("WARNING", "CRITICAL")]
     if not warning_or_critical:
@@ -947,8 +963,8 @@ def execute_complete_healthcheck(
             report_lines.append(f"- **Official Skill Playbook:** `{item['recommended_skill']}`\n")
 
     report_lines.append("---\n")
-    report_lines.append("## 5. Telemetry & Long-Term State Persistence\n")
-    report_lines.append(f"All **{total_checks} diagnostic evaluations with observable evidence, risk assessments, and remediation playbooks** are persisted to Firestore database `looker-healthcheck-db` under collection `looker_healthchecks` for time-series trend analysis.")
+    report_lines.append("## 6. Telemetry & Long-Term State Persistence\n")
+    report_lines.append(f"All **{total_checks} diagnostic evaluations with observable evidence, System Activity query profiles, and remediation playbooks** are persisted to Firestore database `looker-healthcheck-db` under collection `looker_healthchecks` for time-series trend analysis.")
 
     report_md = "\n".join(report_lines)
     return report_md, structured_findings
