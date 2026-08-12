@@ -1,15 +1,20 @@
-# Recipe 06: Security Review: Roles & Permissions (Component 6)
+# Security Review, Roles, Permissions & Access Control Playbook
 
-## 1. Objective & Purpose
-Audit Looker user roles, group hierarchies, license allocations, and access grants to prevent admin proliferation, duplicate permission sets, orphaned roles, and insecure direct-user assignments.
+This reference document defines the diagnostic protocols and remediation workflows for auditing Looker user roles, group hierarchies, license allocations, and LookML access grants.
+
+---
+
+## 🔍 Part 1: How to Review & Diagnose Security Posture
+
+### 1. Group-Based Access Control (GBAC) Hierarchy
 
 ```
                   GROUP-BASED ACCESS CONTROL (GBAC) HIERARCHY
  ┌───────────────────────────────────────────────────────────────────────────┐
- │ SAML / Okta / IdP Groups                                                  │
+ │ SAML / Okta / Azure AD IdP Groups                                         │
  │ (e.g. 'Looker-Finance-Explorers', 'Looker-Engineering-Developers')        │
  └─────────────────────────────────────┬─────────────────────────────────────┘
-                                       │ (Auto-Synchronized via SSO)
+                                       │ (Auto-Synchronized via SAML/SSO)
                                        ▼
  ┌───────────────────────────────────────────────────────────────────────────┐
  │ Looker Mirror Groups                                                      │
@@ -24,28 +29,9 @@ Audit Looker user roles, group hierarchies, license allocations, and access gran
 
 ---
 
-## 2. Diagnostic Execution Protocols (System Activity Queries)
+### 2. Diagnostic Telemetry Queries (System Activity)
 
-### Step 1: User Distribution Across Roles
-```json
-{
-  "model": "system__activity",
-  "view": "user",
-  "fields": [
-    "role.name",
-    "user.count",
-    "permission_set.name",
-    "model_set.name"
-  ],
-  "filters": {
-    "user.is_disabled": "No"
-  },
-  "sorts": ["user.count desc"],
-  "limit": "50"
-}
-```
-
-### Step 2: Audit Direct User Role Assignments (Anti-Pattern)
+#### A. Audit Direct User Role Assignments (Anti-Pattern)
 Identifies individual users who have been granted roles directly rather than inheriting them from groups:
 ```json
 {
@@ -65,7 +51,7 @@ Identifies individual users who have been granted roles directly rather than inh
 }
 ```
 
-### Step 3: Identify Orphaned & Empty Groups (0 Users)
+#### B. Orphaned & Empty Groups (0 Users)
 ```json
 {
   "model": "system__activity",
@@ -82,7 +68,8 @@ Identifies individual users who have been granted roles directly rather than inh
 }
 ```
 
-### Step 4: Developer License Proliferation Audit
+#### C. Inactive Developer License Proliferation
+Locates users assigned expensive Developer licenses who have not logged into Looker for $>90$ days:
 ```json
 {
   "model": "system__activity",
@@ -103,48 +90,40 @@ Identifies individual users who have been granted roles directly rather than inh
 
 ---
 
-## 3. Security Best Practices & Governance Rules
+## 🛠️ Part 2: How to Rectify & Enforce Access Control
 
-### Rule 1: Enforce Group-Based Access Control (GBAC)
-* **Never assign roles directly to users**: Individual user assignments create hidden privilege creep.
-* **Assign roles exclusively to Groups**: Sync groups from your Identity Provider (SAML 2.0 / Google OAuth / Okta).
-* When a user changes departments in the IdP, their Looker model access and permissions update automatically.
+### Remediation Protocol 1: Enforce Group-Based Access Control (GBAC)
+1. **Unassign Direct Roles**:
+   * In **Admin** $\rightarrow$ **Users**, remove directly assigned roles from individual user accounts.
+2. **Assign Roles Strictly to Groups**:
+   * In **Admin** $\rightarrow$ **Groups**, bind roles (Permission Set + Model Set) to IdP-mirrored groups.
 
 ---
 
-### Rule 2: LookML Access Grants for Row & Column Security
-Instead of creating duplicate Explores (e.g. `orders_all` vs `orders_restricted`), use LookML `access_grant` parameters:
+### Remediation Protocol 2: Implement Row/Column Level Access Grants
+Protect sensitive dimensions or views using native LookML `access_grant:` definitions:
 
-#### Step A: Define the Access Grant in the Model File
 ```lookml
 # models/ecommerce.model.lkml
-access_grant: can_view_sensitive_financials {
+
+# 1. Define Access Grant linked to user attribute
+access_grant: can_see_executive_financials {
   user_attribute: department
-  allowed_values: ["Finance", "Executive", "Legal"]
+  allowed_values: [ "executive", "finance", "legal" ]
+}
+
+# 2. Restrict sensitive dimensions in view
+view: orders {
+  dimension: gross_margin {
+    type: number
+    sql: ${TABLE}.gross_margin ;;
+    required_access_grants: [can_see_executive_financials]
+    value_format_name: usd
+  }
 }
 ```
-
-#### Step B: Protect Sensitive Dimensions / Measures
-```lookml
-# views/orders.view.lkml
-dimension: customer_tax_id {
-  type: string
-  sql: ${TABLE}.tax_id ;;
-  required_access_grants: [can_view_sensitive_financials]
-}
-
-measure: gross_margin {
-  type: sum
-  sql: ${sale_price} - ${cost} ;;
-  value_format_name: usd
-  required_access_grants: [can_view_sensitive_financials]
-}
-```
-
-* Users without the `Finance` attribute simply do not see these fields in the field picker, and cannot query them via API.
 
 ---
 
-### Rule 3: License Reclamation & Role Hygiene
-* **Deactivate Inactive Developer Seats**: If a developer has not logged in or used Developer Mode for >60 days, downgrade to a Standard Viewer license.
-* **Purge Orphaned Model Sets**: Review Admin $\rightarrow$ **Roles** $\rightarrow$ **Model Sets** and delete any sets referencing deleted LookML projects.
+### Remediation Protocol 3: Reclaim Inactive Developer Licenses
+* Reassign inactive developer accounts ($>90$ days inactive) to standard Viewer / Explorer permission sets in **Admin** $\rightarrow$ **Users** to free up developer license seats.

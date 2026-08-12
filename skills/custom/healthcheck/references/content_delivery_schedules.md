@@ -1,10 +1,12 @@
-# Content Delivery & Schedule Optimization Framework (Deep-Dive)
+# Content Delivery & Schedule Optimization Playbook
 
-This reference document defines the diagnostic protocols, failure pattern matching, and zombie schedule cleanup procedures extracted from the `google_pso__content_delivery` dashboard.
+This reference document defines the diagnostic protocols, failure pattern matching, and automated cleanup procedures for optimizing scheduled deliveries, eliminating queue congestion, and purging zombie schedules.
 
 ---
 
-## 1. Core Scheduling Failure Patterns & Root Causes
+## 🔍 Part 1: How to Review & Diagnose Scheduling Bottlenecks
+
+### 1. Core Scheduling Failure Patterns
 
 ```
                                   SCHEDULED DELIVERY BOTTLENECK
@@ -20,12 +22,12 @@ Inactive Users (>90 days login)      Fatal LookML/Content Errors          Wareho
 
 ---
 
-## 2. Diagnostic Protocols & Queries
+### 2. Diagnostic Telemetry Queries (System Activity)
 
-### A. Inactive Users with Active Schedules (Zombie Schedules)
-Finds active users who have not logged into Looker for over 90 days but are still triggering recurring background deliveries:
-```bash
-looker-cli api query run_inline_query --body '{
+#### A. Inactive Users with Active Schedules (Zombie Schedules)
+Locates active schedules owned by users who have not logged in for over 90 days:
+```json
+{
   "model": "system__activity",
   "view": "user",
   "fields": [
@@ -41,13 +43,13 @@ looker-cli api query run_inline_query --body '{
   },
   "sorts": ["scheduled_job.count desc"],
   "limit": "100"
-}' --verify-ssl=false
+}
 ```
 
-### B. Schedules to Delete (Fatal Broken Schedules)
-Identifies recurring scheduled jobs that continuously fail due to missing views, deleted Looks, or permissions:
-```bash
-looker-cli api query run_inline_query --body '{
+#### B. Schedules Failing with Fatal Content/Permission Errors
+Identifies scheduled jobs continuously failing on deleted views, Looks, or revoked permissions:
+```json
+{
   "model": "system__activity",
   "view": "scheduled_plan",
   "fields": [
@@ -63,33 +65,12 @@ looker-cli api query run_inline_query --body '{
   },
   "sorts": ["scheduled_plan.id desc"],
   "limit": "100"
-}' --verify-ssl=false
+}
 ```
 
-### C. Schedules with Connection Timeouts
-```bash
-looker-cli api query run_inline_query --body '{
-  "model": "system__activity",
-  "view": "scheduled_plan",
-  "fields": [
-    "scheduled_job.created_time",
-    "scheduled_job.finalized_time",
-    "scheduled_plan.id",
-    "user.name",
-    "scheduled_job.status_detail",
-    "scheduled_job_stage.stage"
-  ],
-  "filters": {
-    "scheduled_job.status_detail": "%timeout%"
-  },
-  "sorts": ["scheduled_job.created_time desc"],
-  "limit": "50"
-}' --verify-ssl=false
-```
-
-### D. Hourly Queue Congestion Heatmap (`enqueue_for_execute`)
-```bash
-looker-cli api query run_inline_query --body '{
+#### C. Hourly Queue Congestion Heatmap (`enqueue_for_execute`)
+```json
+{
   "model": "system__activity",
   "view": "scheduled_plan",
   "fields": [
@@ -99,21 +80,40 @@ looker-cli api query run_inline_query --body '{
     "scheduled_job.count"
   ],
   "filters": {
-    "scheduled_job_stage.stage": "enqueue_for_execute"
+    "scheduled_job_stage.stage": "enqueue_for_execute",
+    "scheduled_plan.run_once": "no"
   },
-  "limit": "500"
-}' --verify-ssl=false
+  "sorts": ["scheduled_job_stage.avg_runtime desc"],
+  "limit": "100"
+}
 ```
 
 ---
 
-## 3. Remediation Best Practices
+## 🛠️ Part 2: How to Rectify & Remediate Scheduler Congestion
 
-1. **Delete Dead Schedules**:
-   - Immediately delete schedules referencing non-existent Looks/Views or unauthorized users.
-2. **Reassign or Disable Zombie Schedules**:
-   - Disable or reassign schedules owned by inactive users (`>90 days` since last login).
-3. **Decongest Top-of-the-Hour Schedules**:
-   - Stagger cron schedules across the hour (e.g. `12 * * * *` or `37 * * * *` instead of `00 * * * *`).
-4. **Avoid "Send All Results" for Heavy Dashboards**:
-   - For large datasets, send a summary dashboard with a direct link, or write a dedicated ETL/PDT export rather than unthrottled scheduled PDF/CSV dumps.
+### Remediation Protocol 1: Staggering Top-of-Hour Schedule Stacking
+* **Problem**: Over 80% of business schedules default to `:00` (e.g. `08:00`, `09:00`), exhausting all Looker renderer and database connection threads.
+* **Fix**:
+  1. Distribute cron schedules across non-zero minute windows:
+     * Batch 1 (Executive): `08:07 AM` (`7 8 * * *`)
+     * Batch 2 (Operations): `08:22 AM` (`22 8 * * *`)
+     * Batch 3 (Regional): `08:37 AM` (`37 8 * * *`)
+     * Batch 4 (Marketing): `08:52 AM` (`52 8 * * *`)
+
+---
+
+### Remediation Protocol 2: Eliminating "Send All Results" Memory Hazards
+* **Problem**: Scheduled deliveries using the **"Send All Results"** setting run un-paged queries that stream millions of records into Looker JVM memory, causing Out-Of-Memory (OOM) instance crashes.
+* **Fix**:
+  1. In schedule settings, set **Results** to `All Results in Table` or cap at `50,000 rows`.
+  2. For large data extracts, use Looker Action Hub / Webhook to stream directly into Google Cloud Storage (GCS) or S3.
+
+---
+
+### Remediation Protocol 3: Programmatic Deletion of Zombie & Fatal Schedules
+* Execute programmatic deletion of orphaned scheduled plans via Looker API:
+```bash
+# Delete broken scheduled plan by ID
+looker-cli api scheduled_plan delete --scheduled-plan-id=<SCHEDULED_PLAN_ID>
+```

@@ -72,7 +72,7 @@ looker-healthcheck-agent/
 
 ### 📊 Sub-Agent 1: Content & Administration Auditor (`ContentAuditorAgent`)
 * **Model**: `gemini-2.5-flash`
-* **Skill Playbook**: [`agent/skills/content_audit/skill.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/skills/content_audit/skill.md)
+* **Skill Playbook**: [`skills/custom/healthcheck/references/unused_content_cleanup.md`](skills/custom/healthcheck/references/unused_content_cleanup.md)
 * **Tools**: `get_stale_schedules`, `get_tile_bloat_dashboards`, `archive_dashboard`, `deactivate_inactive_users`
 * **Key Diagnostic Recipes**:
   1. **Tile Bloat (>25 Tiles)**: Deconstructs dashboards exceeding 25 tiles into tabbed sections or linked drilldowns. Detects merged queries and unneeded hidden columns.
@@ -83,7 +83,7 @@ looker-healthcheck-agent/
 
 ### 🛠️ Sub-Agent 2: LookML Quality Specialist (`LookmlQualityAgent`)
 * **Model**: `gemini-2.5-pro`
-* **Skill Playbook**: [`agent/skills/lookml_quality/skill.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/skills/lookml_quality/skill.md)
+* **Skill Playbook**: [`skills/custom/healthcheck/references/lookml_style_guide.md`](skills/custom/healthcheck/references/lookml_style_guide.md)
 * **Tools**: `run_henry_vacuum`, `apply_lookml_patch`, `list_lookml_files`, `read_lookml_file`, `search_lookml_code`, `run_lookml_validation`
 * **Key Diagnostic Recipes**:
   1. **Henry Vacuuming**: Identifies explores, views, and dimensions with 0 queries in 90 days.
@@ -94,7 +94,7 @@ looker-healthcheck-agent/
 
 ### ⚡ Sub-Agent 3: BigQuery Engine Optimizer (`BqOptimizerAgent`)
 * **Model**: `gemini-2.5-pro`
-* **Skill Playbook**: [`agent/skills/bq_optimizer/skill.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/skills/bq_optimizer/skill.md)
+* **Skill Playbook**: [`skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md)
 * **Tools**: `audit_bq_slots`, `optimize_table_layout`, `estimate_query_cost_dry_run`
 * **Key Diagnostic Recipes**:
   1. **Slot Starvation Detection**: Audits `INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` for reservation ceiling timeouts. Recommends dedicated BI slot reservations and PDT billing project overrides.

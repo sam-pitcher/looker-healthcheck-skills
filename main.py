@@ -10,13 +10,15 @@ import sys
 import os
 import json
 from pathlib import Path
-from http.server import HTTPServer, SimpleHTTPRequestHandler
+from http.server import ThreadingHTTPServer, SimpleHTTPRequestHandler
 import urllib.parse
-from dotenv import load_dotenv
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-load_dotenv()
-
-from agent.tools.looker_api import run_healthcheck_audit, _client
+from agent.tools.looker_api import run_healthcheck_audit, execute_complete_healthcheck, _client
 from agent.tools.storage import save_audit_report, get_audit_history, get_audit_document
 from agent.skills_registry import skill_registry
 
@@ -417,17 +419,17 @@ class ADKWebHandler(SimpleHTTPRequestHandler):
         if parsed.path == "/api/audit":
             query = urllib.parse.parse_qs(parsed.query)
             model_name = query.get("model", [None])[0]
-            report = run_healthcheck_audit(model_name=model_name)
-            save_audit_report(report, {"status": "success", "total_checks": 30, "passed": 28, "warning": 2}, model_name=model_name)
+            report, structured_findings = execute_complete_healthcheck(model_name=model_name)
+            save_audit_report(report, structured_findings, model_name=model_name)
             self.send_response(200)
             self.send_header("Content-Type", "application/json")
             self.end_headers()
-            self.wfile.write(json.dumps({"report": report}).encode("utf-8"))
+            self.wfile.write(json.dumps({"report": report, "summary": structured_findings}).encode("utf-8"))
         else:
             self.send_error(404)
 
 def start_web_server(port=8080):
-    server = HTTPServer(("0.0.0.0", port), ADKWebHandler)
+    server = ThreadingHTTPServer(("0.0.0.0", port), ADKWebHandler)
     print(f"\n🌐 Looker & BigQuery Healthcheck Hub running at:\n   http://localhost:{port}\n")
     server.serve_forever()
 
@@ -440,11 +442,11 @@ def main():
             for arg in sys.argv:
                 if arg.startswith("--model="):
                     model_arg = arg.split("=", 1)[1]
-            print(f"🚀 Executing Looker Healthcheck Audit" + (f" for model '{model_arg}'..." if model_arg else "..."))
-            report = run_healthcheck_audit(model_name=model_arg)
-            save_audit_report(report, {"total_checks": 30, "passed": 28, "warning": 2}, model_name=model_arg)
-            output_file = Path(__file__).parent / "AUDIT_REPORT.md"
-            print(f"\n✅ Audit complete! Report written to:\n{output_file}\n")
+            print(f"🚀 Executing Complete 30-Check Looker Healthcheck Audit" + (f" for model '{model_arg}'..." if model_arg else "..."))
+            report, structured_findings = execute_complete_healthcheck(model_name=model_arg)
+            save_result = save_audit_report(report, structured_findings, model_name=model_arg)
+            print(f"\n✅ Audit complete! Score: {structured_findings.get('overall_health_score')}% ({structured_findings.get('passed')} Passed, {structured_findings.get('warning')} Warnings, {structured_findings.get('critical')} Critical).")
+            print(save_result + "\n")
         except Exception as e:
             print(f"❌ Error running healthcheck audit: {e}", file=sys.stderr)
             sys.exit(1)

@@ -6,18 +6,21 @@ Persists human-readable Markdown reports to AUDIT_REPORT.md and structured scope
 import os
 import json
 from datetime import datetime, timezone
+from functools import lru_cache
 from pathlib import Path
 from typing import Dict, Any, Optional, List
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 FIRESTORE_DATABASE = os.getenv("FIRESTORE_DATABASE", "looker-healthcheck-db")
 FIRESTORE_COLLECTION = os.getenv("FIRESTORE_COLLECTION", "looker_healthchecks")
 REPORTS_DIR = Path(__file__).resolve().parent.parent.parent / "reports"
-ROOT_AUDIT_FILE = Path(__file__).resolve().parent.parent.parent / "AUDIT_REPORT.md"
 
+@lru_cache(maxsize=1)
 def _get_firestore_client():
     try:
         from google.cloud import firestore
@@ -33,9 +36,9 @@ def save_audit_report(
     project_id: Optional[str] = None
 ) -> str:
     """
-    Saves the healthcheck audit results into both storage layers with model scoping:
-    1. Human-Readable Markdown: Writes directly to `AUDIT_REPORT.md` in repository root.
-    2. Structured Datastore: Persists timestamped JSON to Firestore (collection: `looker_healthchecks`) and local `/reports/`.
+    Saves the healthcheck audit results into Firestore with model scoping:
+    1. Structured Datastore: Persists timestamped JSON to Firestore (collection: `looker_healthchecks`).
+    2. Local Diagnostics Archive: Saves timestamped snapshot in `/reports/`.
     
     Args:
         report_markdown (str): The complete formatted Markdown audit report.
@@ -49,13 +52,6 @@ def save_audit_report(
     
     model_slug = model_name.replace("-", "_").lower() if model_name else "instance"
     audit_id = f"audit_{model_slug}_{file_timestamp}"
-    
-    # 1. Write to AUDIT_REPORT.md in repo root
-    try:
-        ROOT_AUDIT_FILE.write_text(report_markdown, encoding="utf-8")
-        markdown_saved = True
-    except Exception:
-        markdown_saved = False
 
     # Extract or calculate summary metrics
     sf = structured_findings or {}
@@ -116,12 +112,11 @@ def save_audit_report(
         "timestamp": timestamp_str,
         "target_scope": record["target_scope"],
         "health_score": f"{health_score}%",
-        "markdown_file": str(ROOT_AUDIT_FILE) if markdown_saved else "Failed to write AUDIT_REPORT.md",
-        "local_snapshot": str(snapshot_file) if local_json_saved else "None",
-        "firestore_status": firestore_status
+        "firestore_status": firestore_status,
+        "local_snapshot": str(snapshot_file) if local_json_saved else "None"
     }
     
-    return f"### 💾 Healthcheck Audit State Persisted:\n```json\n{json.dumps(output, indent=2)}\n```"
+    return f"### 💾 Healthcheck Audit State Persisted to Firestore:\n```json\n{json.dumps(output, indent=2)}\n```"
 
 def get_audit_history(limit: int = 5, model_name: Optional[str] = None) -> str:
     """

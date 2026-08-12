@@ -6,18 +6,33 @@ Upstream Skill Registry Ingestion, Safe Git Branch Patching, and Dual-Layer Pers
 """
 
 import os
-import certifi
 from pathlib import Path
-from dotenv import load_dotenv
 
-# Auto-configure SSL certificate bundle for macOS / aiohttp / Vertex AI
-os.environ.setdefault("SSL_CERT_FILE", certifi.where())
-os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
-os.environ.setdefault("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH", certifi.where())
+try:
+    import certifi
+    os.environ.setdefault("SSL_CERT_FILE", certifi.where())
+    os.environ.setdefault("REQUESTS_CA_BUNDLE", certifi.where())
+    os.environ.setdefault("GRPC_DEFAULT_SSL_ROOTS_FILE_PATH", certifi.where())
+except ImportError:
+    pass
 
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
-from google.adk.agents import Agent
+try:
+    from google.adk.agents import Agent
+except ImportError:
+    class Agent:  # Fallback lightweight mock for standalone CLI / Web mode
+        def __init__(self, name: str = "", model: str = "", description: str = "", instruction: str = "", tools: list = None, sub_agents: list = None):
+            self.name = name
+            self.model = model
+            self.description = description
+            self.instruction = instruction
+            self.tools = tools or []
+            self.sub_agents = sub_agents or []
 
 # Pillar 1 Tools (Instance & Content)
 from agent.tools.looker_api import (
@@ -40,7 +55,8 @@ from agent.tools.looker_api import (
     list_models,
     get_explore_schema,
     run_system_activity_kpis,
-    run_healthcheck_audit
+    run_healthcheck_audit,
+    execute_complete_healthcheck
 )
 
 # Pillar 2 Tools (LookML Modeling & Quality)
@@ -220,7 +236,7 @@ You execute the complete **30-Task Healthcheck Program** across all 3 Pillars:
    - If validation fails, inform the user that changes were safely rolled back with the compiler errors.
 
 ### State Persistence & Telemetry:
-5. **MANDATORY**: At the end of every healthcheck audit, you MUST call `save_audit_report(report_markdown, structured_findings, model_name, project_id)` to persist structured telemetry to Firestore (`looker-healthcheck-db`) and write `AUDIT_REPORT.md`.
+5. **MANDATORY**: At the end of every healthcheck audit, you MUST call `save_audit_report(report_markdown, structured_findings, model_name, project_id)` to persist structured telemetry to Firestore (`looker-healthcheck-db`) and present the full executive scorecard and findings directly to the user in chat.
 6. Use `get_audit_document()` to display stored Firestore records, and `get_audit_history()` to show historical trend comparisons when requested.
 """
 
@@ -245,6 +261,7 @@ ALL_30_TOOLS = [
     get_legacy_features,
     run_system_activity_kpis,
     run_healthcheck_audit,
+    execute_complete_healthcheck,
     
     # Pillar 2: LookML & Modeling
     run_lookml_validation,

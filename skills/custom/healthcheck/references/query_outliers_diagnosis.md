@@ -1,10 +1,12 @@
-# Query Outliers Diagnostic Framework (Deep-Dive)
+# Query Outliers Diagnostic & Forensic Isolation Playbook
 
-This reference document defines the **3-Way Outlier Decomposition** and per-phase maximum outlier isolation methodology extracted from the `google_cloud__query_outliers` dashboard.
+This reference document defines the **3-Way Outlier Decomposition** and per-phase maximum outlier isolation methodology for locating and remediating anomalous query runtimes.
 
 ---
 
-## 1. The 3-Way Outlier Decomposition Model
+## 🔍 Part 1: How to Review & Diagnose Outliers
+
+### 1. The 3-Way Outlier Decomposition Model
 
 When investigating slow queries, total runtime (`async_processing`) alone is misleading. Queries must be classified into one of three distinct root-cause buckets:
 
@@ -22,11 +24,11 @@ Sort: execute_main_query desc       Sort: (async - main_query) desc      Sort: q
 
 ---
 
-## 2. Per-Phase Maximum Outlier Isolation
+### 2. Per-Phase Maximum Outlier Isolation
 
-To pinpoint the exact architectural failure point on an instance, query the single worst query (`limit: 1`, `sort: [field desc]`) across every phase:
+To pinpoint the exact architectural failure point on an instance, query the single worst outlier across every query lifecycle phase:
 
-| Phase | Target Outlier Field | High Value Diagnostic Interpretation |
+| Phase | Target Outlier Field | High-Value Diagnostic Interpretation |
 | :--- | :--- | :--- |
 | **Async Total** | `query_metrics.async_processing` | Absolute worst user-facing query experience. |
 | **Queue Time** | `query_metrics.queued` | Looker worker pool exhausted; thread contention. |
@@ -50,62 +52,69 @@ To pinpoint the exact architectural failure point on an instance, query the sing
 
 ---
 
-## 3. Analytical Outlier Queries
+### 3. Outlier Extraction Telemetry Queries
 
-### A. Bottom 20 Queries by Database Execution Time
-```json
-{
-  "model": "system__activity",
-  "view": "query_metrics",
-  "fields": ["query.id", "query_metrics.execute_main_query_average"],
-  "sorts": ["query_metrics.execute_main_query_average desc"],
-  "limit": "20"
-}
-```
-
-### B. Bottom 20 Queries by Looker Processing / Overhead
+#### A. Bottom 20 Queries by Database Execution Time
 ```json
 {
   "model": "system__activity",
   "view": "query_metrics",
   "fields": [
     "query.id",
-    "query_metrics.async_processing",
+    "query.model",
+    "query.view",
+    "dashboard.title",
     "query_metrics.execute_main_query"
   ],
+  "filters": {
+    "history.created_date": "7 days"
+  },
+  "sorts": ["query_metrics.execute_main_query desc"],
+  "limit": "20"
+}
+```
+
+#### B. Bottom 20 Queries by Looker Processing / Overhead
+```json
+{
+  "model": "system__activity",
+  "view": "query_metrics",
+  "fields": [
+    "query.id",
+    "query.model",
+    "query.view",
+    "query_metrics.async_processing",
+    "query_metrics.execute_main_query",
+    "query_metrics.postprocessing"
+  ],
+  "filters": {
+    "history.created_date": "7 days"
+  },
   "sorts": ["query_metrics.async_processing desc"],
   "limit": "20"
 }
 ```
 
-### C. Explores, Models, Dashboards, and Users Outliers
-```json
-# Top 20 Explores by Async Runtime
-{
-  "model": "system__activity",
-  "view": "query_metrics",
-  "fields": ["query.view", "query_metrics.async_processing_average"],
-  "sorts": ["query_metrics.async_processing_average desc"],
-  "limit": "20"
-}
+---
 
-# Top 20 Dashboards by Async Runtime
-{
-  "model": "system__activity",
-  "view": "query_metrics",
-  "fields": ["dashboard.title", "query_metrics.async_processing_average"],
-  "filters": {"dashboard.title": "-NULL"},
-  "sorts": ["query_metrics.async_processing_average desc"],
-  "limit": "20"
-}
+## 🛠️ Part 2: How to Rectify & Remediate Outliers
 
-# Top 20 Users by Async Runtime
-{
-  "model": "system__activity",
-  "view": "query_metrics",
-  "fields": ["user.name", "query_metrics.async_processing_average"],
-  "filters": {"user.name": "-NULL"},
-  "sorts": ["query_metrics.async_processing_average desc"],
-  "limit": "20"
-}
-```
+### Protocol 1: Remediating Database Outliers (`execute_main_query > 15.0s`)
+1. **Analyze Generated SQL & EXPLAIN Plan**:
+   * Copy the query SQL from Looker and run `EXPLAIN` in BigQuery / Snowflake. Look for unpruned partition scans or high-cardinality nested joins.
+2. **Apply Partition/Cluster Filter Guards**:
+   * Enforce `conditionally_filter` in the explore to prevent full-table historical scans.
+3. **Materialize into PDTs**:
+   * If a query joins 5+ tables with complex row aggregations, build a Persistent Derived Table with `datagroup_trigger:`.
+
+### Protocol 2: Remediating Looker Overhead Outliers (`postprocessing > 0.5s`)
+1. **Prune High-Cardinality Pivots**:
+   * Pivots containing $>50$ unique columns generate extreme browser rendering lag. Limit pivots to small categorical dimensions.
+2. **Remove Complex String Table Calculations**:
+   * Replace regex-heavy frontend table calculations with database SQL dimensions.
+
+### Protocol 3: Remediating Throttler & Queue Outliers (`per_user_throttler > 0.0s`)
+1. **Deconstruct Multiplying Dashboards**:
+   * Large dashboards with $>25$ tiles trigger Looker's 15 queries/node limit, putting subsequent tiles in a wait state. Deconstruct into tabs.
+2. **Eliminate Merged Tiles**:
+   * Merged tiles run $N$ independent queries per tile simultaneously, quickly exhausting user concurrency limits.

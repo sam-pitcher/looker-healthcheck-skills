@@ -4,15 +4,20 @@ Implements Pillar 3 & BigQuery Performance Checks (Tasks 21, 25, 30).
 """
 
 import os
+import re
 import json
+from functools import lru_cache
 from typing import Dict, Any, Optional, List
-from dotenv import load_dotenv
-
-load_dotenv()
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+except ImportError:
+    pass
 
 GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "")
 GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
 
+@lru_cache(maxsize=4)
 def _get_bq_client(project_id: Optional[str] = None):
     try:
         from google.cloud import bigquery
@@ -20,6 +25,10 @@ def _get_bq_client(project_id: Optional[str] = None):
         return bigquery.Client(project=proj, location=GCP_LOCATION)
     except Exception:
         return None
+
+def _sanitize_identifier(name: str) -> str:
+    """Strips any non-alphanumeric characters except underscores and hyphens."""
+    return re.sub(r"[^a-zA-Z0-9_\-]", "", name)
 
 # ==============================================================================
 # PILLAR 3: BIGQUERY INTEGRATION & DATABASE OPTIMIZATION (Tasks 21 to 30)
@@ -63,7 +72,9 @@ def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str]
     Queries BigQuery INFORMATION_SCHEMA to map warehouse ELT completion timestamps to Looker datagroup triggers.
     """
     pid = project_id or GCP_PROJECT_ID
-    reg = region or GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us"
+    raw_reg = region or (GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us")
+    reg = _sanitize_identifier(raw_reg) or "us"
+    safe_hours = max(1, min(int(hours), 168))
     client = _get_bq_client(pid)
     
     query = f"""
@@ -77,7 +88,7 @@ def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str]
     FROM
       `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
     WHERE
-      creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR)
+      creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_hours} HOUR)
       AND statement_type IN ('INSERT', 'MERGE', 'CREATE_TABLE_AS_SELECT')
     ORDER BY end_time DESC
     LIMIT 20;
@@ -99,12 +110,16 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
     Audits bytes scanned, GB billed, and on-demand costs for all queries executed by Looker using BigQuery INFORMATION_SCHEMA.
     """
     pid = project_id or GCP_PROJECT_ID
-    reg = region or GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us"
+    raw_reg = region or (GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us")
+    reg = _sanitize_identifier(raw_reg) or "us"
+    safe_hours = max(1, min(int(hours), 168))
     client = _get_bq_client(pid)
     
     filter_clause = "(query LIKE '%Looker%' OR query LIKE '%-- Looker%')"
     if model_name:
-        filter_clause += f" AND (query LIKE '%{model_name}%' OR query LIKE '%lookml_model: {model_name}%')"
+        clean_model = _sanitize_identifier(model_name)
+        if clean_model:
+            filter_clause += f" AND (query LIKE '%{clean_model}%' OR query LIKE '%lookml_model: {clean_model}%')"
 
     query = f"""
     SELECT
@@ -115,7 +130,7 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
     FROM
       `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
     WHERE
-      creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR)
+      creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_hours} HOUR)
       AND {filter_clause}
     GROUP BY 1
     ORDER BY hour_window DESC
@@ -129,7 +144,7 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
         query_job = client.query(query)
         results = [dict(row) for row in query_job.result()]
         scope_str = f"for model `{model_name}`" if model_name else "across instance"
-        return f"### 💰 Looker BigQuery Cost & Bytes Billed (Past {hours}h - {scope_str}):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
+        return f"### 💰 Looker BigQuery Cost & Bytes Billed (Past {safe_hours}h - {scope_str}):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
     except Exception as e:
         return f"Cost audit query:\n```sql\n{query}\n```\n*(Execution note: {str(e)})*"
 

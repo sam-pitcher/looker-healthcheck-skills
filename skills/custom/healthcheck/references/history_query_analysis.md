@@ -1,10 +1,12 @@
-# History Query Analysis & Persona Profiling (Deep-Dive)
+# History Query Analysis & Persona Profiling Playbook
 
-This reference document defines the **Persona-Based Query Segmentation**, **Query Complexity Categorization (Clean vs Feature-Laden)**, and **Dashboard Error/Killed Query Rate** metrics extracted from the `google_pso__history_query_analysis` dashboard.
+This reference document defines the **Persona-Based Query Segmentation**, **Query Complexity Categorization (Clean vs Feature-Laden)**, and **Dashboard Error/Killed Query Rate** metrics for evaluating user experience and query stability.
 
 ---
 
-## 1. User Persona Query Profiling
+## 🔍 Part 1: How to Review & Diagnose History Telemetry
+
+### 1. User Persona Query Profiling
 
 Segmenting query performance by user tier isolates whether slow queries impact developers, ad-hoc analysts, or broad executive viewers:
 
@@ -17,9 +19,9 @@ Segmenting query performance by user tier isolates whether slow queries impact d
 
 ---
 
-## 2. Query Complexity Classification: Clean vs Feature-Laden
+### 2. Query Complexity Classification: Clean vs Feature-Laden
 
-Understanding whether latency comes from base SQL or client-side transformations:
+Understanding whether query latency stems from base warehouse SQL or client-side UI transformations:
 
 ```
                                   LOOKER QUERY COMPLEXITY
@@ -37,20 +39,21 @@ Baseline SQL performance.            Remediation: Migrate to LookML.      Separa
 
 ---
 
-## 3. Error Rate & Killed Query Diagnostics
+### 3. Error Rate & Killed Query Diagnostics
 
-### Formulas:
+#### Mathematical Formulas:
 $$ \text{Dashboard Error Rate \%} = \frac{\text{Count of Database Queries with Status 'error'}}{\text{Total Database Queries for Dashboard}} \times 100 $$
+
 $$ \text{Dashboard Killed Rate \%} = \frac{\text{Count of Database Queries with Status 'killed'}}{\text{Total Database Queries for Dashboard}} \times 100 $$
 
 > [!IMPORTANT]
-> **Killed Query Warning**: Dashboards with a high **Killed Query Rate** indicate end-user abandonment. Users are hitting "Cancel" or closing their browser tabs because the dashboard takes too long to load.
+> **Killed Query Warning**: Dashboards with a high **Killed Query Rate** ($>5\%$) indicate end-user abandonment. Users are hitting "Cancel" or closing their browser tabs because the dashboard takes too long to load.
 
 ---
 
-## 4. Analytical System Activity Queries
+### 4. Telemetry Extraction Queries (System Activity)
 
-### A. Dashboard Error & Killed Rates
+#### A. Dashboard Error & Killed Rates
 ```json
 {
   "model": "system__activity",
@@ -69,7 +72,7 @@ $$ \text{Dashboard Killed Rate \%} = \frac{\text{Count of Database Queries with 
 }
 ```
 
-### B. Top 50 Most Frequent Errors
+#### B. Top 50 Most Frequent Errors
 ```json
 {
   "model": "system__activity",
@@ -81,13 +84,28 @@ $$ \text{Dashboard Killed Rate \%} = \frac{\text{Count of Database Queries with 
 }
 ```
 
-### C. Top 20 Most Frequent Queries (Candidates for Aggregate Awareness)
-```json
-{
-  "model": "system__activity",
-  "view": "history",
-  "fields": ["history.query_run_count", "query.link", "query.model", "query.view"],
-  "sorts": ["history.query_run_count desc"],
-  "limit": "20"
-}
-```
+---
+
+## 🛠️ Part 2: How to Rectify & Remediate User Experience Friction
+
+### Remediation Protocol 1: Decreasing Killed Query Abandonment (`Killed % > 5%`)
+1. **Locate Abandoned Dashboards**:
+   * Run Query 4A above to identify the specific dashboard IDs with the highest killed query counts.
+2. **Apply 10-Point Optimization**:
+   * Follow [single_dashboard_optimization.md](single_dashboard_optimization.md) to split tiles into tabs, enforce filters, and apply datagroup caching.
+
+---
+
+### Remediation Protocol 2: Resolving Frequent Database Error Messages
+1. **Analyze Error Messages in Query 4B**:
+   * **"Table not found"**: Upstream database table was renamed/dropped without updating LookML `sql_table_name:`.
+   * **"Query exceeded memory limit"**: Un-paged query or high-cardinality pivot exceeded warehouse memory. Apply partition filters.
+   * **"Permission denied"**: Service account credentials lost access to warehouse schema. Update connection credentials in Admin.
+
+---
+
+### Remediation Protocol 3: Migrating Ad-Hoc UI Custom Fields to LookML
+1. **Identify Frequent Custom Field Explores**:
+   * Filter `history` where `query.dynamic_fields` is `-EMPTY`.
+2. **Standardize into LookML Views**:
+   * If multiple business users repeatedly create the same ad-hoc dimension or table calculation in the UI, write it directly as a permanent dimension or measure in the view file with a clear `description:`.

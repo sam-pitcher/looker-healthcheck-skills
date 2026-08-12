@@ -41,7 +41,7 @@ resource "google_firestore_database" "healthcheck_db" {
   ]
 }
 
-# 3. Create Composite Index for Multi-Tenant Time-Series Querying
+# 3. Create Composite Index for Multi-Tenant Time-Series Querying (Instance-Level)
 resource "google_firestore_index" "healthcheck_timeseries_index" {
   project    = var.project_id
   database   = google_firestore_database.healthcheck_db.name
@@ -49,6 +49,27 @@ resource "google_firestore_index" "healthcheck_timeseries_index" {
 
   fields {
     field_path = "instance_url"
+    order      = "ASCENDING"
+  }
+
+  fields {
+    field_path = "timestamp"
+    order      = "DESCENDING"
+  }
+
+  depends_on = [
+    google_firestore_database.healthcheck_db
+  ]
+}
+
+# 4. Create Composite Index for Model-Scoped Historical Trend Querying
+resource "google_firestore_index" "healthcheck_model_timeseries_index" {
+  project    = var.project_id
+  database   = google_firestore_database.healthcheck_db.name
+  collection = "looker_healthchecks"
+
+  fields {
+    field_path = "target_scope.model_name"
     order      = "ASCENDING"
   }
 

@@ -1,12 +1,14 @@
-# Single Dashboard Optimization & Forensic Audit (Deep-Dive)
+# Single Dashboard Forensic Audit & Optimization Playbook
 
-This reference document defines the **Single Dashboard Forensic Audit Framework** extracted from the `google_pso__dashboard_optimisation_` dashboard. It provides the exact 10-point checklist and per-tile breakdown query for optimizing any individual Looker dashboard.
+This reference document defines the **10-Point Forensic Audit Framework** for evaluating, diagnosing, and optimizing individual mission-critical Looker dashboards.
 
 ---
 
-## 1. The 10-Point Dashboard Optimization Checklist
+## 🔍 Part 1: How to Review & Diagnose a Single Dashboard
 
-When diagnosing a slow dashboard (`Dashboard ID`), evaluate these 10 architectural criteria:
+### 1. The 10-Point Dashboard Optimization Checklist
+
+When diagnosing a specific slow dashboard (`dashboard_id`), audit against these 10 architectural criteria:
 
 ```
  ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -29,11 +31,11 @@ When diagnosing a slow dashboard (`Dashboard ID`), evaluate these 10 architectur
 
 ---
 
-## 2. Forensic Single-Dashboard Queries
+### 2. Forensic Single-Dashboard Queries (System Activity)
 
-### A. Dashboard 360-Degree Metadata Scorecard
-```bash
-looker-cli api query run_inline_query --body '{
+#### A. Dashboard 360-Degree Metadata Scorecard
+```json
+{
   "model": "system__activity",
   "view": "dashboard",
   "fields": [
@@ -52,13 +54,12 @@ looker-cli api query run_inline_query --body '{
     "dashboard.moved_to_trash": "No"
   },
   "limit": "1"
-}' --verify-ssl=false
+}
 ```
 
-### B. Per-Tile Query Lifecycle Breakdown (Isolate Slowest Tiles)
-Identify which specific tiles are database-bound vs post-processing bound:
-```bash
-looker-cli api query run_inline_query --body '{
+#### B. Per-Tile Query Lifecycle Breakdown (Isolate Slowest Tiles)
+```json
+{
   "model": "system__activity",
   "view": "query_metrics",
   "fields": [
@@ -78,38 +79,25 @@ looker-cli api query run_inline_query --body '{
   },
   "sorts": ["history.average_runtime desc"],
   "limit": "50"
-}' --verify-ssl=false
-```
-
-### C. Row Limit & Custom Field Audit per Tile
-```bash
-looker-cli api query run_inline_query --body '{
-  "model": "system__activity",
-  "view": "dashboard",
-  "fields": [
-    "dashboard_element.id",
-    "dashboard_element.title",
-    "query.limit",
-    "query.dynamic_fields",
-    "query.formatted_pivots"
-  ],
-  "filters": {
-    "dashboard.id": "<TARGET_DASHBOARD_ID>",
-    "dashboard_element.type": "vis,data"
-  },
-  "limit": "50"
-}' --verify-ssl=false
+}
 ```
 
 ---
 
-## 3. High-Impact Remediation Recipes
+## 🛠️ Part 2: How to Rectify & Remediate a Slow Dashboard
 
-### 1. Disable "Run on Load" for Filter-Heavy Dashboards
-* If a dashboard requires users to select specific date ranges, accounts, or regions before analyzing, uncheck **Run on Load**. This prevents 15-25 default unpartitioned queries from firing upon every page open.
+### Step 1: Clamp Tile Row Limits
+* Inspect single-value KPI cards and gauge visualizations.
+* In the tile explore edit mode, change `Limit` from default 5000 to **`1`** or **`10`**.
 
-### 2. Rightsize Row Limits
-* Ensure single-value cards, pie charts, and top-10 bar charts set `limit: 10` or `limit: 50` rather than defaulting to `limit: 5000`.
+### Step 2: Enforce Global Dashboard Filters
+* Add a global **Date Range** filter (e.g. `Created Date: past 30 days`) and link it to all tiles.
+* Un-filtered dashboards force each tile to scan entire historical tables on load.
 
-### 3. Replace High-Cardinality Pivots with Native Metrics
-* Instead of pivoting a dimension with 50 unique values (creating 50 memory columns), define specific filtered measures in LookML (e.g. `type: sum`, `filters: [status: "complete"]`).
+### Step 3: Eliminate Merged Query Tiles
+* Identify tiles where `dashboard_element.count_merge_query > 0`.
+* In LookML, create a unified Explore joining the primary and secondary views directly.
+* Replace the merged tile with a standard single-explore tile.
+
+### Step 4: Disable "Run on Load" on Unfiltered Dashboards
+* In dashboard settings, uncheck **Run on load** if users are expected to select specific account/customer filters before viewing data.

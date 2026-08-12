@@ -22,7 +22,8 @@ from .looker_api import (
     list_models,
     get_explore_schema,
     run_system_activity_kpis,
-    run_healthcheck_audit
+    run_healthcheck_audit,
+    execute_complete_healthcheck
 )
 
 from .lookml_fs import (
@@ -87,6 +88,7 @@ __all__ = [
     "get_explore_schema",
     "run_system_activity_kpis",
     "run_healthcheck_audit",
+    "execute_complete_healthcheck",
     "run_lookml_validation",
     "audit_primary_keys",
     "audit_join_relationships",

@@ -7,7 +7,6 @@ Discovers, indexes, and injects pure knowledge playbooks from:
 
 import os
 import glob
-import yaml
 from pathlib import Path
 from typing import Dict, Any, List, Optional
 
@@ -19,14 +18,16 @@ class LookerSkillRegistry:
             self.base_dirs = [Path(d) for d in base_dirs]
         else:
             self.base_dirs = [
+                ROOT_DIR / ".agents" / "skills",
+                ROOT_DIR / "skills" / "custom",
                 ROOT_DIR / "skills" / "vendor" / "looker-skills" / "skills",
-                ROOT_DIR / "skills" / "custom"
+                ROOT_DIR / "skills"
             ]
         self.registry: Dict[str, Dict[str, Any]] = {}
         self.load_all_skills()
 
     def load_all_skills(self):
-        """Discovers and indexes all pure knowledge SKILL.md files across vendor and custom directories."""
+        """Discovers and indexes all pure knowledge SKILL.md files across IDE, vendor, and custom directories."""
         self.registry = {}
         for base_dir in self.base_dirs:
             if not base_dir.exists():
@@ -39,14 +40,32 @@ class LookerSkillRegistry:
                 skill_data = self._parse_skill_file(filepath)
                 if skill_data and "name" in skill_data:
                     name = skill_data["name"]
-                    source = "vendor" if "vendor" in str(filepath) else "custom"
+                    str_path = str(filepath)
+                    if ".agents" in str_path:
+                        source = "ide"
+                    elif "vendor" in str_path:
+                        source = "vendor"
+                    else:
+                        source = "custom"
+                    
+                    # Discover references if available in references/ subfolder
+                    refs = {}
+                    refs_dir = filepath.parent / "references"
+                    if refs_dir.exists() and refs_dir.is_dir():
+                        for ref_file in sorted(refs_dir.glob("*.md")):
+                            try:
+                                refs[ref_file.name] = ref_file.read_text(encoding="utf-8")
+                            except Exception:
+                                pass
+
                     if name not in self.registry:
                         self.registry[name] = {
                             "name": name,
                             "path": str(filepath),
                             "description": skill_data.get("description", ""),
                             "content": skill_data.get("body", ""),
-                            "source": source
+                            "source": source,
+                            "references": refs
                         }
 
     def _parse_skill_file(self, filepath: Path) -> Optional[Dict[str, Any]]:
@@ -55,7 +74,16 @@ class LookerSkillRegistry:
             if raw_text.startswith("---"):
                 parts = raw_text.split("---", 2)
                 if len(parts) >= 3:
-                    frontmatter = yaml.safe_load(parts[1]) or {}
+                    frontmatter = {}
+                    try:
+                        import yaml
+                        frontmatter = yaml.safe_load(parts[1]) or {}
+                    except Exception:
+                        # Fallback simple line-by-line key: value parser
+                        for line in parts[1].strip().split("\n"):
+                            if ":" in line:
+                                k, v = line.split(":", 1)
+                                frontmatter[k.strip()] = v.strip().strip("'\"")
                     body = parts[2].strip()
                     frontmatter["body"] = body
                     if "name" not in frontmatter:

@@ -1,3 +1,17 @@
-from agent.agent import root_agent, content_agent, lookml_agent, bq_agent
+"""
+Looker Healthcheck & Optimization Multi-Agent Package.
+Re-exports canonical agents, tools, and registry from `agent`.
+"""
 
-__all__ = ["root_agent", "content_agent", "lookml_agent", "bq_agent"]
+from agent.agent import root_agent, content_agent, lookml_agent, bq_agent
+from agent.skills_registry import skill_registry, get_skill_content, list_registered_skills
+
+__all__ = [
+    "root_agent",
+    "content_agent",
+    "lookml_agent",
+    "bq_agent",
+    "skill_registry",
+    "get_skill_content",
+    "list_registered_skills"
+]

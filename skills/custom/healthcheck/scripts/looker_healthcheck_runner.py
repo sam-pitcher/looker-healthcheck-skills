@@ -28,6 +28,13 @@ PSO_BENCHMARKS = {
     "project_init": {"target": 0.10, "warning": 0.10, "critical": 0.25, "unit": "s", "label": "Project Init Time"}
 }
 
+LOOKER_VERIFY_SSL = os.getenv("LOOKER_VERIFY_SSL", "true").lower() in ("true", "1", "yes", "t")
+
+def get_ssl_context():
+    if LOOKER_VERIFY_SSL:
+        return ssl.create_default_context()
+    return ssl._create_unverified_context()
+
 def load_config():
     """Load Looker settings from environment variables or standard config."""
     return {
@@ -39,7 +46,7 @@ def load_config():
 
 def authenticate(config):
     """Authenticate and obtain API access token."""
-    ssl_context = ssl._create_unverified_context()
+    ssl_context = get_ssl_context()
     login_url = f"{config['base_url']}/api/4.0/login"
     payload = urllib.parse.urlencode({
         "client_id": config["client_id"],
@@ -53,7 +60,7 @@ def authenticate(config):
 
 def run_inline_query(config, token, model, view, fields, filters=None, sorts=None, limit="50"):
     """Execute an inline query against Looker API."""
-    ssl_context = ssl._create_unverified_context()
+    ssl_context = get_ssl_context()
     query_url = f"{config['base_url']}/api/4.0/queries/run/json"
     body = {
         "model": model,
@@ -264,13 +271,7 @@ def main():
     
     token = authenticate(config)
     report_md = generate_healthcheck_report(config, token)
-    
-    output_dir = os.getcwd()
-    report_file = os.path.join(output_dir, "AUDIT_REPORT.md")
-    with open(report_file, "w") as f:
-        f.write(report_md)
-    
-    print(f"\nHealthcheck report successfully generated at:\n{report_file}")
+    print(report_md)
 
 if __name__ == "__main__":
     main()

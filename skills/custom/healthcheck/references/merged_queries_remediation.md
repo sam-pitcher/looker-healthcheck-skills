@@ -1,12 +1,14 @@
-# Merged Queries Diagnostic & Remediation Playbook (Deep-Dive)
+# Merged Queries Diagnostic & Native LookML Remediation Playbook
 
-This reference document defines the risks, diagnostic audit queries, and native LookML migration protocols extracted from the `google_pso__merged_queries` dashboard.
+This reference document defines the operational risks, diagnostic detection queries, and step-by-step LookML refactoring workflows for eliminating in-memory merged queries.
 
 ---
 
-## 1. Why Merged Queries Degrade Cluster Performance
+## 🔍 Part 1: How to Review & Diagnose Merged Queries
 
-A Looker Merged Query is an **in-memory, client-side join** that bypasses database optimization:
+### 1. Why Merged Queries Degrade Cluster Performance
+
+A Looker Merged Query is an **in-memory, client-side join** performed inside the Looker JVM rather than in the database warehouse:
 
 ```
  ┌─────────────────────────────────────────────────────────────────────────────────────────────┐
@@ -20,25 +22,15 @@ A Looker Merged Query is an **in-memory, client-side join** that bypasses databa
 ```
 
 > [!WARNING]
-> **Performance Threat**: Merged queries lock Looker worker threads in heavy `postprocessing`, cause out-of-memory (OOM) crashes on large datasets, and trigger `per_user_throttler` queueing for other users on the instance.
+> **Performance Impact**: Merged queries lock worker threads in heavy `postprocessing`, risk Out-Of-Memory (OOM) instance restarts on large datasets, and trigger `per_user_throttler` queueing for concurrent users.
 
 ---
 
-## 2. Key Diagnostic Thresholds
+### 2. Diagnostic Telemetry Queries (System Activity)
 
-| Metric | System Activity Field / Formula | Target | Warning Threshold | Critical Threshold |
-| :--- | :--- | :---: | :---: | :---: |
-| **Merged Query % of Total** | `merge_queries / total_queries` | **`< 1.0%`** | `> 5.0%` | `> 10.0%` |
-| **Source Queries per Tile** | `merge_query_source_query.count` | **`1` (No merge)** | `2` | `≥ 3` |
-| **Compound Overhead** | Merge Query + Dynamic Fields + Pivots | **`None`** | Any table calc | Table calc + Pivot |
-
----
-
-## 3. Diagnostic Audit Queries
-
-### A. Dashboards with Highest Merged Query Concentration
-```bash
-looker-cli api query run_inline_query --body '{
+#### A. Dashboards with Highest Merged Query Concentration
+```json
+{
   "model": "system__activity",
   "view": "dashboard",
   "fields": [
@@ -53,12 +45,12 @@ looker-cli api query run_inline_query --body '{
   },
   "sorts": ["dashboard_element.count_merge_query desc"],
   "limit": "25"
-}' --verify-ssl=false
+}
 ```
 
-### B. Worst Merged Queries (High Source Counts, Pivots, Table Calculations)
-```bash
-looker-cli api query run_inline_query --body '{
+#### B. Worst Merged Queries (High Source Counts & Compound Overhead)
+```json
+{
   "model": "system__activity",
   "view": "dashboard",
   "fields": [
@@ -71,44 +63,79 @@ looker-cli api query run_inline_query --body '{
     "merge_query.dynamic_fields"
   ],
   "filters": {
-    "merge_query.id": "NOT NULL",
+    "merge_query.id": "-NULL",
     "dashboard.moved_to_trash": "No"
   },
   "sorts": ["merge_query_source_query.count desc"],
   "limit": "25"
-}' --verify-ssl=false
+}
 ```
 
 ---
 
-## 4. Step-by-Step LookML Migration Playbook
+## 🛠️ Part 2: How to Rectify & Remediate Merged Queries
 
-### Step 1: Analyze the Merged Query Components
-Inspect the source explores, fields, and join keys used in the merged result.
+### Step 1: Inspect Merged Query Components
+Examine the merge query definition in the UI or System Activity to identify:
+1. Primary Source Explore & Fields
+2. Secondary Source Explore(s) & Fields
+3. Join Link Dimension (e.g. `order_date` or `customer_id`)
 
-### Step 2: Implement Native LookML Join or Derived Table
-Instead of performing an in-memory merge, model the relationship natively:
+---
 
+### Step 2: Refactor into Native LookML Explore Join or PDT
+
+#### Scenario A: Direct Join Available in LookML
+If the two views share a common join key, add the join directly to the explore definition:
 ```lookml
-# ANTI-PATTERN (In-Memory Merged Result in Dashboard UI)
-# Explore 1: Orders (5,000 rows) MERGED WITH Explore 2: Ad_Spend (5,000 rows)
-
-# REFACTORED BEST PRACTICE (Native LookML Join or PDT)
-view: order_ad_spend_summary {
-  derived_table: {
-    sql:
-      SELECT
-        o.order_date,
-        o.country,
-        SUM(o.order_amount) AS total_revenue,
-        SUM(a.spend) AS total_ad_spend
-      FROM ${orders.SQL_TABLE_NAME} o
-      LEFT JOIN ${ad_spend.SQL_TABLE_NAME} a
-        ON o.order_date = a.date AND o.country = a.country
-      GROUP BY 1, 2 ;;
+# explores/orders.explore.lkml
+explore: orders {
+  join: marketing_ad_spend {
+    type: left_outer
+    relationship: many_to_one
+    sql_on: ${orders.created_date} = ${marketing_ad_spend.date}
+        AND ${orders.campaign_id} = ${marketing_ad_spend.campaign_id} ;;
   }
 }
 ```
 
+#### Scenario B: Grain Mismatch (Requires Pre-Aggregated PDT)
+When joining datasets of differing grains (e.g. daily ad spend with individual transaction orders), pre-aggregate the fact dataset in a Persistent Derived Table:
+```lookml
+# views/daily_ad_spend_summary.view.lkml
+view: daily_ad_spend_summary {
+  derived_table: {
+    datagroup_trigger: daily_etl_datagroup
+    sql:
+      SELECT
+        date,
+        campaign_id,
+        SUM(spend) AS total_ad_spend
+      FROM `project.dataset.marketing_spend`
+      GROUP BY 1, 2 ;;
+  }
+
+  dimension: date {
+    type: date
+    sql: ${TABLE}.date ;;
+  }
+
+  dimension: campaign_id {
+    type: string
+    sql: ${TABLE}.campaign_id ;;
+  }
+
+  measure: total_spend {
+    type: sum
+    sql: ${TABLE}.total_ad_spend ;;
+    value_format_name: usd
+  }
+}
+```
+
+---
+
 ### Step 3: Replace Dashboard Tile
-Point the dashboard tile to the new native LookML explore, eliminating in-memory processing and enabling full database pushdown caching.
+1. Re-open the target dashboard.
+2. Edit the merged tile and replace it with the new native Explore.
+3. Verify that completed tile runtime drops from $>10\text{s}$ (in-memory merge) to $<1\text{s}$ (warehouse-accelerated SQL).

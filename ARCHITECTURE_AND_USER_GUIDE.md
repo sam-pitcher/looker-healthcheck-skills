@@ -71,9 +71,9 @@ To understand how the system operates and stays modular, it is essential to dist
 
 | Concept | What It Is | Purpose | Where Defined | Portability |
 | :--- | :--- | :--- | :--- | :--- |
-| **Tool** | **Executable Python Function** | Performs concrete operations: executes HTTP calls against Looker API, queries BigQuery, invokes Henry/looker-cli subprocesses, modifies `.lkml` files on disk, or writes to Firestore. | [`agent/tools/*.py`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/tools/) | Python / ADK Runtime |
-| **Agent Prompt** | **ADK Sub-Agent System Instruction** | Tells the Gemini LLM *which Python tools to call* for a specific pillar in this ADK graph. | [`agent/prompts/*.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/agent/prompts/) | Bound to this ADK Agent |
-| **Skill** | **Pure Knowledge & Decision Playbook** | 100% tool-agnostic domain guidelines, LookML modeling patterns, decision matrices, SQL queries, and diagnostic benchmarks. | [`skills/custom/`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/) and [`skills/vendor/`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/) | **100% Portable** (Claude, Cursor, Copilot, Humans) |
+| **Tool** | **Executable Python Function** | Performs concrete operations: executes HTTP calls against Looker API, queries BigQuery, invokes Henry/looker-cli subprocesses, modifies `.lkml` files on disk, or writes to Firestore. | [`agent/tools/`](agent/tools/) | Python / ADK Runtime |
+| **Agent Prompt** | **ADK Sub-Agent System Instruction** | Tells the Gemini LLM *which Python tools to call* for a specific pillar in this ADK graph. | [`agent/prompts/`](agent/prompts/) | Bound to this ADK Agent |
+| **Skill** | **Pure Knowledge & Decision Playbook** | 100% tool-agnostic domain guidelines, LookML modeling patterns, decision matrices, SQL queries, and diagnostic benchmarks. | [`skills/custom/`](skills/custom/) and [`skills/vendor/`](skills/vendor/) | **100% Portable** (Claude, Cursor, Copilot, Humans) |
 
 ### Tool Breakdown:
 1. **`agent/tools/looker_api.py`**:
@@ -268,7 +268,7 @@ To run a headless healthcheck in terminal or as part of a GitHub Actions / Cloud
 ```bash
 .venv/bin/python main.py
 ```
-* Generates [`AUDIT_REPORT.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/AUDIT_REPORT.md).
+* Generates [`AUDIT_REPORT.md`](AUDIT_REPORT.md).
 * Persists telemetry to Firestore.
 * Exits with code `0` on success or non-zero on failure.
 

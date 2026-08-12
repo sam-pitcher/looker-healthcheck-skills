@@ -1,12 +1,14 @@
-# Large Dashboards & Auto-Refresh Optimization (Deep-Dive)
+# Large Dashboards & Auto-Refresh Optimization Playbook
 
-This reference document defines the **Large Dashboard Decomposition Rules**, **Auto-Refresh Audit**, and **Queries-Per-Run Ratios** extracted from the `google_pso__large_dashboards__query_count` dashboard.
+This reference document defines the **Large Dashboard Decomposition Rules**, **Auto-Refresh Audit Standards**, and **Queries-Per-Run Ratios** for eliminating frontend rendering lag and worker queue contention.
 
 ---
 
-## 1. The >25 Query Tile Rule & Anti-Patterns
+## 🔍 Part 1: How to Review & Diagnose Dashboard Complexity
 
-A dashboard's complexity is measured by its **Total Query Tiles**, which excludes markdown/text headers:
+### 1. The >25 Query Tile Rule
+
+A dashboard's query load is measured by its **Total Query Tiles** (excluding static markdown text headers):
 
 $$ \text{Total Query Tiles} = \text{dashboard\_element.count} - \text{dashboard\_element.count\_text} $$
 
@@ -23,23 +25,23 @@ $$ \text{Total Query Tiles} = \text{dashboard\_element.count} - \text{dashboard\
 
 ---
 
-## 2. Auto-Refresh Audit (The Silent Resource Drain)
+### 2. Auto-Refresh Audit Standards
 
 Auto-refreshing dashboard tiles run continuous background queries even when no human is viewing the screen:
 
-| Refresh Interval | Impact Assessment | Recommended Remediation |
+| Refresh Interval | Impact Assessment | Mandatory Remediation Protocol |
 | :--- | :--- | :--- |
-| **`< 5 Minutes`** | **CRITICAL**: Saturates DB connection pools & drains warehouse budget. | Increase to `> 30 mins` or link to PDT trigger. |
-| **`5 - 30 Minutes`**| **HIGH**: Creates regular queue spikes during peak hours. | Align interval with data pipeline load frequency. |
-| **`> 30 Minutes`** | **ACCEPTABLE**: Safe for wallboard displays. | Ensure dashboard is marked for TV use only. |
+| **`< 5 Minutes`** | **CRITICAL**: Saturates DB connection pools & drains warehouse budget. | Increase to `> 30 mins` or link to PDT ETL trigger. |
+| **`5 - 30 Minutes`**| **HIGH**: Creates regular queue spikes during peak business hours. | Align interval with warehouse data pipeline frequency. |
+| **`> 30 Minutes`** | **ACCEPTABLE**: Safe for wallboard / TV displays. | Ensure dashboard is marked for TV use only. |
 
 ---
 
-## 3. Diagnostic System Activity Queries
+### 3. Diagnostic Telemetry Queries (System Activity)
 
-### A. Large Dashboards Exceeding 25 Tiles
-```bash
-looker-cli api query run_inline_query --body '{
+#### A. Dashboards Exceeding 25 Query Tiles
+```json
+{
   "model": "system__activity",
   "view": "dashboard",
   "fields": [
@@ -57,12 +59,12 @@ looker-cli api query run_inline_query --body '{
   },
   "sorts": ["dashboard_element.count desc"],
   "limit": "50"
-}' --verify-ssl=false
+}
 ```
 
-### B. Auto-Refresh Dashboards & Refresh Frequency
-```bash
-looker-cli api query run_inline_query --body '{
+#### B. Active Auto-Refresh Dashboards
+```json
+{
   "model": "system__activity",
   "view": "dashboard",
   "fields": [
@@ -72,40 +74,39 @@ looker-cli api query run_inline_query --body '{
   ],
   "filters": {
     "dashboard.moved_to_trash": "No",
-    "dashboard_element.refresh_interval_ordered": "NOT NULL"
+    "dashboard_element.refresh_interval_ordered": "-NULL"
   },
   "sorts": ["dashboard_element.refresh_interval_ordered asc"],
   "limit": "50"
-}' --verify-ssl=false
-```
-
-### C. Queries Per Dashboard Run Ratio
-```bash
-looker-cli api query run_inline_query --body '{
-  "model": "system__activity",
-  "view": "dashboard_performance",
-  "fields": [
-    "dashboard.title",
-    "history.dashboard_run_count",
-    "history.query_run_count_drill",
-    "dashboard_history_stats.avg_tile_runtime"
-  ],
-  "filters": {
-    "history.completed_date": "7 days",
-    "dashboard.id": "NOT NULL"
-  },
-  "sorts": ["history.query_run_count_drill desc"],
-  "limit": "20"
-}' --verify-ssl=false
+}
 ```
 
 ---
 
-## 4. Remediation Workflow for Large Dashboards
+## 🛠️ Part 2: How to Rectify & Remediate Dashboard Bloat
 
-1. **Deconstruct into Tabbed Navigation**:
-   - Split wide operational dashboards into domain-specific tabs (e.g. Overview, Performance, Regional Details).
-2. **Implement Drill Links Instead of Summary + Detail on One Page**:
-   - Use `link: { label: "Drill to Detail" url: "/dashboards/..." }` in LookML to open secondary dashboards on click.
-3. **Remove Unused Auto-Refresh Intervals**:
-   - Turn off auto-refresh unless explicitly configured for live monitoring screens.
+### Remediation Protocol 1: Deconstructing >25-Tile Dashboards into Tabs
+1. **Implement Dashboard Tabs**:
+   * Group related KPI tiles into visual tabs (e.g. "Executive Overview", "Marketing Performance", "Regional Breakdown").
+   * Looker only loads tiles on the active tab upon initial page load, deferring background queries for inactive tabs until clicked.
+2. **Decompose into Modular Summary Dashboards**:
+   * Retain 10–12 high-level KPI tiles on the primary executive dashboard.
+   * Provide **Custom HTML Drill Links** on dimensions/measures linking to specialized child dashboards:
+   ```lookml
+   dimension: region {
+     type: string
+     sql: ${TABLE}.region ;;
+     link: {
+       label: "🔍 Open Regional Deep-Dive Dashboard"
+       url: "/dashboards/456?Region={{ value | encode_uri }}&Date={{ _filters['orders.created_date'] | encode_uri }}"
+     }
+   }
+   ```
+
+---
+
+### Remediation Protocol 2: Enforcing Safe Auto-Refresh Policies
+1. **Align Auto-Refresh with Warehouse ETL**:
+   * If warehouse tables update daily at 06:00 UTC, disable 5-minute auto-refreshes on dashboards.
+2. **Separate Wallboard Displays**:
+   * For call center or NOC wallboard monitors, create a dedicated cloned dashboard with auto-refresh enabled. Keep the interactive user-facing dashboard set to manual refresh.

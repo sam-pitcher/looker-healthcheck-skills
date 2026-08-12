@@ -1,4 +1,4 @@
-# Recipe 03: LookML Model Review & Transcriber Scoring (Component 3)
+# LookML Model Review & Transcriber Scoring Rubric
 
 ## 1. Objective & Purpose
 Evaluate LookML codebases against the official **Transcriber Framework** (0–4 grading scale across 4 Focus Dimensions) to assess modeling hygiene, end-user usability, architecture scalability, and data governance.

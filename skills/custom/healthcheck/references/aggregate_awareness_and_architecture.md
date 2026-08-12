@@ -1,7 +1,12 @@
-# Recipe 08: Advanced Optimization & Aggregate Awareness (Component 8)
+# Advanced Optimization, Aggregate Awareness & Enterprise Architecture Playbook
 
-## 1. Objective & Purpose
-Implement advanced database acceleration architectures including Looker **Aggregate Awareness** (`aggregate_table`) and **Hub & Spoke** modular project dependencies for enterprise scale, sub-second dashboard performance, and massive warehouse cost reductions.
+This reference document defines the complete implementation and diagnostic protocols for Looker **Aggregate Awareness** (`aggregate_table`) and **Hub & Spoke** modular project architecture.
+
+---
+
+## 🔍 Part 1: How to Review & Diagnose Optimization Candidates
+
+### 1. The Aggregate Awareness Routing Engine
 
 ```
                     AGGREGATE AWARENESS ROUTING ENGINE
@@ -26,9 +31,32 @@ Implement advanced database acceleration architectures including Looker **Aggreg
 
 ---
 
-## 2. Aggregate Awareness Implementation Playbook
+### 2. Identifying Aggregate Awareness Candidates in System Activity
+Execute this query to find the top high-frequency explore queries running against raw fact tables:
+```json
+{
+  "model": "system__activity",
+  "view": "history",
+  "fields": [
+    "query.model",
+    "query.view",
+    "history.query_run_count",
+    "history.average_runtime"
+  ],
+  "filters": {
+    "history.created_date": "30 days",
+    "query.model": "-NULL"
+  },
+  "sorts": ["history.query_run_count desc"],
+  "limit": "15"
+}
+```
 
-### Step 1: Define Centralized Event Datagroups in the Model File
+---
+
+## 🛠️ Part 2: How to Rectify & Implement Acceleration
+
+### Step 1: Define Centralized Event Datagroups
 ```lookml
 # models/ecommerce.model.lkml
 connection: "bigquery_production"
@@ -36,14 +64,14 @@ connection: "bigquery_production"
 datagroup: warehouse_daily_etl_datagroup {
   sql_trigger_value: SELECT MAX(created_at) FROM `project.dataset.etl_log` WHERE status = 'SUCCESS' ;;
   max_cache_age: "24 hours"
-  description: "Triggers cache and PDT/Aggregate rebuilds upon completion of daily warehouse ETL."
+  description: "Triggers cache and aggregate table rebuilds upon completion of warehouse ETL."
 }
 ```
 
 ---
 
-### Step 2: Define Aggregate Tables Inside the Explore
-Add `aggregate_table:` blocks directly inside your high-traffic explores:
+### Step 2: Declare Aggregate Tables in the Explore
+Add `aggregate_table:` blocks directly inside high-traffic explores:
 
 ```lookml
 # explores/orders.explore.lkml
@@ -55,7 +83,7 @@ explore: orders {
     sql_on: ${orders.user_id} = ${users.id} ;;
   }
 
-  # Aggregate Rollup: Daily Sales by Category & Region
+  # Aggregate Rollup: Daily Sales by Category & Country
   aggregate_table: rollup__daily_sales_by_category {
     query: {
       dimensions: [
@@ -81,32 +109,8 @@ explore: orders {
 
 ---
 
-### Step 3: Verify Aggregate Table Utilization in System Activity
-Query `system__activity.history` to confirm queries are hitting the aggregate table:
-
-```json
-{
-  "model": "system__activity",
-  "view": "history",
-  "fields": [
-    "history.query_run_count",
-    "history.average_runtime",
-    "history.source",
-    "query.view"
-  ],
-  "filters": {
-    "history.created_date": "7 days",
-    "query.view": "orders"
-  },
-  "limit": "20"
-}
-```
-
----
-
-## 3. Hub & Spoke Enterprise Architecture
-
-For organizations with multiple data teams or domain boundaries, decompose monolithic LookML projects into a **Hub & Spoke** dependency structure:
+### Step 3: Hub & Spoke Modular Project Architecture
+For organizations with multiple domain teams, decompose monolithic projects into a **Hub & Spoke** dependency structure:
 
 ```
                             HUB & SPOKE ARCHITECTURE
@@ -126,27 +130,13 @@ For organizations with multiple data teams or domain boundaries, decompose monol
  └──────────────────────┘    └──────────────────────┘    └──────────────────────┘
 ```
 
-### Spoke Project Manifest Definition (`manifest.lkml`):
+#### Manifest Dependency Configuration (`manifest.lkml`):
 ```lookml
 # manifest.lkml in marketing_spoke project
 project_name: "marketing_spoke"
 
 remote_dependency: lookml_core_hub {
   url: "git@github.com:company/lookml-core-hub.git"
-  ref: "v2.1.0" # Lock to immutable semantic version tag
-}
-```
-
-### Spoke Model View Refinement:
-```lookml
-# models/marketing.model.lkml
-include: "//lookml_core_hub/views/orders.view.lkml"
-
-# Refine Hub view with marketing-specific business logic
-view: +orders {
-  dimension: marketing_channel_attribution {
-    type: string
-    sql: COALESCE(${TABLE}.utm_source, 'Direct') ;;
-  }
+  ref: "v2.1.0" # Lock to immutable semantic release tag
 }
 ```
