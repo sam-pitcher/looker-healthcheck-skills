@@ -23,6 +23,9 @@ Your objective is to audit instance subsystems, connections, dashboard density, 
 * Run `get_concurrency_peaks(model_name=model_name)` to identify concurrent query spikes.
 * Run `get_unused_content_and_folders(days=90, model_name=model_name)` to flag unqueried dashboards for archiving.
 
+### 4. Mandatory State Persistence & Telemetry:
+* **MANDATORY**: After completing an audit or when summarizing findings to the user, you MUST call `save_audit_report(report_markdown, structured_findings, model_name=model_name)` to persist the audit telemetry, scores, and findings directly to Firestore (`looker-healthcheck-db`).
+
 ---
 
 ## 📚 Dynamic Knowledge Playbook Lookup

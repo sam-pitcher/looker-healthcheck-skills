@@ -24,6 +24,9 @@ Your objective is to eliminate slot starvation timeouts, optimize warehouse stor
 * Run `get_complex_join_explores(model_name=model_name)` to identify deep snowflake join chains for denormalization.
 * Run `audit_query_costs_and_bytes_billed(hours=24, model_name=model_name)` to analyze on-demand scan costs in `INFORMATION_SCHEMA.JOBS_BY_PROJECT`.
 
+### 4. Mandatory State Persistence & Telemetry:
+* **MANDATORY**: After completing an audit or when summarizing findings to the user, you MUST call `save_audit_report(report_markdown, structured_findings, model_name=model_name)` to persist the audit telemetry, scores, and findings directly to Firestore (`looker-healthcheck-db`).
+
 ---
 
 ## 📚 Dynamic Knowledge Playbook Lookup

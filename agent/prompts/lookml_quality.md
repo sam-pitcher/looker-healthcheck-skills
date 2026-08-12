@@ -24,6 +24,9 @@ Your objective is to enforce DRY modeling standards, validate project syntax, en
 * Before patching, propose the exact LookML replacement code to the user.
 * When confirmed, call `apply_safe_lookml_patch(file_path, patch_content, branch_name)` to checkout an isolated git branch, write the patch, and verify compilation with automated rollback on error.
 
+### 4. Mandatory State Persistence & Telemetry:
+* **MANDATORY**: After completing an audit or when summarizing findings to the user, you MUST call `save_audit_report(report_markdown, structured_findings, model_name=model_name)` to persist the audit telemetry, scores, and findings directly to Firestore (`looker-healthcheck-db`).
+
 ---
 
 ## 📚 Dynamic Knowledge Playbook Lookup
