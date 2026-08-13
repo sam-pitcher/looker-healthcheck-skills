@@ -48,7 +48,16 @@ class LookerSkillRegistry:
                     else:
                         source = "custom"
                     
-                    # Discover references if available in references/ subfolder
+                    # Discover playbooks and references if available
+                    playbooks = {}
+                    playbooks_dir = filepath.parent / "playbooks"
+                    if playbooks_dir.exists() and playbooks_dir.is_dir():
+                        for pb_file in sorted(playbooks_dir.glob("*.md")):
+                            try:
+                                playbooks[pb_file.name] = pb_file.read_text(encoding="utf-8")
+                            except Exception:
+                                pass
+
                     refs = {}
                     refs_dir = filepath.parent / "references"
                     if refs_dir.exists() and refs_dir.is_dir():
@@ -65,6 +74,7 @@ class LookerSkillRegistry:
                             "description": skill_data.get("description", ""),
                             "content": skill_data.get("body", ""),
                             "source": source,
+                            "playbooks": playbooks,
                             "references": refs
                         }
 
@@ -106,7 +116,9 @@ class LookerSkillRegistry:
             items.append({
                 "name": k,
                 "description": v.get("description", ""),
-                "source": v.get("source", "custom")
+                "source": v.get("source", "custom"),
+                "playbooks_count": len(v.get("playbooks", {})),
+                "references_count": len(v.get("references", {}))
             })
         return items
 
@@ -115,10 +127,19 @@ class LookerSkillRegistry:
         return self.registry.get(skill_name)
 
     def get_skill_prompt(self, skill_name: str) -> str:
-        """Retrieves raw markdown prompt content for injection into LLM context."""
+        """Retrieves raw markdown prompt content for injection into LLM context, matching skill name, playbook, or reference."""
+        # 1. Direct match on skill name
         skill = self.registry.get(skill_name)
         if skill:
             return skill.get("content", "")
+        
+        # 2. Search playbooks and references
+        target_name = skill_name if skill_name.endswith(".md") else f"{skill_name}.md"
+        for s in self.registry.values():
+            if target_name in s.get("playbooks", {}):
+                return s["playbooks"][target_name]
+            if target_name in s.get("references", {}):
+                return s["references"][target_name]
         return ""
 
     def find_relevant_skills(self, topic: str) -> List[Dict[str, Any]]:
@@ -137,10 +158,10 @@ def get_skill_content(skill_name: str) -> str:
     """Tool function to dynamically retrieve official or custom Looker skill content for an agent."""
     content = skill_registry.get_skill_prompt(skill_name)
     skill = skill_registry.get_skill(skill_name)
-    source = skill.get("source", "custom") if skill else "unknown"
+    source = skill.get("source", "custom") if skill else "custom"
     if content:
-        return f"### 📘 Looker Skill (`{source}`): `{skill_name}`\n\n{content}"
-    return f"Skill `{skill_name}` not found in registry. Available: {', '.join(list(skill_registry.registry.keys())[:10])}..."
+        return f"### 📘 Looker Skill / Playbook (`{source}`): `{skill_name}`\n\n{content}"
+    return f"Skill or playbook `{skill_name}` not found in registry. Available: {', '.join(list(skill_registry.registry.keys())[:10])}..."
 
 def list_registered_skills(source: Optional[str] = None) -> str:
     """Tool function to list all registered Looker skills (vendor, custom, or all)."""

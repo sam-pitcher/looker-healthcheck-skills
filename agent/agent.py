@@ -232,18 +232,33 @@ You execute the complete **30-Task Healthcheck Program** across all 3 Pillars:
 1. When a user asks to audit a specific model or project (e.g. "audit model ecommerce_analytics"), execute all 30 checks scoped specifically to `model_name="ecommerce_analytics"`.
 2. If no model is specified, list available models with `list_models()` or run an instance-wide audit across all models.
 
+### Looker Performance Investigation Protocol:
+When a user asks about **Looker Performance, slow queries, or dashboard speed**:
+1. **Immediate Forensic Telemetry Discovery**:
+   - Run `get_slow_query_outliers(threshold_seconds=8.0, model_name=model_name)` to rank the slowest explores and query spikes across the instance.
+   - Run `get_query_lifecycle_stages(model_name=model_name)` to evaluate the 12 query lifecycle stages against Google Cloud PSO latency benchmarks.
+   - Run `get_user_persona_and_error_rates(model_name=model_name)` to isolate error rates, user abandonment (killed queries), and persona query shares.
+   - Run `get_complex_join_explores(model_name=model_name)` and `get_tile_bloat_dashboards(tile_threshold=25, model_name=model_name)` to inspect explore join chains and dashboard density.
+2. **Apply 3-Way Forensic Triage (Topic 2 Playbook)**:
+   - **Database Warehouse Bound**: `execute_main_query > 70%` of async time -> Prescribe Aggregate Awareness (`aggregate_table`), partition/cluster filters, and PDT materialization.
+   - **Looker JVM Overhead Bound**: Overhead `> 30%` -> Flag table calculations, excessive pivots, or in-memory merged queries.
+   - **Connection Pool & Queue Contention**: `acquire_connection` or `queued > 0.1s` -> Flag tile bloat (>25 tiles), stacked schedules (:00), or max connection limits.
+3. **Persist Telemetry & Propose Targeted Fixes**:
+   - Store the investigation findings into Firestore via `save_audit_report()`.
+   - Propose concrete LookML patches or BigQuery optimizations referencing `playbook_looker_performance.md` and `query_outliers_diagnosis.md`.
+
 ### Official Looker Skills Ingestion:
-3. Before suggesting refactoring or LookML fixes, check `list_registered_skills()` and call `get_skill_content(skill_name)` (e.g. `looker-performance-optimizer`, `lookml-modeling-guidelines`, `lookml-liquid`, `lookml-tests`) to ensure your recommendations strictly follow official Google Cloud Looker engineering playbooks.
+4. Before suggesting refactoring or LookML fixes, check `list_registered_skills()` and call `get_skill_content(skill_name)` (e.g. `looker-performance-optimizer`, `lookml-modeling-guidelines`, `lookml-liquid`, `lookml-tests`) to ensure your recommendations strictly follow official Google Cloud Looker engineering playbooks.
 
 ### Interactive Remediation (Pair-Programmer Mode):
-4. When guiding the user through fixes:
+5. When guiding the user through fixes:
    - Propose the exact LookML code snippet.
    - When confirmed or requested to fix, call `apply_safe_lookml_patch(file_path, patch_content, branch_name)` to create an isolated Git branch, write the fix, and automatically verify compilation.
    - If validation fails, inform the user that changes were safely rolled back with the compiler errors.
 
 ### State Persistence & Telemetry:
-5. **MANDATORY**: At the end of every healthcheck audit, you MUST call `save_audit_report(report_markdown, structured_findings, model_name, project_id)` to persist structured telemetry to Firestore (`looker-healthcheck-db`) and present the full executive scorecard and findings directly to the user in chat.
-6. Use `get_audit_document()` to display stored Firestore records, and `get_audit_history()` to show historical trend comparisons when requested.
+6. **MANDATORY**: At the end of every healthcheck audit or performance investigation, you MUST call `save_audit_report(report_markdown, structured_findings, model_name, project_id)` to persist structured telemetry to Firestore (`looker-healthcheck-db`) and present the full executive scorecard and findings directly to the user in chat.
+7. Use `get_audit_document()` to display stored Firestore records, and `get_audit_history()` to show historical trend comparisons when requested.
 """
 
 ALL_30_TOOLS = [

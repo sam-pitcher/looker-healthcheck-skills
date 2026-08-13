@@ -605,7 +605,7 @@ def execute_complete_healthcheck(
                  "Active connection pools and host parameters audited.",
                  conn_res,
                  "Connection pools regulate query concurrency. Optimal pool sizing prevents `acquire_connection` thread starvation and query timeouts.",
-                 "Tune `max_connections` and verify SSL/TLS connection parameters.", "performance_audit_playbook.md")
+                 "Tune `max_connections` and verify SSL/TLS connection parameters.", "playbook_looker_performance.md")
 
     # Task 03: Tile Bloat (>25 Tiles)
     bloat_res = get_tile_bloat_dashboards(tile_threshold=25, model_name=model_name)
@@ -650,7 +650,7 @@ def execute_complete_healthcheck(
                  "Content unqueried for >90 days audited.",
                  unused_res,
                  "Stale dashboards and unused folders clutter navigation, bloat instance metadata, and degrade user search relevance.",
-                 "Execute 3-stage deprecation funnel: Soft delete stale dashboards and archive unqueried looks.", "unused_content_cleanup.md")
+                 "Execute 3-stage deprecation funnel: Soft delete stale dashboards and archive unqueried looks.", "playbook_content_governance.md")
 
     # Task 08: Unfiltered Queries
     unfilt_res = get_unfiltered_dashboards(model_name=model_name)
@@ -677,7 +677,7 @@ def execute_complete_healthcheck(
                  "Looker instance legacy feature flags verified.",
                  legacy_res,
                  "Relying on deprecated legacy features creates technical debt and risks breaking reporting workflows during Looker major upgrades.",
-                 "Disable deprecated legacy features in Admin > Legacy Features.", "unused_content_cleanup.md")
+                 "Disable deprecated legacy features in Admin > Legacy Features.", "playbook_content_governance.md")
 
     # --------------------------------------------------------------------------
     # PILLAR 2: LookML & Modeling Quality (Tasks 11 to 20)
@@ -699,7 +699,7 @@ def execute_complete_healthcheck(
                  "Audited views for declared primary keys.",
                  pk_res,
                  "Missing primary keys disable symmetric aggregation, leading to silent calculation errors (fanout multiplication) in joined measures.",
-                 "Add `primary_key: yes` to unique ID dimensions across all joined views.", "lookml_style_guide.md")
+                 "Add `primary_key: yes` to unique ID dimensions across all joined views.", "playbook_lookml_quality.md")
 
     # Task 13: Join Relationships
     rel_res = audit_join_relationships(model_name, project_id, project_path)
@@ -708,7 +708,7 @@ def execute_complete_healthcheck(
                  "Audited joins for explicit relationship declarations.",
                  rel_res,
                  "Omitting explicit `relationship:` parameters risks improper symmetric aggregation SQL generation on `one_to_many` joins.",
-                 "Declare explicit `relationship: many_to_one` (or appropriate cardinality) on all joins.", "lookml_style_guide.md")
+                 "Declare explicit `relationship: many_to_one` (or appropriate cardinality) on all joins.", "playbook_lookml_quality.md")
 
     # Task 14: Henry Vacuum
     henry_res = run_henry_vacuum(model_name=model_name)
@@ -717,7 +717,7 @@ def execute_complete_healthcheck(
                  "Scanned models for unused dimensions and measures in past 90 days.",
                  henry_res,
                  "Unused fields clutter the Explore field picker, confuse business users, and increase explore metadata compile times.",
-                 "Prune unused fields using `henry vacuum` to streamline explore field lists.", "unused_content_cleanup.md")
+                 "Prune unused fields using `henry vacuum` to streamline explore field lists.", "playbook_content_governance.md")
 
     # Task 15: Key Exposure
     exp_res = audit_explore_field_exposure(model_name, project_path)
@@ -726,7 +726,7 @@ def execute_complete_healthcheck(
                  "Audited technical ID/hash dimensions for hidden: yes.",
                  exp_res,
                  "Exposing raw database keys and surrogate hashes clutters UI field lists and leads users to build un-joined ad-hoc reports.",
-                 "Add `hidden: yes` to foreign keys and technical surrogate hash dimensions.", "lookml_style_guide.md")
+                 "Add `hidden: yes` to foreign keys and technical surrogate hash dimensions.", "playbook_lookml_quality.md")
 
     # Task 16: Folder Hygiene
     folder_res = audit_folder_structure(project_path)
@@ -744,7 +744,7 @@ def execute_complete_healthcheck(
                  "Enforced lowercase snake_case across views and fields.",
                  case_res,
                  "Inconsistent naming violates DRY standards and causes syntax parsing issues with Liquid template variables.",
-                 "Convert CamelCase or kebab-case field names to lowercase snake_case.", "lookml_style_guide.md")
+                 "Convert CamelCase or kebab-case field names to lowercase snake_case.", "playbook_lookml_quality.md")
 
     # Task 18: Metadata Descriptions
     desc_res = audit_metadata_descriptions(model_name, project_path)
@@ -753,7 +753,7 @@ def execute_complete_healthcheck(
                  "Audited explores and measures for description: parameter.",
                  desc_res,
                  "Clear metric descriptions provide business context, preventing metric misinterpretation and reducing ad-hoc questions.",
-                 "Add `description:` tags to all measures and user-facing explores.", "lookml_style_guide.md")
+                 "Add `description:` tags to all measures and user-facing explores.", "playbook_lookml_quality.md")
 
     # Task 19: Unused Joins / Bloat (>6)
     join_res = audit_unused_joins(model_name, project_path)
@@ -762,7 +762,7 @@ def execute_complete_healthcheck(
                  "Audited explores for excessive join chains (>6 joins).",
                  join_res,
                  "Bloated explores with >6 joins increase SQL prepare latency (`prepare > 0.44s`) and generate needlessly wide SQL queries.",
-                 "Refactor bloated explores into targeted domain-specific explores.", "performance_audit_playbook.md")
+                 "Refactor bloated explores into targeted domain-specific explores.", "playbook_looker_performance.md")
 
     # Task 20: Table Calculation Heavy Queries
     calc_res = get_table_calculation_heavy_queries(model_name=model_name)
@@ -771,7 +771,7 @@ def execute_complete_healthcheck(
                  "Identified queries running heavy table calculations in browser.",
                  calc_res,
                  "Heavy table calculations execute in browser JavaScript, freezing client browser tabs on large datasets.",
-                 "Migrate frontend table calculations into native LookML measures.", "performance_audit_playbook.md")
+                 "Migrate frontend table calculations into native LookML measures.", "playbook_looker_performance.md")
 
     # --------------------------------------------------------------------------
     # PILLAR 3: BigQuery & Warehouse Compute (Tasks 21 to 30)
@@ -784,7 +784,7 @@ def execute_complete_healthcheck(
                  "Audited BigQuery table partitioning and conditionally_filter enforcement.",
                  part_res,
                  "Aligning LookML filters with BigQuery partition/cluster keys enables partition pruning, reducing bytes scanned and compute cost.",
-                 "Enforce `conditionally_filter` or `require_partition_filter: yes` on partition dates.", "performance_audit_playbook.md")
+                 "Enforce `conditionally_filter` or `require_partition_filter: yes` on partition dates.", "playbook_looker_performance.md")
 
     # Task 22: BI Engine
     bi_res = get_bi_engine_metrics(model_name=model_name)
@@ -802,7 +802,7 @@ def execute_complete_healthcheck(
                  "Audited PDT event logs for build errors in past 7 days.",
                  pdt_res,
                  "Failing PDT builds force queries to fall back to raw tables or fail outright, degrading user trust in dashboard data freshness.",
-                 "Resolve failing PDT SQL definitions and inspect database temp schema permissions.", "performance_audit_playbook.md")
+                 "Resolve failing PDT SQL definitions and inspect database temp schema permissions.", "playbook_looker_performance.md")
 
     # Task 24: Incremental PDTs
     inc_res = audit_incremental_pdts(model_name, project_path)
@@ -811,7 +811,7 @@ def execute_complete_healthcheck(
                  "Audited large PDTs for increment_key and increment_offset configuration.",
                  inc_res,
                  "Rebuilding multi-million row PDTs from scratch consumes massive warehouse compute. Incremental builds only process new records.",
-                 "Add `increment_key` and `increment_offset` to large derived tables.", "performance_audit_playbook.md")
+                 "Add `increment_key` and `increment_offset` to large derived tables.", "playbook_looker_performance.md")
 
     # Task 25: Datagroup ELT Sync
     data_res = audit_datagroup_sync(project_id=project_id, model_name=model_name)
@@ -847,7 +847,7 @@ def execute_complete_healthcheck(
                  "Audited sql_on parameters for CPU-heavy SQL expressions.",
                  jsyntax_res,
                  "Applying functions like `LOWER()` or `CONCAT()` inside `sql_on` prevents database index usage and forces expensive full joins.",
-                 "Pre-calculate join hash keys in upstream view dimensions or physical table columns.", "performance_audit_playbook.md")
+                 "Pre-calculate join hash keys in upstream view dimensions or physical table columns.", "playbook_looker_performance.md")
 
     # Task 29: Complex Joins / Denormalization
     cjoin_res = get_complex_join_explores(model_name=model_name)
@@ -865,7 +865,7 @@ def execute_complete_healthcheck(
                  "Analyzed Looker query billing and data scanned in INFORMATION_SCHEMA.",
                  cost_res,
                  "Monitoring top-billed queries and slot utilization identifies expensive exploration patterns and enforces cost guardrails.",
-                 "Enforce partition filters and materialization to reduce scanned GB billed.", "performance_audit_playbook.md")
+                 "Enforce partition filters and materialization to reduce scanned GB billed.", "playbook_looker_performance.md")
 
     # --------------------------------------------------------------------------
     # Run Forensic System Activity Telemetry Battery

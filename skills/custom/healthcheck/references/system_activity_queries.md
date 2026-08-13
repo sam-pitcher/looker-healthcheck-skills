@@ -20,6 +20,90 @@ This reference catalog documents the exact JSON query definitions, dimensions, a
 
 ## 2. Complete Telemetry Query Bank
 
+### Performance Step 1: Per-Dashboard Performance Diagnostics
+```json
+{
+  "model": "system__activity",
+  "view": "history",
+  "fields": [
+    "dashboard.id",
+    "dashboard.title",
+    "history.result_source",
+    "history.query_run_count",
+    "history.average_runtime"
+  ],
+  "pivots": ["history.result_source"],
+  "filters": {
+    "history.source": "dashboard",
+    "history.created_date": "30 days"
+  },
+  "sorts": ["history.average_runtime desc 0"],
+  "limit": "50"
+}
+```
+
+### Performance Step 2: Per-Explore Performance Diagnostics
+```json
+{
+  "model": "system__activity",
+  "view": "history",
+  "fields": [
+    "query.view",
+    "query.model",
+    "history.query_run_count",
+    "history.average_runtime"
+  ],
+  "filters": {
+    "history.created_date": "30 days",
+    "history.status": "complete",
+    "query.view": "-NULL"
+  },
+  "sorts": ["history.average_runtime desc"],
+  "limit": "50"
+}
+```
+
+### Performance Step 3: Per-Model Compilation Diagnostics
+```json
+{
+  "model": "system__activity",
+  "view": "query_metrics",
+  "fields": [
+    "query.model",
+    "history.average_runtime",
+    "query_metrics.acquire_connection_average",
+    "query_metrics.model_init_computed_average"
+  ],
+  "filters": {
+    "history.created_date": "30 days",
+    "query.model": "-NULL"
+  },
+  "sorts": ["query_metrics.model_init_computed_average desc"],
+  "limit": "50"
+}
+```
+
+### Performance Step 4: Drilling into Specific Slow Query Signatures
+```json
+{
+  "model": "system__activity",
+  "view": "history",
+  "fields": [
+    "query.id",
+    "query.view",
+    "query.dynamic_fields",
+    "history.query_run_count",
+    "history.average_runtime"
+  ],
+  "filters": {
+    "query.view": "YOUR_SLOW_EXPLORE_NAME",
+    "history.created_date": "30 days"
+  },
+  "sorts": ["history.average_runtime desc"],
+  "limit": "25"
+}
+```
+
 ### Query 1: Master 12-Stage Query Lifecycle Scorecard
 ```json
 {

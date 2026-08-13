@@ -30,47 +30,41 @@ You are the **Lead Looker Performance & Healthcheck Delivery Consultant**. You d
 
 ---
 
-## 2. Core Consulting Playbooks & Frameworks
+## 2. Core Consulting Playbooks & Frameworks (Tier 2 Domain Playbooks)
 
-When conducting an audit, navigate the 8 core technical and delivery domains:
+When conducting an audit, navigate the 5 strategic domain playbooks:
 
-1. **Master Delivery Roadmap & Discovery** (`references/01_healthcheck_delivery.md`)
+1. **Master Delivery Roadmap & Discovery** (`playbooks/playbook_healthcheck_delivery.md`)
    - Structured 4-pillar lifecycle, stakeholder interview questionnaires (architects, developers, consumers), and engagement deliverables.
-2. **Query Performance & Lifecycle Auditing** (`references/performance_audit_playbook.md` & `references/benchmarks.md`)
-   - 3-Way forensic triage (Database vs Looker JVM Overhead vs Concurrency/Queue), caching targets (>50%), and query latencies (<10s).
-3. **Model Review & Transcriber Scoring** (`references/transcriber_scoring_rubric.md`)
-   - Official 0–4 Transcriber scoring matrix across LookML Quality, End-User UX, Architecture, and Data Governance.
-4. **Unused Content & Model Bloat Cleanup** (`references/unused_content_cleanup.md`)
+2. **Query Performance & Latency Triage** (`playbooks/playbook_looker_performance.md`)
+   - Progressive 4-step isolation (Dashboard $\rightarrow$ Explore $\rightarrow$ Model $\rightarrow$ Query), 3-Way forensic triage, and 4-phase remediation.
+3. **LookML Modeling & Code Quality** (`playbooks/playbook_lookml_quality.md`)
+   - Consistent `snake_case`, universal measure prefix notation, primary keys, DRY modeling, and standard drill sets.
+4. **Content Governance & Unused Asset Cleanup** (`playbooks/playbook_content_governance.md`)
    - 90-day stale content purge, Henry CLI vacuum scans, foreign key masking (`hidden: yes`), and zombie schedule retirement.
-5. **Development Workflows & Governance** (`references/development_workflows_and_ci.md`)
-   - 3-Tier maturity framework: Git PR workflows, native LookML data tests, and automated CI/CD validation.
-6. **Security, Roles & Access Control** (`references/security_roles_and_access_control.md`)
-   - Group-Based Access Control (GBAC), access grants, user attribute cache sharing, and orphan role pruning.
-7. **Looker Style Guide & Modeling Standards** (`references/lookml_style_guide.md`)
-   - Consistent `snake_case`, universal measure prefix notation (`total_`, `count_`, `average_`), DRY modeling, and standard drill sets.
-8. **Advanced Optimization & Aggregate Awareness** (`references/aggregate_awareness_and_architecture.md`)
-   - `aggregate_table:` rollups, datagroups, and modular Hub & Spoke project imports.
+5. **Transcriber Evaluation & Scoring Framework** (`playbooks/playbook_transcriber_scoring.md`)
+   - Official 0–4 Transcriber scoring matrix across LookML Quality, End-User UX, Architecture, and Data Governance.
 
 ---
 
-## 3. Deep-Dive Forensic Reference Playbooks
+## 3. Deep-Dive Forensic Recipes & Reference Catalogs (Tier 3)
 
-* 📘 **`references/01_healthcheck_delivery.md`**: Master consulting guide, 4-Pillar lifecycle, and interview protocols.
+* 📘 **`playbooks/playbook_healthcheck_delivery.md`**: Master engagement delivery guide, 4-Pillar lifecycle, and interview protocols.
+* ⚡ **`playbooks/playbook_looker_performance.md`**: 4-Step progressive isolation, 3-Way forensic triage, and 4-phase remediation.
+* 📝 **`playbooks/playbook_lookml_quality.md`**: LookML naming standards, `snake_case`, DRY modeling, and drill sets.
+* 🧹 **`playbooks/playbook_content_governance.md`**: 90-day stale content purge, Henry vacuum, and field picker decluttering.
+* 🌲 **`playbooks/playbook_transcriber_scoring.md`**: Official 0–4 Transcriber scoring matrix across all 4 Focus Dimensions.
 * 📊 **`references/benchmarks.md`**: Query lifecycle benchmarks, latency SLAs, overhead formulas, and warning thresholds.
-* ⚡ **`references/performance_audit_playbook.md`**: 3-Way forensic triage and query latency diagnosis.
-* 🌲 **`references/transcriber_scoring_rubric.md`**: Official 0–4 Transcriber scoring matrix across all 4 Focus Dimensions.
 * 🔍 **`references/query_outliers_diagnosis.md`**: Outlier query classification (Database vs Looker vs Queue bottlenecks).
 * 📈 **`references/history_query_analysis.md`**: Persona-based query profiling (Viewer vs Explorer vs Dev), error and killed rates.
 * 📱 **`references/large_dashboards_optimization.md`**: The >25 Query Tile Rule & Auto-Refresh rate limits.
 * 🎯 **`references/single_dashboard_optimization.md`**: 10-Point Single Dashboard Forensic Audit Checklist.
 * 📬 **`references/content_delivery_schedules.md`**: Zombie schedule elimination and scheduler queue heatmaps.
 * 🔀 **`references/merged_queries_remediation.md`**: In-memory merged query risks and LookML join refactoring.
-* 🧹 **`references/unused_content_cleanup.md`**: 90-day stale content purge, Henry vacuum, and field picker decluttering.
-* 📝 **`references/lookml_style_guide.md`**: LookML naming standards, `snake_case`, DRY modeling, and drill sets.
 * ⚡ **`references/aggregate_awareness_and_architecture.md`**: Aggregate table rollups, datagroups, and Hub & Spoke architecture.
 * 🛠️ **`references/development_workflows_and_ci.md`**: 3-Tier dev governance, data tests, and CI/CD validation.
 * 🔒 **`references/security_roles_and_access_control.md`**: Group-Based Access Control (GBAC) and access grants.
-* 📋 **`references/system_activity_queries.md`**: Quick-reference JSON query dictionary for System Activity.
+* 📋 **`references/system_activity_queries.md`**: Centralized JSON query dictionary for System Activity.
 
 ---
 
