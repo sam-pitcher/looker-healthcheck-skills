@@ -51,12 +51,14 @@ graph TD
 ```text
 looker-healthcheck-agent/
 ├── .env                              # GCP Project ID, Looker API keys, Firestore config
-├── requirements.txt                  # google-adk, looker-sdk, google-cloud-bigquery, google-cloud-firestore
+├── skills.yaml                       # Declarative external skill dependencies manifest
+├── pyproject.toml / requirements.txt # Python package dependencies
 ├── main.py                           # CLI & Interactive Web Hub entrypoint (:8080)
-├── agent/
+├── agent/                            # 🧠 Core Application & Multi-Agent Runtime
 │   ├── __init__.py                   # Package exports (root_agent, sub-agents, tools)
 │   ├── agent.py                      # Multi-Agent orchestration declarations & instructions
 │   ├── skills_registry.py            # Dynamic markdown skill loader & indexer
+│   ├── telemetry.py                  # Execution tracer, latency tracking & Firestore recorder
 │   ├── prompts/                      # Sub-agent runtime system prompts
 │   │   ├── content_auditor.md        # Pillar 1 Auditor instructions
 │   │   ├── lookml_quality.md         # Pillar 2 Quality Specialist instructions
@@ -64,20 +66,24 @@ looker-healthcheck-agent/
 │   └── tools/                        # Deterministic ADK execution tools
 │       ├── __init__.py
 │       ├── looker_api.py             # Looker API 4.0 calls (Subsystems, connections, schedules, KPIs)
-│       ├── lookml_fs.py              # LookML file read/write, AST parsing, and safe git patching
-│       ├─�├── skills/
+│       ├── lookml_fs.py              # LookML AST parser, primary key, and dead field audits
+│       ├── bq_client.py              # BigQuery compute, partition pruning & slot queries
+│       ├── storage.py                # Dual-layer report persistence (Markdown & Firestore)
+│       └── dynamic_cli.py            # Looker CLI meta-tree discovery & payload inspector
+├── skills/                           # 📖 Pure Knowledge Playbooks (Markdown only)
 │   ├── custom/                       # Healthcheck & Refactoring domain knowledge
 │   │   ├── healthcheck/
 │   │   │   ├── SKILL.md              # Looker healthcheck master entrypoint
-│   │   │   ├── playbooks/            # 🎯 Tier 1 & 2: Strategic & Domain Playbooks
+│   │   │   ├── playbooks/            # 🎯 Strategic & Domain Playbooks
 │   │   │   │   ├── playbook_healthcheck_delivery.md     # Master 4-Pillar Delivery Playbook
 │   │   │   │   ├── playbook_looker_performance.md       # 4-Step progressive isolation & triage
 │   │   │   │   ├── playbook_lookml_quality.md           # LookML style & modeling quality standards
 │   │   │   │   ├── playbook_content_governance.md       # 90-day 3-stage deprecation & Henry vacuum
 │   │   │   │   └── playbook_transcriber_scoring.md      # Official 0–4 scoring rubric
-│   │   │   └── references/           # 🔧 Tier 3: Technical Recipes & Telemetry Banks
+│   │   │   └── references/           # 🔧 Technical Recipes & Telemetry Banks
 │   │   │       ├── benchmarks.md                        # Google Cloud PSO 12-stage latency benchmarks
-│   │   │       ├── query_outliers_diagnosis.md          # Slow query outlier isolation
+│   │   │       ├── query_outliers_diagnosis.md          # 5-Vector slow query outlier isolation
+│   │   │       ├── warehouse_optimization.md            # BigQuery slot & stage optimization
 │   │   │       ├── history_query_analysis.md            # Persona & error rate profiling
 │   │   │       ├── large_dashboards_optimization.md     # >25 tile rule & auto-refresh
 │   │   │       ├── single_dashboard_optimization.md    # 10-point forensic single dashboard checklist
@@ -89,7 +95,11 @@ looker-healthcheck-agent/
 │   │   │       └── system_activity_queries.md           # System Activity JSON query bank
 │   │   └── refactoring/
 │   │       └── SKILL.md              # LookML refactoring & data test generation
-│   └── vendor/looker-skills/         # Upstream Google Cloud Looker developer skills
+│   └── vendor/                       # Upstream sparse-synced skills (gitignored)
+├── scripts/                          # 🛠️ Human & CI/CD Utility Tools (Offline only)
+│   ├── sync_skills.py                # Manifest-Driven sparse sync engine
+│   ├── oauth_login.py                # Interactive Looker user OAuth browser login
+│   └── inspect_session_traces.py     # Developer session trace log analyzer
 └── terraform/                        # Cloud Run & Firestore infrastructure as code
 ```
 
