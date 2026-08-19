@@ -26,7 +26,7 @@ graph TD
 
     subgraph Deterministic_Tools["Python ADK Toolset (agent/tools/)"]
         TOOL1["looker_api.py<br/>• check_subsystem_status<br/>• audit_connections<br/>• get_tile_bloat_dashboards<br/>• get_schedule_distribution<br/>• get_merged_queries"]
-        TOOL2["lookml_fs.py<br/>• run_lookml_validation<br/>• audit_primary_keys<br/>• run_henry_vacuum<br/>• apply_safe_lookml_patch"]
+        TOOL2["lookml_fs.py<br/>• run_lookml_validation<br/>• audit_primary_keys<br/>• run_henry_vacuum<br/>• read_lookml_file & search_lookml_code"]
         TOOL3["bq_client.py<br/>• audit_partition_cluster_filters<br/>• audit_bq_slots<br/>• audit_datagroup_sync<br/>• audit_query_costs_and_bytes_billed"]
         TOOL4["storage.py<br/>• save_audit_report (Firestore)<br/>• get_audit_history"]
     end
@@ -65,7 +65,7 @@ looker-healthcheck-agent/
 │       ├── __init__.py
 │       ├── looker_api.py             # Looker API 4.0 calls (Subsystems, connections, schedules, KPIs)
 │       ├── lookml_fs.py              # LookML file read/write, AST parsing, and safe git patching
-│       ├─�├── skills/
+│       ├─�├── skills/
 │   ├── custom/                       # Healthcheck & Refactoring domain knowledge
 │   │   ├── healthcheck/
 │   │   │   ├── SKILL.md              # Looker healthcheck master entrypoint
@@ -145,7 +145,19 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment (`.env`)
+### 2. Authentication & Environment Setup
+
+#### Option A: Zero-Secret OAuth PKCE Session (Recommended)
+Instead of storing plaintext credentials in `.env`, the agent dynamically inherits your active user OAuth session:
+```bash
+# 1. Authenticate via Looker CLI OAuth 2.0 PKCE flow
+looker-cli profile add default --host "your-instance.looker.app" --port 443
+looker-cli session login --oauth --client-id com.looker.cli
+
+# The agent will automatically inherit ~/.config/looker-cli/config.yaml session tokens!
+```
+
+#### Option B: Environment Variables (`.env`) for Headless CI/CD
 ```bash
 # Google Cloud & Vertex AI Configuration
 GOOGLE_GENAI_USE_VERTEXAI=true
@@ -156,14 +168,15 @@ GOOGLE_CLOUD_LOCATION="us-central1"
 FIRESTORE_DATABASE="looker-healthcheck-db"
 FIRESTORE_COLLECTION="looker_healthchecks"
 
-# Looker API 4.0 Credentials
+# Looker API 4.0 Configuration
 LOOKERSDK_BASE_URL="https://your-instance.looker.app"
-LOOKERSDK_CLIENT_ID="your_client_id"
-LOOKERSDK_CLIENT_SECRET="your_client_secret"
-LOOKER_PROJECT_ID="your_looker_project_id"
 LOOKER_VERIFY_SSL="true"
 
-# Local LookML Repository Path
+# Headless CI/CD API3 Credentials (Optional when using Option A)
+LOOKERSDK_CLIENT_ID="your_client_id"
+LOOKERSDK_CLIENT_SECRET="your_client_secret"
+
+# Local LookML Repository Path & CLI
 LOOKML_PROJECT_PATH="/path/to/your/lookml/repo"
 LOOKER_CLI_PATH="~/.local/bin/looker-cli"
 ```

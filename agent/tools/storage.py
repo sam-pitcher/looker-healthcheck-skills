@@ -79,7 +79,7 @@ def save_audit_report(
         "timestamp": timestamp_str,
         "instance_url": os.getenv("LOOKERSDK_BASE_URL", ""),
         "target_scope": {
-            "project_id": project_id or os.getenv("LOOKER_PROJECT_ID", "default"),
+            "project_id": project_id or os.getenv("LOOKER_PROJECT_ID") or "unscoped",
             "model_name": model_name or "all_models"
         },
         "summary": summary,
@@ -96,7 +96,19 @@ def save_audit_report(
     except Exception:
         local_json_saved = False
 
-    # 3. Persist to Firestore
+    # 3. Persist to Firestore & Cloud Logging
+    try:
+        from agent.telemetry import log_cloud_event
+        log_cloud_event("healthcheck_audit_saved", {
+            "audit_id": audit_id,
+            "target_scope": record["target_scope"],
+            "summary": summary,
+            "health_score": health_score,
+            "findings_count": len(sf.get("findings", []))
+        })
+    except Exception:
+        pass
+
     firestore_client = _get_firestore_client()
     firestore_status = "Skipped (Firestore client unavailable or unconfigured)"
     if firestore_client:

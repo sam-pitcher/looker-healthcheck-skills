@@ -104,6 +104,57 @@ This reference catalog documents the exact JSON query definitions, dimensions, a
 }
 ```
 
+### Performance Step 5: Top Slowest Queries by Database Execution Time (Warehouse-Bound / Pillar 3)
+```json
+{
+  "model": "system__activity",
+  "view": "query_metrics",
+  "fields": [
+    "query.id",
+    "user.name",
+    "query.model",
+    "query.view",
+    "dashboard.title",
+    "query_metrics.async_processing",
+    "query_metrics.execute_main_query",
+    "query_metrics.acquire_connection",
+    "history.created_time"
+  ],
+  "filters": {
+    "history.created_date": "7 days",
+    "history.status": "complete"
+  },
+  "sorts": ["query_metrics.execute_main_query desc"],
+  "limit": "20"
+}
+```
+
+### Performance Step 6: Top Slowest Queries by Looker Overhead & Browser Rendering (Pillar 1 & 2)
+```json
+{
+  "model": "system__activity",
+  "view": "query_metrics",
+  "fields": [
+    "query.id",
+    "user.name",
+    "query.model",
+    "query.view",
+    "dashboard.title",
+    "query_metrics.async_processing",
+    "query_metrics.execute_main_query",
+    "query_metrics.stream_to_cache",
+    "query_metrics.postprocessing",
+    "history.created_time"
+  ],
+  "filters": {
+    "history.created_date": "7 days",
+    "history.status": "complete"
+  },
+  "sorts": ["query_metrics.async_processing desc"],
+  "limit": "20"
+}
+```
+
 ### Query 1: Master 12-Stage Query Lifecycle Scorecard
 ```json
 {

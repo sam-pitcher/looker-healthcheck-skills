@@ -76,13 +76,20 @@ To understand how the system operates and stays modular, it is essential to dist
 | **Skill** | **Pure Knowledge & Decision Playbook** | 100% tool-agnostic domain guidelines, LookML modeling patterns, decision matrices, SQL queries, and diagnostic benchmarks. | [`skills/custom/`](skills/custom/) and [`skills/vendor/`](skills/vendor/) | **100% Portable** (Claude, Cursor, Copilot, Humans) |
 
 ### Tool Breakdown:
-1. **`agent/tools/looker_api.py`**:
-   * Communicates with Looker 4.0 API and executes SQL queries against Looker's internal `system__activity` model (`history`, `dashboard`, `scheduled_plan`, `pdt_event_log`).
-   * *Exported Tools*: `check_subsystem_status`, `audit_connections`, `get_tile_bloat_dashboards`, `get_auto_refresh_dashboards`, `get_schedule_distribution`, `get_concurrency_peaks`, `get_unused_content_and_folders`, `get_unfiltered_dashboards`, `get_merged_queries`, `get_legacy_features`, `get_table_calculation_heavy_queries`, `get_bi_engine_metrics`, `get_pdt_failure_audit`, `get_aggregate_awareness_hits`, `get_complex_join_explores`.
-2. **`agent/tools/lookml_fs.py`**:
-   * Scans local and remote LookML projects, parses view and explore blocks, checks primary keys, audits `relationship:` declarations, runs `henry vacuum` for dead field detection, enforces `fields: []` exposure, audits folder structure and snake_case casing, and safely patches files via isolated Git branches.
-   * *Exported Tools*: `run_lookml_validation`, `audit_primary_keys`, `audit_join_relationships`, `run_henry_vacuum`, `audit_explore_field_exposure`, `audit_folder_structure`, `audit_naming_conventions`, `audit_metadata_descriptions`, `audit_unused_joins`, `audit_incremental_pdts`, `audit_oauth_connections`, `audit_join_key_syntax`, `list_lookml_files`, `read_lookml_file`, `search_lookml_code`, `apply_lookml_patch`, `apply_safe_lookml_patch`.
-3. **`agent/tools/bq_client.py`**:
+1. **`agent/tools/dynamic_cli.py` (Dynamic CLI Meta-Discovery & Guarded Execution)**:
+   * Provides on-the-fly Looker CLI exploration and execution under the caller's inherited OAuth session without consuming context window with dozens of static schemas.
+   * *Exported Tools*:
+     * `looker_cli_discover(category_or_query)`: Dynamic search and tree exploration across all Looker commands and API endpoints.
+     * `looker_cli_inspect_payload(command_path)`: Payload inspector generating JSON request body `--template` and usage documentation.
+     * `looker_cli_execute(command_args, body_json, allow_mutation)`: Guarded execution tool enforcing safety guardrails against destructive commands (`rm`, `delete`, `drop`, `truncate`, `destroy`).
+     * `run_consolidated_healthcheck_benchmark(model_name, project_id)`: One-click 30-check benchmark across all 3 pillars with 0-100 scoring and persistence.
+2. **`agent/tools/looker_api.py`**:
+   * Lightweight Looker 4.0 API client with dynamic user OAuth session inheritance.
+   * *Exported Tools*: `check_subsystem_status`, `list_projects`, `list_models`, `execute_complete_healthcheck`.
+3. **`agent/tools/lookml_fs.py`**:
+   * Scans local and remote LookML projects, parses view and explore blocks, checks primary keys, audits `relationship:` declarations, runs `henry vacuum` for dead field detection, enforces `fields: []` exposure, audits folder structure and snake_case casing, and formulates clean code recommendations.
+   * *Exported Tools*: `run_lookml_validation`, `audit_primary_keys`, `audit_join_relationships`, `run_henry_vacuum`, `audit_explore_field_exposure`, `audit_folder_structure`, `audit_naming_conventions`, `audit_metadata_descriptions`, `audit_unused_joins`, `list_lookml_files`, `read_lookml_file`, `search_lookml_code`.
+4. **`agent/tools/bq_client.py`**:
    * Connects to BigQuery via Google Cloud client library, queries `INFORMATION_SCHEMA.JOBS_BY_PROJECT` across regions, estimates query costs via dry runs, inspects table partitioning/clustering metadata, and audits slot reservation utilization.
    * *Exported Tools*: `audit_partition_cluster_filters`, `audit_datagroup_sync`, `audit_query_costs_and_bytes_billed`, `audit_bq_slots`, `list_dataset_tables`, `optimize_table_layout`, `estimate_query_cost_dry_run`.
 4. **`agent/tools/storage.py`**:
@@ -98,7 +105,6 @@ To understand how the system operates and stays modular, it is essential to dist
 
 ```
 looker-healthcheck-agent/
-├── AUDIT_REPORT.md                                   # Root human-readable audit deliverable
 ├── ARCHITECTURE_AND_USER_GUIDE.md                    # Complete architecture, tools, and user guide
 ├── README.md                                         # Quickstart and project overview
 ├── requirements.txt                                  # Python dependencies
@@ -109,27 +115,28 @@ looker-healthcheck-agent/
 │   ├── __init__.py                                   # Agent package exports
 │   ├── agent.py                                      # Master orchestrator & Sub-Agent graph
 │   ├── skills_registry.py                            # Dynamic Looker skills indexer (25 playbooks)
-│   ├── prompts/                                      # Runtime Sub-Agent System Instructions (Tool Bindings)
-│   │   ├── content_auditor.md                        # Pillar 1 diagnostic tool binding instructions
-│   │   ├── lookml_quality.md                         # Pillar 2 diagnostic tool binding instructions
-│   │   └── bq_optimizer.md                           # Pillar 3 diagnostic tool binding instructions
+│   ├── telemetry.py                                  # TelemetryTracer, latency spans, and profiling
+│   ├── prompts/                                      # Runtime Sub-Agent System Instructions
+│   │   ├── content_auditor.md                        # Pillar 1 diagnostic instructions
+│   │   ├── lookml_quality.md                         # Pillar 2 diagnostic instructions
+│   │   └── bq_optimizer.md                           # Pillar 3 diagnostic instructions
 │   └── tools/                                        # Executable Python tools
 │       ├── __init__.py                               # Tool package exports
-│       ├── looker_api.py                             # Looker API & System Activity tools (model-scoped)
-│       ├── lookml_fs.py                              # LookML filesystem, safe patching, & Henry tools
-│       ├── bq_client.py                              # BigQuery & INFORMATION_SCHEMA tools (model-scoped)
-│       └── storage.py                                # Firestore & Markdown persistence engine (scoped schema)
-├── looker_healthcheck_agent/                         # Mirror package for library distribution
+│       ├── dynamic_cli.py                            # Dynamic CLI discovery, payload inspection & guarded execution
+│       ├── looker_api.py                             # Looker API & System Activity queries
+│       ├── lookml_fs.py                              # LookML filesystem, AST parsing, & safe Git patching
+│       ├── bq_client.py                              # BigQuery & INFORMATION_SCHEMA tools
+│       └── storage.py                                # Firestore & Markdown persistence engine
+├── evals/                                            # Evaluation test suite
+│   ├── run_evals.py                                  # 17-test suite runner (3 evaluation layers)
+│   ├── test_tools.py                                 # Unit & integration tests for all tools
+│   ├── test_transcriber_scoring.py                   # Transcriber 0-4 scoring rubric benchmarks
+│   ├── eval_agent_trajectories.py                    # Multi-turn agent scenario simulations
+│   └── fixtures/                                     # LookML test fixtures (Score 0 vs Score 4)
 ├── skills/                                           # 100% Tool-Agnostic Knowledge & Playbook Registry
 │   ├── custom/                                       # In-house custom recipes & diagnostic playbooks
 │   │   ├── healthcheck/                              # 8 Component offerings & diagnostic guides
-│   │   │   ├── SKILL.md                              # Top-level healthcheck methodology
-│   │   │   ├── references/                           # Deep-dive diagnostic playbooks (01 to 08)
-│   │   │   └── scripts/looker_healthcheck_runner.py  # Standalone diagnostic runner script
 │   │   └── refactoring/                              # Refactoring, Henry, & migration guides
-│   │       ├── SKILL.md                              # Refactoring workflow
-│   │       ├── references/                           # Henry guide, Spectacles CI, runtime recipes
-│   │       └── scripts/                              # Henry, looker-cli, and runtime migrator scripts
 │   └── vendor/                                       # Isolated upstream repositories
 │       └── looker-skills/                            # Official upstream Google Cloud Looker engineering skills (23 skills)
 ├── terraform/                                        # Infrastructure as Code for Firestore
@@ -202,8 +209,20 @@ terraform apply -var="project_id=YOUR_GCP_PROJECT_ID"
 cd ..
 ```
 
-### 4. Configure Environment Variables (`.env`)
-Create or edit `.env` in the repository root:
+### 4. Configure Authentication & Environment
+
+#### Option A: Zero-Secret OAuth PKCE Session (Recommended for Local Dev & Gemini Enterprise)
+Dynamically inherits the caller's active user OAuth session and permissions without storing plaintext secrets:
+```bash
+# Authenticate once via Looker CLI OAuth PKCE:
+looker-cli profile add default --host "your-instance.looker.app" --port 443
+looker-cli session login --oauth --client-id com.looker.cli
+
+# The LookerAdminClient dynamically discovers and inherits tokens from ~/.config/looker-cli/config.yaml
+```
+
+#### Option B: Environment Variables (`.env`) for Headless CI/CD
+Create or edit `.env` in the repository root for automated pipelines:
 ```env
 # Google Cloud & Vertex AI Configuration
 GOOGLE_GENAI_USE_VERTEXAI=true
@@ -214,15 +233,14 @@ GOOGLE_CLOUD_LOCATION=us-central1
 FIRESTORE_DATABASE=looker-healthcheck-db
 FIRESTORE_COLLECTION=looker_healthchecks
 
-# Looker Instance Credentials (Admin or Develop role)
+# Looker Instance Configuration
 LOOKERSDK_BASE_URL=https://your-instance.looker.app
+LOOKML_PROJECT_PATH=/path/to/your/local/lookml/repository
+LOOKER_CLI_PATH=~/.local/bin/looker-cli
+
+# Headless CI/CD Service Account Credentials (Optional when using Option A)
 LOOKERSDK_CLIENT_ID=your_looker_client_id
 LOOKERSDK_CLIENT_SECRET=your_looker_client_secret
-LOOKER_PROJECT_ID=your_lookml_project_name
-LOOKML_PROJECT_PATH=/path/to/your/local/lookml/repository
-
-# Tooling Paths
-LOOKER_CLI_PATH=~/.local/bin/looker-cli
 ```
 
 ---

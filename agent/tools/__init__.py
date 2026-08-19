@@ -2,30 +2,23 @@
 Tools package for Looker Optimizer & Healthcheck ADK Agent.
 """
 
+from .dynamic_cli import (
+    looker_cli_discover,
+    looker_cli_inspect_payload,
+    looker_cli_execute,
+    run_consolidated_healthcheck_benchmark
+)
+
 from .looker_api import (
+    run_inline_query,
+    get_query_sql,
+    get_explore_definition,
     check_subsystem_status,
-    audit_connections,
-    get_tile_bloat_dashboards,
-    get_auto_refresh_dashboards,
-    get_schedule_distribution,
-    get_concurrency_peaks,
-    get_unused_content_and_folders,
-    get_unfiltered_dashboards,
-    get_merged_queries,
-    get_legacy_features,
-    get_table_calculation_heavy_queries,
-    get_bi_engine_metrics,
-    get_pdt_failure_audit,
-    get_aggregate_awareness_hits,
-    get_complex_join_explores,
-    get_slow_query_outliers,
-    get_user_persona_and_error_rates,
-    get_query_lifecycle_stages,
     list_projects,
     list_models,
-    get_explore_schema,
-    run_system_activity_kpis,
-    run_healthcheck_audit,
+    get_system_telemetry_kpis,
+    get_slow_query_outliers,
+    get_user_persona_and_error_rates,
     execute_complete_healthcheck
 )
 
@@ -39,17 +32,13 @@ from .lookml_fs import (
     audit_naming_conventions,
     audit_metadata_descriptions,
     audit_unused_joins,
-    audit_incremental_pdts,
-    audit_oauth_connections,
-    audit_join_key_syntax,
     list_lookml_files,
     read_lookml_file,
-    search_lookml_code,
-    apply_lookml_patch,
-    apply_safe_lookml_patch
+    search_lookml_code
 )
 
 from .bq_client import (
+    run_bq_query,
     audit_partition_cluster_filters,
     audit_datagroup_sync,
     audit_query_costs_and_bytes_billed,
@@ -71,26 +60,20 @@ from agent.skills_registry import (
 )
 
 __all__ = [
+    "run_inline_query",
+    "get_query_sql",
+    "get_explore_definition",
+    "run_bq_query",
+    "looker_cli_discover",
+    "looker_cli_inspect_payload",
+    "looker_cli_execute",
+    "run_consolidated_healthcheck_benchmark",
     "check_subsystem_status",
-    "audit_connections",
-    "get_tile_bloat_dashboards",
-    "get_auto_refresh_dashboards",
-    "get_schedule_distribution",
-    "get_concurrency_peaks",
-    "get_unused_content_and_folders",
-    "get_unfiltered_dashboards",
-    "get_merged_queries",
-    "get_legacy_features",
-    "get_table_calculation_heavy_queries",
-    "get_bi_engine_metrics",
-    "get_pdt_failure_audit",
-    "get_aggregate_awareness_hits",
-    "get_complex_join_explores",
     "list_projects",
     "list_models",
-    "get_explore_schema",
-    "run_system_activity_kpis",
-    "run_healthcheck_audit",
+    "get_system_telemetry_kpis",
+    "get_slow_query_outliers",
+    "get_user_persona_and_error_rates",
     "execute_complete_healthcheck",
     "run_lookml_validation",
     "audit_primary_keys",
@@ -101,14 +84,9 @@ __all__ = [
     "audit_naming_conventions",
     "audit_metadata_descriptions",
     "audit_unused_joins",
-    "audit_incremental_pdts",
-    "audit_oauth_connections",
-    "audit_join_key_syntax",
     "list_lookml_files",
     "read_lookml_file",
     "search_lookml_code",
-    "apply_lookml_patch",
-    "apply_safe_lookml_patch",
     "audit_partition_cluster_filters",
     "audit_datagroup_sync",
     "audit_query_costs_and_bytes_billed",

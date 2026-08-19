@@ -31,6 +31,33 @@ def _sanitize_identifier(name: str) -> str:
     return re.sub(r"[^a-zA-Z0-9_\-]", "", name)
 
 # ==============================================================================
+# GENERIC BIGQUERY EXECUTION PRIMITIVES
+# ==============================================================================
+
+def run_bq_query(sql_query: str, project_id: Optional[str] = None, max_results: int = 50) -> str:
+    """
+    Dynamic BigQuery SQL Execution Primitive.
+    Executes any SQL query against BigQuery (including INFORMATION_SCHEMA views for slots, timeline, query costs, or dataset tables).
+    
+    Args:
+        sql_query: Valid BigQuery standard SQL query string.
+        project_id: Optional GCP project ID override.
+        max_results: Maximum rows to return (default: 50).
+    """
+    pid = project_id or GCP_PROJECT_ID
+    client = _get_bq_client(pid)
+    if not client:
+        return f"### ⚡ BigQuery SQL Query (Client Offline / Unconfigured):\n```sql\n{sql_query.strip()}\n```"
+    try:
+        query_job = client.query(sql_query)
+        results = [dict(row) for row in query_job.result(max_results=max_results)]
+        if not results:
+            return f"### ⚡ BigQuery Query Result: 0 rows returned."
+        return f"### ⚡ BigQuery Query Result ({len(results)} rows):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
+    except Exception as e:
+        return f"### ⚠️ BigQuery Query Error:\n```sql\n{sql_query.strip()}\n```\nError message: {str(e)}"
+
+# ==============================================================================
 # PILLAR 3: BIGQUERY INTEGRATION & DATABASE OPTIMIZATION (Tasks 21 to 30)
 # ==============================================================================
 

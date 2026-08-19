@@ -110,7 +110,7 @@ def run_lookml_validation(project_id: Optional[str] = None, model_name: Optional
     """
     pid = project_id or os.getenv("LOOKER_PROJECT_ID", "")
     if not pid:
-        return "Please specify a `project_id` to validate."
+        return "No LookML project specified. Use `list_projects()` to inspect active projects on the Looker instance, or specify a `project_id`."
     try:
         cmd = [LOOKER_CLI_BIN, "project", "validate", pid]
         if not LOOKER_VERIFY_SSL:

@@ -4,6 +4,7 @@ Provides structured execution tracing, tool latency profiling, sub-agent handoff
 and integration with Firestore / JSON persistence.
 """
 
+import os
 import time
 import uuid
 import json
@@ -13,7 +14,226 @@ from functools import wraps
 from typing import Dict, Any, Optional, List, Callable
 from contextlib import contextmanager
 
+try:
+    from google.adk.plugins import BasePlugin
+except ImportError:
+    class BasePlugin:
+        def __init__(self, name: str = ""):
+            self.name = name
+
 logger = logging.getLogger("looker_healthcheck_telemetry")
+
+# Initialize Google Cloud Logging client & handlers
+cloud_logging_client = None
+gcp_logger = None
+
+try:
+    import google.cloud.logging
+    from google.cloud.logging.handlers import CloudLoggingHandler, StructuredLogHandler
+    gcp_project = os.getenv("GOOGLE_CLOUD_PROJECT") or "sampitcher-playground"
+    cloud_logging_client = google.cloud.logging.Client(project=gcp_project)
+    
+    # Direct structured Cloud Logging channel
+    gcp_logger = cloud_logging_client.logger("looker_healthcheck_telemetry")
+    
+    # Attach CloudLoggingHandler to root logger so all logs across the app reach GCP
+    cloud_handler = CloudLoggingHandler(cloud_logging_client, name="looker_healthcheck_app")
+    cloud_handler.setLevel(logging.INFO)
+    logging.getLogger().addHandler(cloud_handler)
+    
+    # Attach StructuredLogHandler for local/container standard formatting
+    structured_handler = StructuredLogHandler(project_id=gcp_project)
+    logging.getLogger().addHandler(structured_handler)
+    
+    logger.info("Google Cloud Logging successfully initialized and attached to root logger.")
+except Exception as _e:
+    logger.warning("Cloud Logging initialization fallback: %s", _e)
+
+
+def log_cloud_event(event_name: str, payload: Dict[str, Any], level: str = "INFO"):
+    """Emits a structured telemetry log event directly to Google Cloud Logging."""
+    record = {
+        "event": event_name,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "data": payload
+    }
+    # Direct Cloud Logging API delivery
+    if gcp_logger:
+        try:
+            severity = "ERROR" if level == "ERROR" else ("WARNING" if level == "WARNING" else "INFO")
+            gcp_logger.log_struct(record, severity=severity)
+        except Exception as e:
+            logger.debug("Direct Cloud Logging log_struct error: %s", e)
+    
+    # Python logger delivery
+    if level == "ERROR":
+        logger.error(json.dumps(record, default=str))
+    elif level == "WARNING":
+        logger.warning(json.dumps(record, default=str))
+    else:
+        logger.info(json.dumps(record, default=str))
+
+
+def _extract_session_id(ctx) -> str:
+    if not ctx:
+        return "unknown"
+    session = getattr(ctx, "session", None)
+    if session and hasattr(session, "id"):
+        return str(session.id)
+    return getattr(ctx, "session_id", "unknown")
+
+
+class CloudLoggingPlugin(BasePlugin):
+    """
+    ADK Lifecycle Plugin that automatically intercepts and streams ALL conversation events,
+    user prompts, agent reasoning, model responses, and tool executions to Google Cloud Logging.
+    """
+    def __init__(self, name: str = "cloud_logging_plugin", project_id: Optional[str] = None):
+        super().__init__(name=name)
+        self.project_id = project_id or os.getenv("GOOGLE_CLOUD_PROJECT", "sampitcher-playground")
+        self._init_client()
+
+    def _init_client(self):
+        global cloud_logging_client, gcp_logger
+        if not gcp_logger and cloud_logging_client:
+            try:
+                gcp_logger = cloud_logging_client.logger("looker_healthcheck_telemetry")
+            except Exception:
+                pass
+
+    async def on_user_message_callback(self, *, invocation_context, user_message):
+        """Streams incoming user messages to Google Cloud Logging."""
+        try:
+            text_content = []
+            if hasattr(user_message, "parts"):
+                for p in user_message.parts:
+                    if hasattr(p, "text") and p.text:
+                        text_content.append(p.text)
+            message_text = " ".join(text_content) if text_content else str(user_message)
+            
+            session_id = _extract_session_id(invocation_context)
+            user_id = getattr(invocation_context, "user_id", "unknown")
+            invocation_id = getattr(invocation_context, "invocation_id", "unknown")
+
+            log_cloud_event("user_message", {
+                "session_id": session_id,
+                "user_id": user_id,
+                "invocation_id": invocation_id,
+                "prompt": message_text,
+                "role": "user"
+            })
+        except Exception as e:
+            logger.error("Failed to log user message to Cloud Logging: %s", e)
+        return None
+
+    async def before_agent_callback(self, *, agent, callback_context):
+        """Logs agent invocation start / subagent dispatch."""
+        try:
+            agent_name = getattr(agent, "name", str(agent))
+            session_id = _extract_session_id(callback_context)
+            log_cloud_event("agent_start", {
+                "agent_name": agent_name,
+                "session_id": session_id
+            })
+        except Exception as e:
+            logger.debug("Error in before_agent_callback logging: %s", e)
+        return None
+
+    async def after_agent_callback(self, *, agent, callback_context):
+        """Logs agent completion / transition."""
+        try:
+            agent_name = getattr(agent, "name", str(agent))
+            session_id = _extract_session_id(callback_context)
+            log_cloud_event("agent_completed", {
+                "agent_name": agent_name,
+                "session_id": session_id
+            })
+        except Exception as e:
+            logger.debug("Error in after_agent_callback logging: %s", e)
+        return None
+
+    async def before_tool_callback(self, *, tool, tool_args, tool_context):
+        """Logs tool execution start."""
+        try:
+            tool_name = getattr(tool, "name", str(tool))
+            clean_args = {}
+            if tool_args and isinstance(tool_args, dict):
+                for k, v in tool_args.items():
+                    clean_args[k] = v[:200] if isinstance(v, str) and len(v) > 200 else v
+            log_cloud_event("tool_start", {
+                "tool_name": tool_name,
+                "tool_args": clean_args
+            })
+        except Exception as e:
+            logger.debug("Error in before_tool_callback logging: %s", e)
+        return None
+
+    async def after_tool_callback(self, *, tool, tool_args, tool_context, result):
+        """Logs tool execution completion and result."""
+        try:
+            tool_name = getattr(tool, "name", str(tool))
+            result_str = str(result)
+            preview = result_str[:500] if len(result_str) > 500 else result_str
+            log_cloud_event("tool_completed", {
+                "tool_name": tool_name,
+                "result_preview": preview,
+                "result_length": len(result_str)
+            })
+        except Exception as e:
+            logger.debug("Error in after_tool_callback logging: %s", e)
+        return None
+
+    async def on_tool_error_callback(self, *, tool, tool_args, tool_context, error):
+        """Logs tool failure to Cloud Logging."""
+        try:
+            tool_name = getattr(tool, "name", str(tool))
+            log_cloud_event("tool_error", {
+                "tool_name": tool_name,
+                "tool_args": tool_args,
+                "error": str(error)
+            }, level="ERROR")
+        except Exception as e:
+            logger.debug("Error in on_tool_error_callback logging: %s", e)
+        return None
+
+    async def on_event_callback(self, *, invocation_context, event):
+        """Logs all ADK events (agent responses, tool responses, thoughts)."""
+        try:
+            author = getattr(event, "author", "unknown")
+            event_id = getattr(event, "id", "")
+            session_id = getattr(invocation_context, "session_id", "")
+            
+            content_text = []
+            func_calls = []
+            func_responses = []
+            
+            if hasattr(event, "content") and event.content:
+                parts = getattr(event.content, "parts", []) or []
+                for p in parts:
+                    if hasattr(p, "text") and p.text:
+                        content_text.append(p.text)
+                    if hasattr(p, "function_call") and p.function_call:
+                        func_calls.append(getattr(p.function_call, "name", str(p.function_call)))
+                    if hasattr(p, "function_response") and p.function_response:
+                        func_responses.append(getattr(p.function_response, "name", str(p.function_response)))
+
+            if author != "user":
+                payload = {
+                    "event_id": event_id,
+                    "session_id": session_id,
+                    "author": author,
+                    "text_preview": ("\n".join(content_text))[:500] if content_text else None,
+                    "function_calls": func_calls if func_calls else None,
+                    "function_responses": func_responses if func_responses else None
+                }
+                log_cloud_event(f"event_{author.lower()}", payload)
+        except Exception as e:
+            logger.debug("Error in on_event_callback logging: %s", e)
+        return None
+
+
+# Global plugin instance for agent app
+gcp_logging_plugin = CloudLoggingPlugin()
 
 
 class TelemetrySpan:
@@ -39,6 +259,13 @@ class TelemetrySpan:
             self.error = str(error)
         if attributes:
             self.attributes.update(attributes)
+        
+        # Stream span directly to Cloud Logging
+        log_cloud_event(
+            f"span_{self.span_type}_{self.name}",
+            self.to_dict(),
+            level="ERROR" if status == "ERROR" else "INFO"
+        )
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -105,6 +332,11 @@ class TelemetryTracer:
         span_obj.status = status
         span_obj.error = error
         self.spans.append(span_obj)
+        log_cloud_event(
+            f"tool_execution_{name}",
+            span_obj.to_dict(),
+            level="ERROR" if status == "ERROR" else "INFO"
+        )
 
     def get_summary(self) -> Dict[str, Any]:
         total_duration_ms = round((time.time() - self.start_time) * 1000, 2) if self.start_time else 0.0

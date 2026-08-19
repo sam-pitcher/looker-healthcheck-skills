@@ -10,7 +10,8 @@ from typing import Dict, Any, List
 
 from agent.agent import root_agent, content_agent, lookml_agent, bq_agent
 from agent.skills_registry import skill_registry, get_skill_content, list_registered_skills
-from agent.tools.looker_api import execute_complete_healthcheck, get_slow_query_outliers, get_query_lifecycle_stages
+from agent.tools.dynamic_cli import looker_cli_discover, looker_cli_inspect_payload, looker_cli_execute
+from agent.tools.looker_api import execute_complete_healthcheck
 from agent.tools.storage import save_audit_report, get_audit_document
 from agent.telemetry import TelemetryTracer
 
@@ -58,15 +59,15 @@ def test_trajectory_performance_outlier_triage():
     """
     Scenario 3: Looker Performance & Slow Query Triage
     Evaluates:
-      1. Discovery telemetry tools (get_slow_query_outliers, get_query_lifecycle_stages).
+      1. Dynamic discovery tools (looker_cli_discover, looker_cli_inspect_payload, looker_cli_execute).
       2. Dynamic ingestion of playbook_looker_performance.md.
       3. Verification of Google Cloud PSO latency benchmarks.
     """
-    outliers = get_slow_query_outliers(threshold_seconds=8.0)
-    assert isinstance(outliers, str) and len(outliers) > 0
+    disc = looker_cli_discover("query")
+    assert isinstance(disc, str) and len(disc) > 0
 
-    stages = get_query_lifecycle_stages()
-    assert isinstance(stages, str) and len(stages) > 0
+    inspect = looker_cli_inspect_payload("api query run_inline_query")
+    assert isinstance(inspect, str) and len(inspect) > 0
 
     perf_playbook = get_skill_content("playbook_looker_performance.md")
     assert "Performance" in perf_playbook or "Lifecycle" in perf_playbook
@@ -88,7 +89,9 @@ def test_trajectory_lookml_quality_and_henry():
         "audit_join_relationships",
         "run_henry_vacuum",
         "audit_explore_field_exposure",
-        "apply_safe_lookml_patch"
+        "read_lookml_file",
+        "search_lookml_code",
+        "get_explore_definition"
     ]
     for exp in expected_tools:
         assert exp in lookml_tools, f"Missing expected tool in LookML agent: {exp}"

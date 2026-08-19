@@ -35,17 +35,52 @@ def get_ssl_context():
         return ssl.create_default_context()
     return ssl._create_unverified_context()
 
+def _extract_cli_profile():
+    config_path = os.path.expanduser(os.getenv("LOOKER_CLI_CONFIG", "~/.config/looker-cli/config.yaml"))
+    if not os.path.exists(config_path):
+        return {}
+    try:
+        import re
+        with open(config_path, "r", encoding="utf-8") as f:
+            content = f.read()
+        host_m = re.search(r"host:\s*([^\s\n]+)", content)
+        port_m = re.search(r"port:\s*([^\s\n]+)", content)
+        token_m = re.search(r"access_token:\s*([^\s\n]+)", content)
+        host = host_m.group(1).strip("\"'") if host_m else ""
+        port = port_m.group(1).strip("\"'") if port_m else "443"
+        raw_token = token_m.group(1).strip("\"'") if token_m else ""
+        token = raw_token if raw_token not in ("null", "None", "''", '""') else ""
+        base_url = f"https://{host}" if port in ("443", "19999") or LOOKER_VERIFY_SSL else f"http://{host}"
+        if port not in ("443", "80"):
+            base_url = f"https://{host}:{port}" if LOOKER_VERIFY_SSL else f"http://{host}:{port}"
+        return {"base_url": base_url if host else "", "access_token": token}
+    except Exception:
+        return {}
+
 def load_config():
-    """Load Looker settings from environment variables or standard config."""
+    """Load Looker settings from OAuth session, environment variables, or CLI config."""
+    cli_data = _extract_cli_profile()
+    base_url = os.getenv("LOOKERSDK_BASE_URL", "").rstrip("/") or cli_data.get("base_url", "")
+    oauth_token = os.getenv("LOOKERSDK_OAUTH_TOKEN") or os.getenv("LOOKER_OAUTH_TOKEN") or os.getenv("LOOKERSDK_ACCESS_TOKEN") or cli_data.get("access_token", "")
     return {
-        "base_url": os.getenv("LOOKERSDK_BASE_URL", "").rstrip("/"),
+        "base_url": base_url,
         "client_id": os.getenv("LOOKERSDK_CLIENT_ID", ""),
         "client_secret": os.getenv("LOOKERSDK_CLIENT_SECRET", ""),
+        "oauth_token": oauth_token,
         "project_id": os.getenv("LOOKER_PROJECT_ID", "")
     }
 
 def authenticate(config):
-    """Authenticate and obtain API access token."""
+    """Authenticate and obtain API access token via OAuth inheritance or API3 credentials."""
+    if config.get("oauth_token"):
+        return config["oauth_token"]
+    
+    if not config.get("base_url") or not config.get("client_id") or not config.get("client_secret"):
+        raise ValueError(
+            "Looker Authentication Error: No active OAuth session or API3 credentials found.\n"
+            "Run 'looker-cli session login --oauth' to authenticate under your user identity, or set LOOKERSDK_CLIENT_ID / LOOKERSDK_CLIENT_SECRET."
+        )
+    
     ssl_context = get_ssl_context()
     login_url = f"{config['base_url']}/api/4.0/login"
     payload = urllib.parse.urlencode({
@@ -104,9 +139,13 @@ def evaluate_status(val, benchmark_info):
     else:
         return "🟢 Healthy", "Within PSO Guidelines"
 
-def generate_healthcheck_report(config, token):
+from typing import Optional
+
+def generate_healthcheck_report(config, token, model_name: Optional[str] = None):
     """Run diagnostics and generate comprehensive Markdown report."""
     print("Collecting Looker System Activity KPIs...")
+    
+    kpi_filters = {"query.model": model_name} if model_name else None
     
     # 1. High Level Query Metrics
     kpi_fields = [
@@ -123,12 +162,12 @@ def generate_healthcheck_report(config, token):
         "query_metrics.per_user_throttler_average",
         "query_metrics.queued_average"
     ]
-    kpi_results = run_inline_query(config, token, "system__activity", "query_metrics", kpi_fields, limit="1")
+    kpi_results = run_inline_query(config, token, "system__activity", "query_metrics", kpi_fields, filters=kpi_filters, limit="1")
     kpis = kpi_results[0] if kpi_results else {}
 
     # 2. History Status Breakdown
     history_fields = ["history.source", "history.status", "history.query_run_count"]
-    history_results = run_inline_query(config, token, "system__activity", "history", history_fields, limit="25")
+    history_results = run_inline_query(config, token, "system__activity", "history", history_fields, filters=kpi_filters, limit="25")
 
     # 3. Outlier Queries
     outlier_fields = [
@@ -143,6 +182,7 @@ def generate_healthcheck_report(config, token):
     outlier_results = run_inline_query(
         config, token, "system__activity", "query_metrics",
         outlier_fields,
+        filters=kpi_filters,
         sorts=["query_metrics.async_processing desc"],
         limit="5"
     )
@@ -155,7 +195,8 @@ def generate_healthcheck_report(config, token):
     overhead_pct = (overhead_seconds / async_avg) * 100 if async_avg > 0 else 0.0
 
     # Build Markdown Report
-    now_str = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    from datetime import timezone
+    now_str = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
     report = []
     report.append(f"# Looker Instance Healthcheck & Performance Audit")
     report.append(f"**Instance:** `{config['base_url']}`  ")
@@ -265,8 +306,8 @@ def generate_healthcheck_report(config, token):
 
 def main():
     config = load_config()
-    if not config["client_id"] or not config["client_secret"]:
-        print("Missing Looker credentials in settings.json or environment.", file=sys.stderr)
+    if not config.get("oauth_token") and (not config.get("client_id") or not config.get("client_secret")):
+        print("Missing Looker OAuth session or API credentials. Run `looker-cli session login --oauth --client-id com.looker.cli`.", file=sys.stderr)
         sys.exit(1)
     
     token = authenticate(config)
