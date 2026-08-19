@@ -117,12 +117,13 @@ def _load_agent_instruction(prompt_name: str) -> str:
     return f"Execute diagnostics and remediation for domain: {prompt_name}"
 
 # ==============================================================================
-# SUB-AGENT 1: Content & Administration Auditor (Pillar 1)
 # ==============================================================================
-content_agent = Agent(
-    name="ContentAuditorAgent",
+# SUB-AGENT 1: Looker Performance & Query Lifecycle Auditor (Pillar 1)
+# ==============================================================================
+looker_perf_agent = Agent(
+    name="LookerPerformanceAgent",
     model="gemini-2.5-flash",
-    description="Audits Looker instance subsystems, connection pool wait times, query concurrency, dashboard tile density (>25 tiles), auto-refresh intervals, and schedule staggering (:00 pileups) using playbooks and dynamic System Activity queries.",
+    description="Specialist in Looker Query Lifecycle Profiling, System Activity metrics, latency phase breakdown (Looker JVM overhead vs Database execution vs Connection queueing), slow query identification, dashboard tile density (>25 tiles), auto-refresh intervals, and schedule staggering.",
     instruction=_load_agent_instruction("content_auditor"),
     tools=[
         run_inline_query,
@@ -139,6 +140,8 @@ content_agent = Agent(
         get_skill_content
     ]
 )
+# Backward-compatible alias
+content_agent = looker_perf_agent
 
 # ==============================================================================
 # SUB-AGENT 2: LookML Modeling & Code Quality Specialist (Pillar 2)
@@ -183,7 +186,7 @@ lookml_agent = Agent(
 bq_agent = Agent(
     name="BqOptimizerAgent",
     model="gemini-2.5-pro",
-    description="Diagnoses slow database queries, BigQuery slot contention, unpartitioned warehouse scans, query cost outliers, PDT build bottlenecks, datagroup ETL sync, and Aggregate Awareness rollups.",
+    description="Diagnoses slow database queries, BigQuery SQL execution, AST anti-patterns (e.g. functions in JOIN ON clauses), BigQuery slot contention & timelines via INFORMATION_SCHEMA, unpartitioned warehouse scans, query cost outliers, and Aggregate Awareness rollups.",
     instruction=_load_agent_instruction("bq_optimizer"),
     tools=[
         run_bq_query,
@@ -206,112 +209,55 @@ bq_agent = Agent(
 )
 
 # ==============================================================================
-# MASTER ORCHESTRATOR: Root Agent
+# MASTER ORCHESTRATOR: Root Supervisor Agent
 # ==============================================================================
 ROOT_INSTRUCTION = """
-You are the **Looker & BigQuery Optimization Orchestrator**, an expert AI performance and data modeling engineer.
-You perform **agentic, hypothesis-driven, playbook-grounded healthchecks and performance investigations** across all 3 Pillars:
-- **Pillar 1: Instance & Content Health**: Subsystems, Concurrency Peaks, Tile Bloat (>25 tiles), Auto-Refresh (<30m), Schedule Stacking (:00 pileups), Unused Content, Unfiltered Queries, Merged Queries.
-- **Pillar 2: LookML & Modeling Health**: Syntax Validation, Primary Keys, Join Relationships, Symmetric Aggregation Fan-outs (SUM_DISTINCT), Henry Dead Field Vacuum, Raw Key Exposure, Folder Structure, Naming Conventions, Metadata Descriptions, Table Calculations.
-- **Pillar 3: BigQuery & Warehouse Compute**: Slow Query Outliers, Slot Contention & Starvation, Partition/Cluster Filters, BI Engine, PDT Build Failures, Incremental PDTs, Datagroup ETL Sync, Aggregate Awareness (aggregate_table), Query Cost & Bytes Scanned.
+You are the **Looker & BigQuery Optimization Orchestrator**, the master supervisor agent responsible for orchestrating comprehensive, playbook-grounded healthchecks and performance investigations.
+
+### 👥 Your Specialized Sub-Agents:
+You coordinate 3 specialized sub-agents to perform deep-dive investigations:
+
+1. **`LookerPerformanceAgent`** (Pillar 1 - Query Lifecycle & Looker Performance):
+   - **DELEGATE TO THIS AGENT FOR**: Looker System Activity query profiling, finding top slow queries across models/explores, breaking down query latency phases (Looker overhead vs Database time), checking connection queueing, dashboard tile bloat (>25 tiles), auto-refresh intervals, and schedule staggering.
+2. **`BqOptimizerAgent`** (Pillar 3 - BigQuery Engine & SQL Optimization):
+   - **DELEGATE TO THIS AGENT FOR**: Inspecting physical compiled SQL, detecting BigQuery anti-patterns (e.g. functions in JOIN ON, timezone conversion in WHERE), querying BigQuery INFORMATION_SCHEMA for slot contention, validating partition/clustering pruning, and estimating query cost dry-runs.
+3. **`LookmlQualityAgent`** (Pillar 2 - LookML Modeling & Code Quality):
+   - **DELEGATE TO THIS AGENT FOR**: Auditing LookML syntax, checking primary keys to prevent SUM_DISTINCT fan-outs, verifying join relationships, running Henry dead-field vacuums, and generating prescriptive LookML code fixes.
 
 ---
 
-### 📌 System Activity Schema Rules (Mandatory):
-- **Model Dimension**: ALWAYS use `query.model` (e.g. `filters: {'query.model': 'thelook'}`). Never use `history.model_name` or `query_metrics.model`.
-- **Explore Dimension**: ALWAYS use `query.view` (e.g. `fields: ['query.view', 'query.model']`). In System Activity, `query.view` represents the Explore name.
-- **Time Dimension**: ALWAYS use `history.created_date` (e.g. `'30 days'` or `'7 days'`).
+### 🧠 Autonomous Multi-Agent Investigation Workflow:
+When a user asks for a performance investigation, slow query triage, or full healthcheck:
 
----
-
-### 🧠 Autonomous, Playbook-Guided Investigation Workflow:
-
-When investigating performance issues (e.g. "slow queries", "dashboard delays", or "review model X"), follow the top-down hierarchy: **Model ➡️ Explore ➡️ Dashboard / User ➡️ Specific Query SQL**:
-
-#### Phase 1: Hierarchical Query Lifecycle Profiling (System Activity)
-1. **Consult Playbooks**:
-   - Call `get_skill_content("system_activity_queries.md")` and `get_skill_content("playbook_looker_performance.md")` to retrieve official query templates and Google Cloud PSO benchmarks.
-2. **Step 1 - Model Level Triage**:
-   - Query `query_metrics` for `query.model`, `history.average_runtime`, `query_metrics.acquire_connection_average`, `query_metrics.model_init_computed_average`.
-   - Calculate latency breakdown:
-     - `DB % = (execute_main_query / async_processing) * 100`
-     - `Overhead % = (async_processing - (execute_main_query + acquire_connection)) / async_processing * 100`
-     - `Queue Contention = acquire_connection + queued`
-3. **Step 2 - Explore Level Drilldown**:
-   - Query `history` on `query.view`, `query.model`, `history.query_run_count`, `history.average_runtime` (filtered by `query.model`).
-4. **Step 3 - Dashboard & User Context**:
-   - Query `history` on `dashboard.id`, `dashboard.title`, `user.name`, `history.result_source` (pivoted on cache vs query) to isolate tile bloat vs live database runs.
-
-#### Phase 2: Autonomous Deep-Dive & 5-Vector Forensic Inspection
-* **DO NOT tell the user to manually inspect SQL or LookML in Looker Admin**. You have full tool access to do it automatically.
-* **CRITICAL REASONING RULE (DO NOT LAZILY BLAME MISSING FILTERS)**:
-  - If a slow query runs without filters, **do not assume adding a filter is the only or correct solution**. A query calculating lifetime user order counts or annual metrics legitimately needs full history.
-  - Investigate all **5 Vectors**:
-    1. **Phase Breakdown**: Run `run_inline_query` on `system__activity/query_metrics` for that `query.id` (`execute_main_query`, `acquire_connection`, `stream_to_cache`, `queued`) to pinpoint where latency occurred.
-    2. **SQL & Join Analysis**: Call `get_query_sql(query_id)`. Look for redundant `LEFT JOIN`s on tables with no selected fields, non-key joins, or `SUM_DISTINCT` symmetric aggregation overhead.
-    3. **Aggregate Awareness Acceleration**: For legitimate full-table rollups, prescribe `aggregate_table:` or an incremental PDT to pre-aggregate data instead of breaking business metrics with date filters.
-    4. **Warehouse Slot Contention**: Run `run_bq_query` on `INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` (from `warehouse_optimization.md`) to check if BigQuery slots were starved at that execution timestamp.
-    5. **Concurrent Job Bursts**: Query `system__activity/history` for all queries executed at that same timestamp (`history.created_time`) to detect multi-tile dashboard or cron pileups.
-
-#### Phase 3: Root Cause Isolation, LookML Recommendations & Persistence
-1. Render the standardized **Top Slow Query Outliers Scorecard** from `query_outliers_diagnosis.md` citing the dominant vector, SQL snippets, and diagnosed root cause.
-2. **LookML Recommendations (Read-Only)**: Present all suggested LookML improvements and fixes directly to the user in clean Markdown code blocks or diffs (e.g. ```lookml or ```diff) along with the rationale. DO NOT attempt to modify or write files directly to the filesystem or Git repository.
-3. **MANDATORY**: Call `save_audit_report(report_markdown, structured_findings, model_name=model_name)` to persist structured telemetry to Firestore (`looker-healthcheck-db`).
+1. **Phase 1 (Looker Query Profiling)**:
+   - Delegate to `LookerPerformanceAgent` to query `system__activity`, identify the top slow query IDs, and calculate the Looker vs Database latency split.
+2. **Phase 2 (Database SQL Forensics)**:
+   - Delegate to `BqOptimizerAgent` with the identified slow query ID(s) to extract compiled SQL, check BigQuery anti-patterns, and evaluate warehouse compute / slot contention.
+3. **Phase 3 (LookML Code Fixes)**:
+   - Delegate to `LookmlQualityAgent` to inspect the explore/view definitions and formulate exact LookML code remediations (e.g. `primary_key: yes`, `convert_tz: no`, `aggregate_table:`).
+4. **Phase 4 (Synthesis & Persistence)**:
+   - Synthesize all sub-agent findings into the standardized Scorecard report.
+   - **MANDATORY**: Call `save_audit_report(report_markdown, structured_findings, model_name=model_name)` to persist the final deliverable to Firestore and AUDIT_REPORT.md.
 """
 
-DYNAMIC_ORCHESTRATOR_TOOLS = [
-    # 1. Dynamic Query & System Activity Execution
-    run_inline_query,
-    get_query_sql,
-    get_explore_definition,
-    run_bq_query,
-    check_subsystem_status,
-    list_projects,
-    list_models,
-
-    # 2. Dynamic Looker CLI Discovery & Guarded Execution
-    looker_cli_discover,
-    looker_cli_inspect_payload,
-    looker_cli_execute,
-
-    # 3. Local LookML Repository Read-Only Diagnostics
-    list_lookml_files,
-    read_lookml_file,
-    search_lookml_code,
-    run_lookml_validation,
-    audit_primary_keys,
-    audit_join_relationships,
-    run_henry_vacuum,
-    audit_explore_field_exposure,
-    audit_folder_structure,
-    audit_naming_conventions,
-    audit_metadata_descriptions,
-    audit_unused_joins,
-
-    # 4. BigQuery & Compute Inspection
-    audit_partition_cluster_filters,
-    audit_bq_slots,
-    estimate_query_cost_dry_run,
-    audit_query_costs_and_bytes_billed,
-    audit_datagroup_sync,
-
-    # 5. Persistence & Dynamic Skills Playbooks
+ORCHESTRATOR_TOOLS = [
+    # Coordinator & Persistence Tools
+    list_registered_skills,
+    get_skill_content,
     save_audit_report,
     get_audit_history,
     get_audit_document,
-    list_registered_skills,
-    get_skill_content
 ]
 
-ALL_30_TOOLS = DYNAMIC_ORCHESTRATOR_TOOLS
+ALL_30_TOOLS = ORCHESTRATOR_TOOLS
 
 root_agent = Agent(
     name="LookerBqOptimizationOrchestrator",
     model="gemini-2.5-pro",
-    description="Master orchestrator executing Looker & BigQuery optimization and healthchecks across Instance Health, LookML Modeling, and Warehouse Compute using dynamic CLI meta-tools, upstream skill ingestion, and safe Git patching.",
+    description="Master supervisor orchestrating LookerPerformanceAgent, LookmlQualityAgent, and BqOptimizerAgent for enterprise healthchecks, query lifecycle profiling, and LookML code optimization.",
     instruction=ROOT_INSTRUCTION.strip(),
-    sub_agents=[content_agent, lookml_agent, bq_agent],
-    tools=DYNAMIC_ORCHESTRATOR_TOOLS
+    sub_agents=[looker_perf_agent, lookml_agent, bq_agent],
+    tools=ORCHESTRATOR_TOOLS
 )
 
 # App definition with automated Google Cloud Logging lifecycle plugin
@@ -320,4 +266,5 @@ app = App(
     root_agent=root_agent,
     plugins=[gcp_logging_plugin]
 )
+
 

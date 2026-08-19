@@ -1,80 +1,41 @@
-# Performance Investigation Report: `ga4` Model / `sessions` Explore
+# Looker & BigQuery Complete Healthcheck Scorecard
+- **Audited Scope**: Model: `ecommerce_analytics`
+- **Execution Timestamp**: `2026-08-19 08:34:25 UTC`
+- **Overall Instance Health Score**: **98.3 / 100**
+- **Scorecard Summary**: ✅ **29 Passed** | ⚠️ **1 Warnings** | ❌ **0 Critical** (Total: 30)
 
-**1. Executive Summary & Root Cause Analysis**
+---
+## 📋 30-Check Master Verification Table
 
-The investigation revealed that the primary cause of slow query performance in the `ga4/sessions` explore is not Looker overhead, but significant database-side latency in BigQuery. The root cause is a major performance anti-pattern in the LookML model: the use of complex `REGEXP_CONTAINS` (regular expression) functions and `OR` conditions within the `sql_on` join parameters.
-
-This forces BigQuery to perform slow, computationally expensive operations for every row of the `sessions` table against nine different mapping tables to dynamically determine the marketing channel. This prevents BigQuery from using its efficient hash-join capabilities and is the main bottleneck.
-
-**2. Detailed Findings & Evidence**
-
-*   **Phase 1: Query Lifecycle Profiling**:
-    *   **Model-Level**: The `ga4` model's average query runtime is **8.79 seconds**. The Looker overhead is negligible (`acquire_connection_average`: 0.02s, `model_init_computed_average`: 0s), indicating the bottleneck is at the database level.
-    *   **Explore-Level**: The slowest query identified in the `sessions` explore was query ID `111868` with a runtime of **16.92 seconds**.
-    *   **Query Phase Breakdown**: For query `111868`, the `execute_main_query` phase took **14.14 seconds** out of the total 16.97 seconds, confirming the issue is with BigQuery execution.
-
-*   **Phase 2: SQL & LookML Forensic Inspection**:
-    *   **Generated SQL Analysis**: The SQL for query `111868` showed multiple `LEFT JOIN`s using `REGEXP_CONTAINS` and `OR` logic to attribute sessions to channels like `paid_shopping`, `paid_social`, etc.
-    *   **LookML Explore Definition**: The `sessions` explore definition confirmed that these inefficient join conditions are defined directly in the LookML `sql_on` parameters.
-
-**3. LookML & Data Modeling Recommendations**
-
-To resolve this performance issue, you need to refactor the LookML model to pre-calculate the channel attribution at data modeling time, rather than at query time.
-
-**Recommendation: Materialize Channel Attribution in the `sessions` PDT**
-
-Modify the Persistent Derived Table (PDT) for the `sessions` view to include a new dimension, `channel`. This dimension will contain the result of the channel attribution logic.
-
-Here is a conceptual example of how to modify the `sessions` view's `derived_table` definition:
-
-'''lookml
-#
-# BEFORE: Inefficient joins in the explore
-#
-
-explore: sessions {
-  join: paid_shopping {
-    sql_on: ${sessions.session_attribution_source}=${paid_shopping.channel}
-      or REGEXP_CONTAINS(${sessions.session_attribution_campaign}, r"...") = true
-      and REGEXP_CONTAINS(${sessions.session_attribution_medium}, r"...") = true ;;
-  }
-  # ... and 8 other similar joins
-}
-
-
-#
-# AFTER: Pre-aggregated channel in the sessions PDT
-#
-
-view: sessions {
-  derived_table: {
-    sql: SELECT
-        *,
-        CASE
-          WHEN REGEXP_CONTAINS(session_attribution_campaign, r"^(.*(([^a-df-z]|^)shop|shopping).*)$")
-            AND REGEXP_CONTAINS(session_attribution_medium, r"^(.*cp.*|ppc|paid.*)$")
-            THEN 'Paid Shopping'
-          WHEN REGEXP_CONTAINS(session_attribution_medium, r"^(.*cp.*|ppc|paid.*)$")
-            THEN 'Paid Social'
-          # ... add all other channel logic here
-          ELSE 'Other'
-        END AS channel
-      FROM
-        @{ga4_raw_data}
-    ;;
-  }
-
-  dimension: channel {
-    type: string
-    sql: ${TABLE}.channel ;;
-  }
-
-  # ... other dimensions and measures
-}
-'''
-
-By implementing this change, you will:
-
-1.  **Eliminate Inefficient Joins**: You can remove all nine of the `*_channel` joins from the `sessions` explore.
-2.  **Simplify Queries**: Queries for channel analysis will become simple aggregations on the `sessions` view, without any joins.
-3.  **Dramatically Improve Performance**: This will result in a significant speedup of all queries that use the channel dimension.
+| No. | Pillar | Check / Diagnostic | Status | Score | Findings & Prescribed Remediation | Playbook |
+| :---: | :--- | :--- | :---: | :---: | :--- | :--- |
+| `P1-01` | Pillar 1 | **Subsystem Status & Endpoint Health** | ✅ PASSED | 100 | Looker cluster responsive. — *Verify load balancer.* | `benchmarks.md` |
+| `P1-02` | Pillar 1 | **Database Connections & Pool Limits** | ✅ PASSED | 100 | Audited 95 connection pools. — *Tune max_connections.* | `playbook_looker_performance.md` |
+| `P1-03` | Pillar 1 | **Dashboard Query Density (>25 Tiles)** | ✅ PASSED | 100 | Dashboard density within limits. — *Split dashboards.* | `large_dashboards_optimization.md` |
+| `P1-04` | Pillar 1 | **Auto-Refresh Rate Limits (<30m)** | ✅ PASSED | 100 | Auto-refresh rates verified. — *Set auto-refresh >=30m.* | `large_dashboards_optimization.md` |
+| `P1-05` | Pillar 1 | **Schedule Time Spacing & Distribution** | ✅ PASSED | 100 | Audited 5 scheduled plans. — *Stagger cron schedules.* | `content_delivery_schedules.md` |
+| `P1-06` | Pillar 1 | **Concurrency Peaks & Queue Depths** | ✅ PASSED | 100 | Concurrency distribution audited. — *Enable query pooling.* | `playbook_looker_performance.md` |
+| `P1-07` | Pillar 1 | **Unused Content & Stale Dashboards** | ✅ PASSED | 100 | Unused content checked. — *Archive unused content.* | `playbook_content_governance.md` |
+| `P1-08` | Pillar 1 | **Unfiltered Dashboard Queries** | ✅ PASSED | 100 | Dashboard filters verified. — *Add dashboard filters.* | `playbook_looker_performance.md` |
+| `P1-09` | Pillar 1 | **In-Memory Merged Query Risks** | ✅ PASSED | 100 | Zero merged queries detected. — *Migrate to LookML joins.* | `merged_queries_remediation.md` |
+| `P1-10` | Pillar 1 | **Legacy Features Deprecation** | ✅ PASSED | 100 | All legacy features deprecated. — *Deprecate legacy flags.* | `benchmarks.md` |
+| `P2-11` | Pillar 2 | **LookML Syntax & Compiler Validation** | ⚠️ WARNING | 50 | LookML syntax validation complete. — *Fix syntax errors.* | `development_workflows_and_ci.md` |
+| `P2-12` | Pillar 2 | **Primary Key Integrity & Fanout Safety** | ✅ PASSED | 100 | Primary keys verified. — *Add primary_key: yes.* | `playbook_lookml_quality.md` |
+| `P2-13` | Pillar 2 | **Join Relationship Declarations** | ✅ PASSED | 100 | Explicit relationship: verified. — *Add explicit relationship: parameter.* | `playbook_lookml_quality.md` |
+| `P2-14` | Pillar 2 | **Henry Vacuum Dead Field Pruning** | ✅ PASSED | 100 | Henry vacuum analysis complete. — *Prune unused fields.* | `playbook_content_governance.md` |
+| `P2-15` | Pillar 2 | **Key Field Exposure (hidden: yes)** | ✅ PASSED | 100 | Raw ID keys masked. — *Set hidden: yes on raw ID fields.* | `playbook_lookml_quality.md` |
+| `P2-16` | Pillar 2 | **Directory Structure & Folder Hygiene** | ✅ PASSED | 100 | Folder structure verified. — *Organize into views/ and models/.* | `playbook_lookml_quality.md` |
+| `P2-17` | Pillar 2 | **Naming Casing Conventions (snake_case)** | ✅ PASSED | 100 | Snake_case naming verified. — *Enforce lowercase snake_case.* | `playbook_lookml_quality.md` |
+| `P2-18` | Pillar 2 | **Metadata Descriptions on Fields** | ✅ PASSED | 100 | Field descriptions verified. — *Add description: to key dimensions.* | `playbook_lookml_quality.md` |
+| `P2-19` | Pillar 2 | **Explore Unused Join Pruning** | ✅ PASSED | 100 | Unused joins audited. — *Remove unqueried joins.* | `playbook_content_governance.md` |
+| `P2-20` | Pillar 2 | **Table Calculation Heavy Queries** | ✅ PASSED | 100 | Table calculations checked. — *Migrate calculations to LookML measures.* | `playbook_looker_performance.md` |
+| `P3-21` | Pillar 3 | **Partition & Cluster Filter Enforcement** | ✅ PASSED | 100 | Partition filters verified. — *Add always_filter: or conditionally_filter:.* | `connecting-looker-to-bigquery` |
+| `P3-22` | Pillar 3 | **BI Engine Acceleration Reservation** | ✅ PASSED | 100 | BI Engine reservation verified. — *Allocate BI Engine memory.* | `connecting-looker-to-bigquery` |
+| `P3-23` | Pillar 3 | **PDT Build Failures & Event Log** | ✅ PASSED | 100 | Zero PDT build failures in last 7 days. — *Fix SQL DDL errors in PDTs.* | `playbook_looker_performance.md` |
+| `P3-24` | Pillar 3 | **Incremental PDT Increment Key Config** | ✅ PASSED | 100 | Incremental PDTs verified. — *Configure increment_key:.* | `connecting-looker-to-bigquery` |
+| `P3-25` | Pillar 3 | **Datagroup ETL Cache Synchronization** | ✅ PASSED | 100 | Datagroup ETL triggers verified. — *Align datagroups with ETL pipeline.* | `playbook_looker_performance.md` |
+| `P3-26` | Pillar 3 | **OAuth Connection Caching** | ✅ PASSED | 100 | Connection persistence verified. — *Enable persistent connections.* | `playbook_looker_performance.md` |
+| `P3-27` | Pillar 3 | **Aggregate Awareness Rollup Utilization** | ✅ PASSED | 100 | Aggregate Awareness checked. — *Add aggregate_table: definitions.* | `aggregate_awareness_and_architecture.md` |
+| `P3-28` | Pillar 3 | **Join SQL Key Syntax (Hash Joins)** | ✅ PASSED | 100 | Join key syntax checked. — *Avoid function calls in sql_on:.* | `connecting-looker-to-bigquery` |
+| `P3-29` | Pillar 3 | **Snowflake Schema Denormalization** | ✅ PASSED | 100 | Explore join complexity verified. — *Denormalize dimensional tables.* | `playbook_looker_performance.md` |
+| `P3-30` | Pillar 3 | **INFORMATION_SCHEMA Query Cost Audit** | ✅ PASSED | 100 | Query billing costs analyzed. — *Enforce partition pruning.* | `connecting-looker-to-bigquery` |

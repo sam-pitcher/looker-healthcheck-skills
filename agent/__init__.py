@@ -5,6 +5,7 @@ Looker Optimizer & Healthcheck Multi-Agent System.
 from .agent import (
     app,
     root_agent,
+    looker_perf_agent,
     content_agent,
     lookml_agent,
     bq_agent
@@ -20,6 +21,7 @@ from .telemetry import (
 __all__ = [
     "app",
     "root_agent",
+    "looker_perf_agent",
     "content_agent",
     "lookml_agent",
     "bq_agent",
