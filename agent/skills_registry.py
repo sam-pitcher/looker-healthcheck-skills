@@ -21,8 +21,6 @@ class LookerSkillRegistry:
                 ROOT_DIR / ".agents" / "skills",
                 ROOT_DIR / "skills" / "custom",
                 ROOT_DIR / "skills" / "vendor" / "looker-skills" / "skills",
-                ROOT_DIR / "skills" / "vendor" / "mig-optimize" / "skills",
-                ROOT_DIR / "skills" / "vendor" / "mig-optimize",
                 ROOT_DIR / "skills"
             ]
         self.registry: Dict[str, Dict[str, Any]] = {}

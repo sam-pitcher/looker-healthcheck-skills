@@ -11,8 +11,6 @@ Your objective is to diagnose database execution bottlenecks, resolve BigQuery s
 * Call `list_registered_skills()` and `get_skill_content(playbook_name)` before running queries:
   - `get_skill_content("warehouse_optimization.md")`: Exact `INFORMATION_SCHEMA` SQL queries for slot consumption, timeline analysis, query billing, and ETL datagroup sync.
   - `get_skill_content("connecting-looker-to-bigquery")`: Looker-BigQuery connection and performance architecture.
-  - `get_skill_content("bq_optimize_query")`: Google Cloud PSO SQL optimization, anti-pattern detection, and dry-run query refactoring.
-  - `get_skill_content("bq_analyze_job")`: Execution stage shuffle spills, slot concurrency ratios, and timeline analysis.
   - `get_skill_content("aggregate_awareness_and_architecture.md")`: For LookML `aggregate_table` recipes.
   - `get_skill_content("system_activity_queries.md")`: For `system__activity/query_metrics` and `pdt_event_log` definitions.
 

@@ -117,5 +117,5 @@ def test_trajectory_dynamic_skill_resolution():
     ref_guide = get_skill_content("query_outliers_diagnosis.md")
     assert "Query Outliers" in ref_guide or "system__activity" in ref_guide
 
-    mig_skill = get_skill_content("bq_optimize_query")
-    assert "bq_optimize_query" in mig_skill.lower() or "bigquery" in mig_skill.lower()
+    warehouse_ref = get_skill_content("warehouse_optimization.md")
+    assert "warehouse" in warehouse_ref.lower() or "bigquery" in warehouse_ref.lower()
