@@ -15,7 +15,7 @@ except ImportError:
     pass
 
 GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "")
-GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "US")
+GCP_LOCATION = os.getenv("BIGQUERY_LOCATION", "US")
 
 @lru_cache(maxsize=16)
 def _get_bq_client(project_id: Optional[str] = None, location: Optional[str] = None):
@@ -43,18 +43,21 @@ def run_bq_query(sql_query: str, project_id: Optional[str] = None, location: Opt
     Args:
         sql_query: Valid BigQuery standard SQL query string.
         project_id: Optional GCP project ID override.
-        location: Optional BigQuery location/region (e.g. 'US', 'EU', 'us-central1'). Auto-detected from region-* if omitted.
+        location: Optional BigQuery location/region (e.g. 'US', 'EU', 'us-central1').
         max_results: Maximum rows to return (default: 50).
     """
     pid = project_id or GCP_PROJECT_ID
     target_loc = location
     if not target_loc:
-        reg_match = re.search(r"`region-([a-zA-Z0-9_-]+)`\.INFORMATION_SCHEMA", sql_query)
-        if reg_match:
-            raw_r = reg_match.group(1).lower()
-            target_loc = "US" if raw_r == "us" else ("EU" if raw_r == "eu" else raw_r)
+        if "`region-us`" in sql_query.lower():
+            target_loc = "US"
+        elif "`region-eu`" in sql_query.lower():
+            target_loc = "EU"
+        elif "`region-" in sql_query.lower():
+            match = re.search(r"`region-([a-zA-Z0-9_-]+)`", sql_query, re.IGNORECASE)
+            target_loc = match.group(1) if match else GCP_LOCATION
         else:
-            target_loc = GCP_LOCATION or "US"
+            target_loc = GCP_LOCATION
 
     client = _get_bq_client(pid, target_loc)
     if not client:
@@ -67,22 +70,7 @@ def run_bq_query(sql_query: str, project_id: Optional[str] = None, location: Opt
             return f"### ⚡ BigQuery Query Result: 0 rows returned."
         return f"### ⚡ BigQuery Query Result ({len(results)} rows):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
     except Exception as e:
-        err_msg = str(e)
-        # Auto-retry with US or us-central1 if location mismatch was detected
-        if "was not found in location" in err_msg:
-            for fallback_loc in ["US", "us-central1", "EU"]:
-                if fallback_loc != target_loc:
-                    fb_client = _get_bq_client(pid, fallback_loc)
-                    if fb_client:
-                        try:
-                            fb_job = fb_client.query(sql_query)
-                            fb_results = [dict(row) for row in fb_job.result(max_results=max_results)]
-                            if not fb_results:
-                                return f"### ⚡ BigQuery Query Result: 0 rows returned."
-                            return f"### ⚡ BigQuery Query Result ({len(fb_results)} rows in `{fallback_loc}`):\n```json\n{json.dumps(fb_results, indent=2, default=str)}\n```"
-                        except Exception:
-                            pass
-        return f"### ⚠️ BigQuery Query Error:\n```sql\n{sql_query.strip()}\n```\nError message: {err_msg}"
+        return f"### ⚠️ BigQuery Query Error:\n```sql\n{sql_query.strip()}\n```\nError: {type(e).__name__}: {str(e)}"
 
 
 # ==============================================================================
@@ -95,7 +83,7 @@ def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = N
     Audits table partitioning and clustering layout to ensure LookML views enforce `conditionally_filter` or `require_partition_filter: yes`.
     """
     pid = project_id or GCP_PROJECT_ID
-    client = _get_bq_client(pid, "US")
+    client = _get_bq_client(pid, GCP_LOCATION)
     if not client:
         return f"Ensure LookML views for table `{table_id}` enforce `conditionally_filter` or `require_partition_filter: yes`."
     
@@ -119,15 +107,8 @@ def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = N
         }
         return f"### 🎯 Partition & Clustering Alignment (`{table_id}`):\n```json\n{json.dumps(report, indent=2)}\n```"
     except Exception as e:
-        err_str = str(e)
-        if "Access Denied" in err_str or "Permission bigquery.tables.get denied" in err_str:
-            return (
-                f"### 🔒 Table Layout Notice (`{table_id}`):\n"
-                f"Direct BigQuery IAM read access is restricted on this external/marketplace dataset.\n"
-                f"**LookML Semantic Diagnosis**: The explore is querying a marketplace PDT without `always_filter` or `conditionally_filter`, "
-                f"causing full table scans at query time."
-            )
-        return f"Partition audit error: {err_str}"
+        return f"### ⚠️ BigQuery Table Inspection Failed (`{table_id}`):\n{type(e).__name__}: {str(e)}"
+
 
 def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """
