@@ -1,41 +1,110 @@
-# Looker & BigQuery Complete Healthcheck Scorecard
-- **Audited Scope**: Model: `ecommerce_analytics`
-- **Execution Timestamp**: `2026-08-19 08:34:25 UTC`
-- **Overall Instance Health Score**: **98.3 / 100**
-- **Scorecard Summary**: ✅ **29 Passed** | ⚠️ **1 Warnings** | ❌ **0 Critical** (Total: 30)
+### **Query Performance Investigation & Optimization Report: 'ga4' Model**
+
+This report details the findings and recommendations from a coordinated, multi-agent investigation into the query performance issues affecting the 'ga4' Looker model. The investigation leveraged the specialized capabilities of `LookerPerformanceAgent`, `BqOptimizerAgent`, and `LookmlQualityAgent` to provide a holistic analysis and actionable solutions.
 
 ---
-## 📋 30-Check Master Verification Table
 
-| No. | Pillar | Check / Diagnostic | Status | Score | Findings & Prescribed Remediation | Playbook |
-| :---: | :--- | :--- | :---: | :---: | :--- | :--- |
-| `P1-01` | Pillar 1 | **Subsystem Status & Endpoint Health** | ✅ PASSED | 100 | Looker cluster responsive. — *Verify load balancer.* | `benchmarks.md` |
-| `P1-02` | Pillar 1 | **Database Connections & Pool Limits** | ✅ PASSED | 100 | Audited 95 connection pools. — *Tune max_connections.* | `playbook_looker_performance.md` |
-| `P1-03` | Pillar 1 | **Dashboard Query Density (>25 Tiles)** | ✅ PASSED | 100 | Dashboard density within limits. — *Split dashboards.* | `large_dashboards_optimization.md` |
-| `P1-04` | Pillar 1 | **Auto-Refresh Rate Limits (<30m)** | ✅ PASSED | 100 | Auto-refresh rates verified. — *Set auto-refresh >=30m.* | `large_dashboards_optimization.md` |
-| `P1-05` | Pillar 1 | **Schedule Time Spacing & Distribution** | ✅ PASSED | 100 | Audited 5 scheduled plans. — *Stagger cron schedules.* | `content_delivery_schedules.md` |
-| `P1-06` | Pillar 1 | **Concurrency Peaks & Queue Depths** | ✅ PASSED | 100 | Concurrency distribution audited. — *Enable query pooling.* | `playbook_looker_performance.md` |
-| `P1-07` | Pillar 1 | **Unused Content & Stale Dashboards** | ✅ PASSED | 100 | Unused content checked. — *Archive unused content.* | `playbook_content_governance.md` |
-| `P1-08` | Pillar 1 | **Unfiltered Dashboard Queries** | ✅ PASSED | 100 | Dashboard filters verified. — *Add dashboard filters.* | `playbook_looker_performance.md` |
-| `P1-09` | Pillar 1 | **In-Memory Merged Query Risks** | ✅ PASSED | 100 | Zero merged queries detected. — *Migrate to LookML joins.* | `merged_queries_remediation.md` |
-| `P1-10` | Pillar 1 | **Legacy Features Deprecation** | ✅ PASSED | 100 | All legacy features deprecated. — *Deprecate legacy flags.* | `benchmarks.md` |
-| `P2-11` | Pillar 2 | **LookML Syntax & Compiler Validation** | ⚠️ WARNING | 50 | LookML syntax validation complete. — *Fix syntax errors.* | `development_workflows_and_ci.md` |
-| `P2-12` | Pillar 2 | **Primary Key Integrity & Fanout Safety** | ✅ PASSED | 100 | Primary keys verified. — *Add primary_key: yes.* | `playbook_lookml_quality.md` |
-| `P2-13` | Pillar 2 | **Join Relationship Declarations** | ✅ PASSED | 100 | Explicit relationship: verified. — *Add explicit relationship: parameter.* | `playbook_lookml_quality.md` |
-| `P2-14` | Pillar 2 | **Henry Vacuum Dead Field Pruning** | ✅ PASSED | 100 | Henry vacuum analysis complete. — *Prune unused fields.* | `playbook_content_governance.md` |
-| `P2-15` | Pillar 2 | **Key Field Exposure (hidden: yes)** | ✅ PASSED | 100 | Raw ID keys masked. — *Set hidden: yes on raw ID fields.* | `playbook_lookml_quality.md` |
-| `P2-16` | Pillar 2 | **Directory Structure & Folder Hygiene** | ✅ PASSED | 100 | Folder structure verified. — *Organize into views/ and models/.* | `playbook_lookml_quality.md` |
-| `P2-17` | Pillar 2 | **Naming Casing Conventions (snake_case)** | ✅ PASSED | 100 | Snake_case naming verified. — *Enforce lowercase snake_case.* | `playbook_lookml_quality.md` |
-| `P2-18` | Pillar 2 | **Metadata Descriptions on Fields** | ✅ PASSED | 100 | Field descriptions verified. — *Add description: to key dimensions.* | `playbook_lookml_quality.md` |
-| `P2-19` | Pillar 2 | **Explore Unused Join Pruning** | ✅ PASSED | 100 | Unused joins audited. — *Remove unqueried joins.* | `playbook_content_governance.md` |
-| `P2-20` | Pillar 2 | **Table Calculation Heavy Queries** | ✅ PASSED | 100 | Table calculations checked. — *Migrate calculations to LookML measures.* | `playbook_looker_performance.md` |
-| `P3-21` | Pillar 3 | **Partition & Cluster Filter Enforcement** | ✅ PASSED | 100 | Partition filters verified. — *Add always_filter: or conditionally_filter:.* | `connecting-looker-to-bigquery` |
-| `P3-22` | Pillar 3 | **BI Engine Acceleration Reservation** | ✅ PASSED | 100 | BI Engine reservation verified. — *Allocate BI Engine memory.* | `connecting-looker-to-bigquery` |
-| `P3-23` | Pillar 3 | **PDT Build Failures & Event Log** | ✅ PASSED | 100 | Zero PDT build failures in last 7 days. — *Fix SQL DDL errors in PDTs.* | `playbook_looker_performance.md` |
-| `P3-24` | Pillar 3 | **Incremental PDT Increment Key Config** | ✅ PASSED | 100 | Incremental PDTs verified. — *Configure increment_key:.* | `connecting-looker-to-bigquery` |
-| `P3-25` | Pillar 3 | **Datagroup ETL Cache Synchronization** | ✅ PASSED | 100 | Datagroup ETL triggers verified. — *Align datagroups with ETL pipeline.* | `playbook_looker_performance.md` |
-| `P3-26` | Pillar 3 | **OAuth Connection Caching** | ✅ PASSED | 100 | Connection persistence verified. — *Enable persistent connections.* | `playbook_looker_performance.md` |
-| `P3-27` | Pillar 3 | **Aggregate Awareness Rollup Utilization** | ✅ PASSED | 100 | Aggregate Awareness checked. — *Add aggregate_table: definitions.* | `aggregate_awareness_and_architecture.md` |
-| `P3-28` | Pillar 3 | **Join SQL Key Syntax (Hash Joins)** | ✅ PASSED | 100 | Join key syntax checked. — *Avoid function calls in sql_on:.* | `connecting-looker-to-bigquery` |
-| `P3-29` | Pillar 3 | **Snowflake Schema Denormalization** | ✅ PASSED | 100 | Explore join complexity verified. — *Denormalize dimensional tables.* | `playbook_looker_performance.md` |
-| `P3-30` | Pillar 3 | **INFORMATION_SCHEMA Query Cost Audit** | ✅ PASSED | 100 | Query billing costs analyzed. — *Enforce partition pruning.* | `connecting-looker-to-bigquery` |
+### **Part 1: Performance Bottleneck Identification (`LookerPerformanceAgent`)**
+
+The investigation began with `LookerPerformanceAgent` profiling the System Activity for the 'ga4' model. The analysis of the 'sessions' explore revealed several slow-running queries, with the following outliers identified as the primary contributors to performance degradation:
+
+| Query ID | Total Async Processing Time (s) | Database Execution Time (s) | Looker Overhead (%) |
+| :--- | :--- | :--- | :--- |
+| 111868 | 17.48 | 14.14 (81.0%) | **18.94%** |
+| 33724 | 14.06 | 3.61 (25.6%) | **74.07%** |
+| 33723 | 14.84 | 2.32 (15.6%) | **84.04%** |
+| 33722 | 13.79 | 5.82 (42.2%) | **57.61%** |
+
+**Key Findings:**
+
+*   **High Database Execution Time:** Query `111868` spends the vast majority of its time (81%) in the database, pointing to an inefficient SQL query.
+*   **Excessive Looker Overhead:** Queries `33724`, `33723`, and `33722` exhibit extremely high Looker overhead, indicating that Looker is struggling to process the results returned from the database.
+
+---
+
+### **Part 2: BigQuery SQL Anti-Pattern Diagnosis (`BqOptimizerAgent`)**
+
+`BqOptimizerAgent` conducted a forensic analysis of the generated BigQuery SQL for the identified slow queries. This analysis uncovered severe performance anti-patterns that are the root cause of the performance issues:
+
+*   **`REGEXP_CONTAINS` in JOINs:** The most critical issue is the use of regular expressions in the `ON` clause of `JOIN` statements. This prevents BigQuery from using efficient join strategies, leading to extremely slow query execution.
+*   **Multiple, Inefficient LEFT JOINs:** The LookML model attempts to classify marketing channels by using a series of ten `LEFT JOIN`s to temporary tables. This approach is highly inefficient and does not scale.
+*   **Complex CASE Statements:** The queries use complex and repetitive `CASE` statements to handle the channel logic, further increasing query complexity and execution time.
+
+---
+
+### **Part 3: LookML Optimization & Remediation (`LookmlQualityAgent`)**
+
+Based on the findings from the previous agents, `LookmlQualityAgent` has prescribed the following LookML modifications to resolve the performance bottlenecks. The core of the solution is to **materialize the complex channel attribution logic into a Persistent Derived Table (PDT)**. This will pre-calculate the channel for each session, eliminating the need for expensive `JOIN`s with regular expressions at query time.
+
+#### **Proposed LookML Changes**
+
+**1. New Persistent Derived Table (PDT) for Channel Attribution**
+
+Create a new view file named `session_channel_pdt.view.lkml` with the following LookML code. This PDT will compute the channel for each session and persist it in the database.
+
+```lookml
+view: session_channel_pdt {
+  derived_table: {
+    sql:
+      SELECT
+        sl_key,
+        CASE
+          WHEN REGEXP_CONTAINS(session_attribution.campaign, r"^(.*(([^a-df-z]|^)shop|shopping).*)$") AND REGEXP_CONTAINS(session_attribution.medium, r"^(.*cp.*|ppc|paid.*)$") THEN '''Paid Shopping'''
+          WHEN REGEXP_CONTAINS(session_attribution.medium, r"^(.*cp.*|ppc|paid.*)$") AND EXISTS (SELECT 1 FROM ${paid_social.SQL_TABLE_NAME} AS paid_social WHERE session_attribution.source = paid_social.channel) THEN '''Paid Social'''
+          WHEN REGEXP_CONTAINS(session_attribution.medium, r"^(.*cp.*|ppc|paid.*)$") AND EXISTS (SELECT 1 FROM ${paid_search.SQL_TABLE_NAME} AS paid_search WHERE session_attribution.source = paid_search.channel) THEN '''Paid Search'''
+          WHEN REGEXP_CONTAINS(session_attribution.medium, r"^(.*cp.*|ppc|paid.*)$") AND EXISTS (SELECT 1 FROM ${paid_video.SQL_TABLE_NAME} AS paid_video WHERE session_attribution.source = paid_video.channel) THEN '''Paid Video'''
+          WHEN REGEXP_CONTAINS(session_attribution.campaign, r"^(.*(([^a-df-z]|^)shop|shopping).*)$") THEN '''Organic Shopping'''
+          WHEN REGEXP_CONTAINS(session_attribution.medium, r"(social|social-network|social-media|sm|social network|social media)") THEN '''Organic Social'''
+          WHEN REGEXP_CONTAINS(session_attribution.medium, r"^(.*video.*)$") THEN '''Organic Video'''
+          WHEN session_attribution.medium = '''organic''' THEN '''Organic Search'''
+          ELSE '''Other'''
+        END AS channel
+      FROM ${sessions.SQL_TABLE_NAME}
+      ;;
+    datagroup_trigger: ga4_datagroup
+    distribution_style: all
+  }
+
+  dimension: sl_key {
+    primary_key: yes
+    hidden: yes
+    type: string
+  }
+
+  dimension: channel {
+    type: string
+  }
+}
+```
+
+**2. Refactored `sessions` Explore**
+
+Modify your existing `sessions` explore definition to remove the inefficient `JOIN`s and replace them with a single `JOIN` to the new `session_channel_pdt`.
+
+```lookml
+# explore: sessions
+
+# ... (existing includes)
+include: "views/session_channel_pdt.view.lkml"
+
+explore: sessions {
+
+  join: session_channel_pdt {
+    type: left_outer
+    relationship: one_to_one
+    sql_on: ${sessions.sl_key} = ${session_channel_pdt.sl_key} ;;
+  }
+
+  # ... (remove the old joins for paid_shopping, paid_social, paid_search, paid_video, organic_shopping, organic_social, organic_video, organic_search, others)
+
+  # ... (keep the other, performant joins)
+}
+```
+
+### **Benefits of the Proposed Solution**
+
+*   **Dramatic Performance Improvement:** By pre-calculating the channel attribution, the expensive `REGEXP_CONTAINS` functions and multiple `JOIN`s are eliminated from the query-time execution. This will significantly reduce database execution time and improve query performance.
+*   **Reduced Looker Overhead:** The simplified and more efficient queries will return a cleaner result set to Looker, reducing the in-memory processing required and thus lowering the Looker overhead.
+*   **Improved LookML Maintainability:** The channel logic is now centralized in a single PDT, making it easier to understand, maintain, and update in the future.
+
+This multi-agent investigation has successfully identified the root causes of the query performance issues in the 'ga4' model and provided a clear, actionable LookML solution to address them. Implementing the proposed PDT will lead to a more performant and scalable Looker experience for your users.

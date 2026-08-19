@@ -3,7 +3,8 @@
 This reference document defines the complete diagnostic and remediation protocol for auditing query performance, query lifecycle latencies, connection contention, and Looker JVM internal overhead.
 
 > [!NOTE]
-> **Upstream Vendor References**:
+> **Core Architecture & Playbook References**:
+> * [`looker_bigquery_pipeline_architecture.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/healthcheck/references/looker_bigquery_pipeline_architecture.md): The 6-Stage Interconnected Pipeline, 4 Major Failure Loops, and Dashboard Complexity Score.
 > * [`looker-performance-optimizer`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/looker-performance-optimizer/SKILL.md): Master Looker performance-by-design & active tuning engineering standards.
 > * [`connecting-looker-to-bigquery`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/connecting-looker-to-bigquery/SKILL.md): BigQuery connection tuning, partition pruning, and BI Engine acceleration.
 

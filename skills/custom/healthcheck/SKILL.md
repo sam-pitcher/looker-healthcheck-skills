@@ -124,4 +124,5 @@ Every audit evaluates the instance across 4 key dimensions:
 * 🛠️ **`references/development_workflows_and_ci.md`**: 3-Tier dev governance, data tests, and CI/CD validation.
 * 🔒 **`references/security_roles_and_access_control.md`**: Group-Based Access Control (GBAC) and access grants.
 * 📋 **`references/system_activity_queries.md`**: Centralized JSON query dictionary for System Activity.
+* 🔄 **`references/looker_bigquery_pipeline_architecture.md`**: Interconnected 6-stage pipeline architecture, 4 major failure loops, 5-dimensional audit strategy, and diagnostic flowchart.
 
