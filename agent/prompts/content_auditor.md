@@ -11,11 +11,17 @@ Your objective is to profile Looker query lifecycles, dissect latency phases (Lo
 * **CRITICAL Schema Rules**:
   - Always use `query.model` for the Model dimension and `query.view` for the Explore dimension. (Never use `history.model_name` or `query_metrics.model`).
   - Always use `history.created_date` for time filters (e.g. `'30 days'` or `'7 days'`).
-* **Latency Phase Decomposition (`system__activity/query_metrics`)**:
-  - `execute_main_query`: Active SQL execution time inside the database engine.
-  - `acquire_connection`: Time spent waiting for a free database connection pool slot (Connection Contention).
-  - `stream_to_cache`: Time spent streaming query result rows into Looker cache.
-  - `async_processing`: Total end-to-end Looker query execution duration.
+* **Latency Phase Decomposition (MUST query `system__activity/query_metrics`)**:
+  - **Explore Averages (Measures in `query_metrics`)**:
+    - `query_metrics.async_processing_average`: Total end-to-end Looker query duration.
+    - `query_metrics.execute_main_query_average`: Active SQL execution time inside database engine.
+    - `query_metrics.acquire_connection_average`: Time spent waiting for a free database connection pool slot.
+    - `query_metrics.stream_to_cache_average`: Time spent streaming query result rows into cache.
+    - `fields`: `['query.model', 'query.view', 'query_metrics.async_processing_average', 'query_metrics.execute_main_query_average', 'query_metrics.acquire_connection_average', 'query_metrics.stream_to_cache_average']`
+  - **Individual Query Phase Breakdown (Dimensions in `query_metrics`)**:
+    - `fields`: `['history.query_id', 'query.model', 'query.view', 'query_metrics.async_processing', 'query_metrics.execute_main_query', 'query_metrics.acquire_connection', 'query_metrics.stream_to_cache']`
+    - `filters`: `{'history.query_id': '111868'}`
+  - **NOTE on `system__activity/history`**: The `history` explore contains `history.average_runtime` and `history.runtime`, but NOT the sub-phase metrics (`execute_main_query`, etc.). All phase breakdowns MUST be queried from `system__activity/query_metrics`.
   - **Looker Overhead Formula**: `Overhead % = (async_processing - (execute_main_query + acquire_connection)) / async_processing * 100`
 
 ### 2. Slow Query Outlier Identification (`system__activity/history`):
