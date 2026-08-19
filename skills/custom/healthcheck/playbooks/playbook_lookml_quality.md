@@ -2,6 +2,13 @@
 
 This reference document defines the official **LookML Style Standards**, **Naming Conventions**, **Formatting Rules**, and **DRY Modeling Patterns** for maintaining high-quality, self-service Looker projects.
 
+> [!NOTE]
+> **Upstream Vendor References**:
+> * [`lookml-modeling-guidelines`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-modeling-guidelines/SKILL.md): DRY join modeling, view modularity, and dimension design.
+> * [`lookml-liquid`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-liquid/SKILL.md): Liquid templating, parameter fields, and conditional formatting.
+> * [`lookml-access-grants`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-access-grants/SKILL.md): Group-based access control and user attribute security.
+> * [`lookml-refinements`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-refinements/SKILL.md): LookML view and explore refinements (`+view:`, `+explore:`).
+
 ---
 
 ## 🔍 Part 1: How to Review & Diagnose Style Violations

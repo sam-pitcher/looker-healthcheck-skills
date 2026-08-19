@@ -2,6 +2,11 @@
 
 This reference catalog provides the exact SQL query definitions, diagnostic thresholds, and optimization patterns for auditing BigQuery compute, slot contention, on-demand query costs, partition pruning, and datagroup ETL synchronization.
 
+> [!NOTE]
+> **Upstream Vendor References**:
+> * [`connecting-looker-to-bigquery`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/connecting-looker-to-bigquery/SKILL.md): BigQuery connection architecture, BI Engine setup, and dataset permissions.
+> * [`mig-optimize`](https://google-cloud-professional-services.googlesource.com/mig-optimize): Google Cloud Professional Services BigQuery migration & slot/stage performance diagnostic framework.
+
 ---
 
 ## ⚡ 1. Slot Contention & Reservation Analysis
