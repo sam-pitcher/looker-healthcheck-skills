@@ -1,83 +1,80 @@
-# Looker & BigQuery Performance Audit: 'thelook' Model / 'flights' Explore
+# Performance Investigation Report: `ga4` Model / `sessions` Explore
 
-## 1. Summary of Findings
+**1. Executive Summary & Root Cause Analysis**
 
-A performance audit on the 'thelook' model, specifically focusing on the 'flights' explore, identified a chronically slow query (`query.id: 112008`) with an average runtime of over 50 seconds. The root cause is sub-optimal SQL generation stemming from the LookML model, which leads to poor database performance.
+The investigation revealed that the primary cause of slow query performance in the `ga4/sessions` explore is not Looker overhead, but significant database-side latency in BigQuery. The root cause is a major performance anti-pattern in the LookML model: the use of complex `REGEXP_CONTAINS` (regular expression) functions and `OR` conditions within the `sql_on` join parameters.
 
-## 2. Root Cause Analysis: Inefficient Timezone Conversion
+This forces BigQuery to perform slow, computationally expensive operations for every row of the `sessions` table against nine different mapping tables to dynamically determine the marketing channel. This prevents BigQuery from using its efficient hash-join capabilities and is the main bottleneck.
 
-The primary driver of the latency is the repeated use of the `CONVERT_TZ` function in the generated SQL. This happens on the `dep_time` column for both the dimension and the filter.
+**2. Detailed Findings & Evidence**
 
-**Problematic SQL Snippet:**
-```sql
-SELECT
-    (YEAR(CONVERT_TZ(`dep_time`,'UTC','America/Los_Angeles'))) AS `flights.dep_year`,
-    COUNT(*) AS `flights.count`
-FROM
-    `demo_db`.`flights` AS `flights`
-WHERE ((( `dep_time` ) >= ((CONVERT_TZ(DATE_ADD(TIMESTAMP(DATE_FORMAT(DATE(CONVERT_TZ(NOW(),'UTC','America/Los_Angeles')),'%Y-01-01')),INTERVAL -19 year),\'America/Los_Angeles\',\'UTC\'))) AND ( `dep_time` ) < ((CONVERT_TZ(DATE_ADD(DATE_ADD(TIMESTAMP(DATE_FORMAT(DATE(CONVERT_TZ(NOW(),'UTC','America/Los_Angeles')),'%Y-01-01')),INTERVAL -19 year),INTERVAL 20 year),\'America/Los_Angeles\',\'UTC\')))))
-GROUP BY
-    1
-ORDER BY
-    1 DESC
-LIMIT 500
-```
+*   **Phase 1: Query Lifecycle Profiling**:
+    *   **Model-Level**: The `ga4` model's average query runtime is **8.79 seconds**. The Looker overhead is negligible (`acquire_connection_average`: 0.02s, `model_init_computed_average`: 0s), indicating the bottleneck is at the database level.
+    *   **Explore-Level**: The slowest query identified in the `sessions` explore was query ID `111868` with a runtime of **16.92 seconds**.
+    *   **Query Phase Breakdown**: For query `111868`, the `execute_main_query` phase took **14.14 seconds** out of the total 16.97 seconds, confirming the issue is with BigQuery execution.
 
-This is inefficient because:
-*   **It prevents index usage**: Applying a function like `CONVERT_TZ` to a column in the `WHERE` clause forces the database to scan the entire table instead of using an index.
-*   **It's computationally expensive**: The database has to perform a timezone conversion for every row in the table.
+*   **Phase 2: SQL & LookML Forensic Inspection**:
+    *   **Generated SQL Analysis**: The SQL for query `111868` showed multiple `LEFT JOIN`s using `REGEXP_CONTAINS` and `OR` logic to attribute sessions to channels like `paid_shopping`, `paid_social`, etc.
+    *   **LookML Explore Definition**: The `sessions` explore definition confirmed that these inefficient join conditions are defined directly in the LookML `sql_on` parameters.
 
-## 3. LookML Recommendation: Optimize the `dep_time` Dimension Group
+**3. LookML & Data Modeling Recommendations**
 
-To resolve this, we need to adjust the `dimension_group` definition for `dep_time` in the `flights.view.lkml` file. By adding `convert_tz: no`, we tell Looker to offload the timezone conversion to the database driver level, which is more efficient. Additionally, we should ensure the `datatype` is set correctly.
+To resolve this performance issue, you need to refactor the LookML model to pre-calculate the channel attribution at data modeling time, rather than at query time.
 
-**Recommended LookML Change:**
+**Recommendation: Materialize Channel Attribution in the `sessions` PDT**
 
-```lookml
-# file: views/flights.view.lkml
+Modify the Persistent Derived Table (PDT) for the `sessions` view to include a new dimension, `channel`. This dimension will contain the result of the channel attribution logic.
 
-view: flights {
-  sql_table_name: `demo_db.flights` ;;
+Here is a conceptual example of how to modify the `sessions` view's `derived_table` definition:
 
-  dimension_group: dep_time {
-    type: time
-    timeframes: [
-      raw,
-      time,
-      date,
-      week,
-      month,
-      quarter,
-      year
-    ]
-    sql: ${TABLE}.dep_time ;;
-    # Add the following two lines
-    datatype: datetime
-    convert_tz: no
+'''lookml
+#
+# BEFORE: Inefficient joins in the explore
+#
+
+explore: sessions {
+  join: paid_shopping {
+    sql_on: ${sessions.session_attribution_source}=${paid_shopping.channel}
+      or REGEXP_CONTAINS(${sessions.session_attribution_campaign}, r"...") = true
+      and REGEXP_CONTAINS(${sessions.session_attribution_medium}, r"...") = true ;;
+  }
+  # ... and 8 other similar joins
+}
+
+
+#
+# AFTER: Pre-aggregated channel in the sessions PDT
+#
+
+view: sessions {
+  derived_table: {
+    sql: SELECT
+        *,
+        CASE
+          WHEN REGEXP_CONTAINS(session_attribution_campaign, r"^(.*(([^a-df-z]|^)shop|shopping).*)$")
+            AND REGEXP_CONTAINS(session_attribution_medium, r"^(.*cp.*|ppc|paid.*)$")
+            THEN 'Paid Shopping'
+          WHEN REGEXP_CONTAINS(session_attribution_medium, r"^(.*cp.*|ppc|paid.*)$")
+            THEN 'Paid Social'
+          # ... add all other channel logic here
+          ELSE 'Other'
+        END AS channel
+      FROM
+        @{ga4_raw_data}
+    ;;
+  }
+
+  dimension: channel {
+    type: string
+    sql: ${TABLE}.channel ;;
   }
 
   # ... other dimensions and measures
 }
-```
+'''
 
-## 4. Expected Outcome
+By implementing this change, you will:
 
-After applying this LookML change, the generated SQL will be much simpler and more efficient. The `WHERE` clause will no longer contain the `CONVERT_TZ` function, allowing the database to use an index on the `dep_time` column. This should result in a significant reduction in query runtime.
-
-**Example of Improved SQL (conceptual):**
-
-```sql
-SELECT
-    EXTRACT(YEAR FROM `dep_time`) AS `flights.dep_year`,
-    COUNT(*) AS `flights.count`
-FROM
-    `demo_db`.`flights` AS `flights`
-WHERE
-    `dep_time` >= 'YYYY-MM-DD HH:MI:SS' AND `dep_time` < 'YYYY-MM-DD HH:MI:SS'
-GROUP BY 1
-ORDER BY 1 DESC
-LIMIT 500;
-
-```
-
-This change will improve the performance of all queries that use the `dep_time` dimension group.
+1.  **Eliminate Inefficient Joins**: You can remove all nine of the `*_channel` joins from the `sessions` explore.
+2.  **Simplify Queries**: Queries for channel analysis will become simple aggregations on the `sessions` view, without any joins.
+3.  **Dramatically Improve Performance**: This will result in a significant speedup of all queries that use the channel dimension.
