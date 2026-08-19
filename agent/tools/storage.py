@@ -96,6 +96,13 @@ def save_audit_report(
     except Exception:
         local_json_saved = False
 
+    # Save Markdown report deliverable to repository root
+    try:
+        root_report = Path(__file__).resolve().parent.parent.parent / "AUDIT_REPORT.md"
+        root_report.write_text(report_markdown, encoding="utf-8")
+    except Exception:
+        pass
+
     # 3. Persist to Firestore & Cloud Logging
     try:
         from agent.telemetry import log_cloud_event
