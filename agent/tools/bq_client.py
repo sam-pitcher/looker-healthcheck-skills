@@ -95,7 +95,7 @@ def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = N
     Audits table partitioning and clustering layout to ensure LookML views enforce `conditionally_filter` or `require_partition_filter: yes`.
     """
     pid = project_id or GCP_PROJECT_ID
-    client = _get_bq_client(pid)
+    client = _get_bq_client(pid, "US")
     if not client:
         return f"Ensure LookML views for table `{table_id}` enforce `conditionally_filter` or `require_partition_filter: yes`."
     
@@ -119,7 +119,15 @@ def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = N
         }
         return f"### 🎯 Partition & Clustering Alignment (`{table_id}`):\n```json\n{json.dumps(report, indent=2)}\n```"
     except Exception as e:
-        return f"Partition audit error: {str(e)}"
+        err_str = str(e)
+        if "Access Denied" in err_str or "Permission bigquery.tables.get denied" in err_str:
+            return (
+                f"### 🔒 Table Layout Notice (`{table_id}`):\n"
+                f"Direct BigQuery IAM read access is restricted on this external/marketplace dataset.\n"
+                f"**LookML Semantic Diagnosis**: The explore is querying a marketplace PDT without `always_filter` or `conditionally_filter`, "
+                f"causing full table scans at query time."
+            )
+        return f"Partition audit error: {err_str}"
 
 def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """
@@ -129,8 +137,9 @@ def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str]
     pid = project_id or GCP_PROJECT_ID
     raw_reg = region or (GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us")
     reg = _sanitize_identifier(raw_reg) or "us"
+    target_loc = "US" if reg.lower() == "us" else ("EU" if reg.lower() == "eu" else reg)
     safe_hours = max(1, min(int(hours), 168))
-    client = _get_bq_client(pid)
+    client = _get_bq_client(pid, target_loc)
     
     query = f"""
     SELECT
@@ -167,8 +176,9 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
     pid = project_id or GCP_PROJECT_ID
     raw_reg = region or (GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us")
     reg = _sanitize_identifier(raw_reg) or "us"
+    target_loc = "US" if reg.lower() == "us" else ("EU" if reg.lower() == "eu" else reg)
     safe_hours = max(1, min(int(hours), 168))
-    client = _get_bq_client(pid)
+    client = _get_bq_client(pid, target_loc)
     
     filter_clause = "(query LIKE '%Looker%' OR query LIKE '%-- Looker%')"
     if model_name:
@@ -206,8 +216,10 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
 def audit_bq_slots(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """Audits slot consumption and reservation ceilings."""
     pid = project_id or GCP_PROJECT_ID
-    reg = region or GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us"
-    client = _get_bq_client(pid)
+    raw_reg = region or (GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us")
+    reg = _sanitize_identifier(raw_reg) or "us"
+    target_loc = "US" if reg.lower() == "us" else ("EU" if reg.lower() == "eu" else reg)
+    client = _get_bq_client(pid, target_loc)
     
     query = f"""
     SELECT
@@ -229,6 +241,7 @@ def audit_bq_slots(project_id: Optional[str] = None, region: Optional[str] = Non
         return f"### ⚡ Slot Audit Results:\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
     except Exception as e:
         return f"Slot audit notice: {str(e)}"
+
 
 def list_dataset_tables(dataset_id: str, project_id: Optional[str] = None) -> str:
     """Lists tables in a dataset."""
