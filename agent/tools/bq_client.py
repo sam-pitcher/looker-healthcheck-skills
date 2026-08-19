@@ -15,14 +15,15 @@ except ImportError:
     pass
 
 GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "")
-GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "us-central1")
+GCP_LOCATION = os.getenv("GOOGLE_CLOUD_LOCATION", "US")
 
-@lru_cache(maxsize=4)
-def _get_bq_client(project_id: Optional[str] = None):
+@lru_cache(maxsize=16)
+def _get_bq_client(project_id: Optional[str] = None, location: Optional[str] = None):
     try:
         from google.cloud import bigquery
         proj = project_id or GCP_PROJECT_ID or None
-        return bigquery.Client(project=proj, location=GCP_LOCATION)
+        loc = location or GCP_LOCATION or None
+        return bigquery.Client(project=proj, location=loc)
     except Exception:
         return None
 
@@ -34,20 +35,31 @@ def _sanitize_identifier(name: str) -> str:
 # GENERIC BIGQUERY EXECUTION PRIMITIVES
 # ==============================================================================
 
-def run_bq_query(sql_query: str, project_id: Optional[str] = None, max_results: int = 50) -> str:
+def run_bq_query(sql_query: str, project_id: Optional[str] = None, location: Optional[str] = None, max_results: int = 50) -> str:
     """
     Dynamic BigQuery SQL Execution Primitive.
-    Executes any SQL query against BigQuery (including INFORMATION_SCHEMA views for slots, timeline, query costs, or dataset tables).
+    Executes any SQL query against BigQuery (including dataset and regional INFORMATION_SCHEMA views).
     
     Args:
         sql_query: Valid BigQuery standard SQL query string.
         project_id: Optional GCP project ID override.
+        location: Optional BigQuery location/region (e.g. 'US', 'EU', 'us-central1'). Auto-detected from region-* if omitted.
         max_results: Maximum rows to return (default: 50).
     """
     pid = project_id or GCP_PROJECT_ID
-    client = _get_bq_client(pid)
+    target_loc = location
+    if not target_loc:
+        reg_match = re.search(r"`region-([a-zA-Z0-9_-]+)`\.INFORMATION_SCHEMA", sql_query)
+        if reg_match:
+            raw_r = reg_match.group(1).lower()
+            target_loc = "US" if raw_r == "us" else ("EU" if raw_r == "eu" else raw_r)
+        else:
+            target_loc = GCP_LOCATION or "US"
+
+    client = _get_bq_client(pid, target_loc)
     if not client:
         return f"### ⚡ BigQuery SQL Query (Client Offline / Unconfigured):\n```sql\n{sql_query.strip()}\n```"
+    
     try:
         query_job = client.query(sql_query)
         results = [dict(row) for row in query_job.result(max_results=max_results)]
@@ -55,7 +67,23 @@ def run_bq_query(sql_query: str, project_id: Optional[str] = None, max_results: 
             return f"### ⚡ BigQuery Query Result: 0 rows returned."
         return f"### ⚡ BigQuery Query Result ({len(results)} rows):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
     except Exception as e:
-        return f"### ⚠️ BigQuery Query Error:\n```sql\n{sql_query.strip()}\n```\nError message: {str(e)}"
+        err_msg = str(e)
+        # Auto-retry with US or us-central1 if location mismatch was detected
+        if "was not found in location" in err_msg:
+            for fallback_loc in ["US", "us-central1", "EU"]:
+                if fallback_loc != target_loc:
+                    fb_client = _get_bq_client(pid, fallback_loc)
+                    if fb_client:
+                        try:
+                            fb_job = fb_client.query(sql_query)
+                            fb_results = [dict(row) for row in fb_job.result(max_results=max_results)]
+                            if not fb_results:
+                                return f"### ⚡ BigQuery Query Result: 0 rows returned."
+                            return f"### ⚡ BigQuery Query Result ({len(fb_results)} rows in `{fallback_loc}`):\n```json\n{json.dumps(fb_results, indent=2, default=str)}\n```"
+                        except Exception:
+                            pass
+        return f"### ⚠️ BigQuery Query Error:\n```sql\n{sql_query.strip()}\n```\nError message: {err_msg}"
+
 
 # ==============================================================================
 # PILLAR 3: BIGQUERY INTEGRATION & DATABASE OPTIMIZATION (Tasks 21 to 30)
