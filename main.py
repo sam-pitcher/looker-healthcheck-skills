@@ -373,7 +373,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <span><span class="legend-dot" style="background:#10b981;"></span>Skill</span>
                     <span><span class="legend-dot" style="background:#64748b;"></span>Source / Tool</span>
                 </div>
-                <button class="nav-tab" style="padding: 4px 10px; font-size: 0.75rem;" onclick="resetGraphZoom()">⟲ Reset Zoom</button>
+                <div style="display: flex; gap: 6px;">
+                    <button class="nav-tab" id="btn-graph-audit" style="padding: 4px 10px; font-size: 0.75rem; border-color: var(--green); color: var(--green);" onclick="showGraphAudit()">🛡️ Graph Health: 100%</button>
+                    <button class="nav-tab" style="padding: 4px 10px; font-size: 0.75rem;" onclick="resetGraphZoom()">⟲ Reset Zoom</button>
+                </div>
             </div>
 
             <div class="graph-canvas-container" id="graph-container">
@@ -691,6 +694,29 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             }
         }
 
+        async function showGraphAudit() {
+            try {
+                const res = await fetch('/api/graph/audit');
+                const audit = await res.json();
+                const drawer = document.getElementById('graph-drawer');
+                drawer.style.display = 'flex';
+                document.getElementById('drawer-title').innerText = "🛡️ Knowledge Graph Audit";
+                document.getElementById('drawer-type-badge').innerText = audit.status + " (" + audit.graph_health_score + "/100)";
+                document.getElementById('drawer-type-badge').style.background = '#10b98125';
+                document.getElementById('drawer-type-badge').style.color = '#10b981';
+                document.getElementById('drawer-id').innerText = "Nodes: " + audit.total_nodes + " | Edges: " + audit.total_edges;
+                document.getElementById('drawer-desc').innerText = "Broken Links: " + audit.broken_links_count + " | Orphans: " + audit.orphan_nodes_count;
+                
+                let details = "<strong>Critical Reasoning Paths:</strong><br/>";
+                audit.critical_path_reachability.forEach(p => {
+                    details += (p.reachable ? "✅ " : "❌ ") + p.from + " ➔ " + p.to + " (" + p.hops + " hops)<br/>";
+                });
+                document.getElementById('drawer-details').innerHTML = details;
+            } catch(e) {
+                alert("Error fetching audit: " + e);
+            }
+        }
+
         // Init
         fetchModels();
         fetchHistory();
@@ -778,6 +804,12 @@ class ADKWebHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"document": doc_content}).encode("utf-8"))
+        elif parsed.path == "/api/graph/audit":
+            audit_report = skill_registry.audit_concept_graph_health()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps(audit_report).encode("utf-8"))
         elif parsed.path == "/api/graph":
             query = urllib.parse.parse_qs(parsed.query)
             cid = query.get("concept", [None])[0]
