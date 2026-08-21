@@ -411,6 +411,22 @@ class ADKWebHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps({"document": doc_content}).encode("utf-8"))
+        elif parsed.path == "/api/graph":
+            query = urllib.parse.parse_qs(parsed.query)
+            cid = query.get("concept", [None])[0]
+            if cid:
+                related = skill_registry.get_related_concepts(cid)
+                mermaid = skill_registry.export_concept_graph_mermaid(root_concept=cid)
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps({"concept_id": cid, "related": related, "mermaid": mermaid}).encode("utf-8"))
+            else:
+                graph_data = skill_registry.export_concept_graph_json()
+                self.send_response(200)
+                self.send_header("Content-Type", "application/json")
+                self.end_headers()
+                self.wfile.write(json.dumps(graph_data).encode("utf-8"))
         else:
             self.send_error(404)
 

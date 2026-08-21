@@ -401,15 +401,27 @@ class LookerSkillRegistry:
 
     def get_concept(self, concept_id: str) -> Optional[Dict[str, Any]]:
         """Retrieves an OKF concept document by ID, relative path, or filename."""
-        clean_id = concept_id[:-3] if concept_id.endswith(".md") else concept_id
-        if clean_id in self.concepts:
-            return self.concepts[clean_id]
-        if concept_id in self.concepts:
-            return self.concepts[concept_id]
+        if not concept_id:
+            return None
+
+        cid = str(concept_id).strip()
+        if cid.startswith("file://"):
+            cid = cid[7:]
+            if str(ROOT_DIR) in cid:
+                cid = cid[len(str(ROOT_DIR)):].lstrip("/")
+        if cid.startswith("/"):
+            cid = cid.lstrip("/")
+
+        clean_id = cid[:-3] if cid.endswith(".md") else cid
+        stem_id = Path(cid).stem
+
+        for candidate in [cid, clean_id, stem_id]:
+            if candidate in self.concepts:
+                return self.concepts[candidate]
 
         # Search by suffix match (e.g. 'playbook_looker_performance')
         for k, v in self.concepts.items():
-            if k.endswith(clean_id) or k.endswith(f"/{clean_id}"):
+            if k == cid or k == clean_id or k.endswith(clean_id) or k.endswith(f"/{clean_id}") or (stem_id and k.endswith(f"/{stem_id}")):
                 return v
         return None
 
@@ -629,6 +641,235 @@ class LookerSkillRegistry:
             "issues": issues
         }
 
+    # --------------------------------------------------------------------------
+    # OKF Concept Graph Engine (§6, §10, §11)
+    # --------------------------------------------------------------------------
+    def build_concept_graph(self) -> Dict[str, Any]:
+        """
+        Constructs an in-memory Directed Concept Graph from all indexed OKF concepts,
+        sources, cross-links, and attested computation execution bindings.
+        """
+        nodes: Dict[str, Dict[str, Any]] = {}
+        edges: List[Dict[str, str]] = []
+        adjacency: Dict[str, List[str]] = {}
+
+        for cid, c in self.concepts.items():
+            if "/" not in cid and not cid.endswith(".md"):
+                continue  # Skip short stem aliases to prevent duplicate nodes
+
+            nodes[cid] = {
+                "id": cid,
+                "title": c.get("title", cid),
+                "type": c.get("type", "Concept"),
+                "status": c.get("status", "stable"),
+                "trust_tier": c.get("trust_tier", "unverified"),
+                "source": c.get("source", "custom"),
+                "runtime": c.get("runtime"),
+                "path": c.get("rel_path", "")
+            }
+            if cid not in adjacency:
+                adjacency[cid] = []
+
+            # 1. Provenance Attribution Edges (from frontmatter sources: [...])
+            for s in c.get("sources", []):
+                raw_target = s.get("resource")
+                if raw_target:
+                    target_c = self.get_concept(raw_target)
+                    target_id = target_c.get("id") if target_c else raw_target
+                    edges.append({
+                        "source": cid,
+                        "target": target_id,
+                        "relationship": "sourced_from",
+                        "label": s.get("title", "Upstream Source")
+                    })
+                    adjacency[cid].append(target_id)
+
+            # 2. Markdown Cross-Links (§6 [Title](target))
+            body = c.get("body", "")
+            links = re.findall(r"\[([^\]]+)\]\(([^)]+)\)", body)
+            for link_text, raw_target in links:
+                if not raw_target.startswith("http") and not raw_target.startswith("#") and not raw_target.startswith("mailto:"):
+                    clean_target = raw_target.strip()
+                    target_c = self.get_concept(clean_target)
+                    target_id = target_c.get("id") if target_c else clean_target
+                    edges.append({
+                        "source": cid,
+                        "target": target_id,
+                        "relationship": "references",
+                        "label": link_text
+                    })
+                    adjacency[cid].append(target_id)
+
+            # 3. Attested Computation Execution Edges (§10)
+            if c.get("type") == "Attested Computation":
+                executor = c.get("executor", {}).get("resource") if isinstance(c.get("executor"), dict) else None
+                attester = c.get("attester", {}).get("resource") if isinstance(c.get("attester"), dict) else None
+                if executor:
+                    edges.append({"source": cid, "target": str(executor), "relationship": "executed_by", "label": "Executor Tool"})
+                if attester:
+                    edges.append({"source": cid, "target": str(attester), "relationship": "attested_by", "label": "Attester"})
+
+        return {
+            "nodes": nodes,
+            "edges": edges,
+            "adjacency": adjacency,
+            "total_nodes": len(nodes),
+            "total_edges": len(edges)
+        }
+
+    def get_related_concepts(self, concept_id: str, max_depth: int = 1) -> List[Dict[str, Any]]:
+        """
+        Finds neighboring concepts connected to concept_id in the Concept Graph.
+        Allows agents to perform multi-hop semantic navigation across playbooks, references, and computations.
+        """
+        graph = self.build_concept_graph()
+        target_concept = self.get_concept(concept_id)
+        if not target_concept:
+            return []
+
+        target_id = target_concept.get("id")
+        target_stem = Path(concept_id).stem
+        related_ids = set()
+
+        for edge in graph["edges"]:
+            s, t = edge["source"], edge["target"]
+            if s == target_id or s.endswith(target_stem) or target_stem in s:
+                related_ids.add(t)
+            elif t == target_id or t.endswith(target_stem) or target_stem in t:
+                related_ids.add(s)
+
+        results = []
+        for rid in sorted(related_ids):
+            c = self.get_concept(rid)
+            if c:
+                results.append({
+                    "id": c.get("id"),
+                    "title": c.get("title"),
+                    "type": c.get("type"),
+                    "trust_tier": c.get("trust_tier"),
+                    "description": c.get("description"),
+                    "runtime": c.get("runtime")
+                })
+        return results
+
+    def find_graph_path(self, start_concept: str, target_concept: str) -> List[str]:
+        """
+        Calculates the shortest semantic reasoning path between two concepts using BFS graph traversal.
+        """
+        graph = self.build_concept_graph()
+        s_concept = self.get_concept(start_concept)
+        t_concept = self.get_concept(target_concept)
+
+        if not s_concept or not t_concept:
+            return []
+
+        start_id = s_concept.get("id")
+        target_id = t_concept.get("id")
+
+        if start_id == target_id:
+            return [start_id]
+
+        queue = [[start_id]]
+        visited = {start_id}
+
+        while queue:
+            path = queue.pop(0)
+            node = path[-1]
+
+            neighbors = graph["adjacency"].get(node, [])
+            for neighbor in neighbors:
+                # Resolve neighbor concept ID if relative path
+                resolved_neighbor = neighbor
+                c = self.get_concept(neighbor)
+                if c:
+                    resolved_neighbor = c.get("id")
+
+                if resolved_neighbor == target_id:
+                    return path + [resolved_neighbor]
+
+                if resolved_neighbor not in visited:
+                    visited.add(resolved_neighbor)
+                    queue.append(path + [resolved_neighbor])
+
+        return []
+
+    def export_concept_graph_mermaid(self, root_concept: Optional[str] = None, max_nodes: int = 25) -> str:
+        """
+        Generates a clean Mermaid node-link diagram representing the concept graph or a focused sub-graph.
+        """
+        graph = self.build_concept_graph()
+        lines = ["graph TD"]
+        lines.append("    %% Concept Nodes")
+
+        included_nodes = set()
+        if root_concept:
+            r = self.get_concept(root_concept)
+            if r:
+                root_id = r.get("id")
+                included_nodes.add(root_id)
+                related = self.get_related_concepts(root_concept)
+                for rel in related:
+                    included_nodes.add(rel["id"])
+        else:
+            # Pick prominent playbooks and computations
+            for nid, n in graph["nodes"].items():
+                if n["type"] in ("Playbook", "Attested Computation", "Skill") or len(included_nodes) < max_nodes:
+                    included_nodes.add(nid)
+                if len(included_nodes) >= max_nodes:
+                    break
+
+        node_keys = {}
+        for idx, nid in enumerate(included_nodes):
+            n = graph["nodes"].get(nid)
+            if not n:
+                continue
+            key = f"N{idx}"
+            node_keys[nid] = key
+            safe_title = n["title"].replace('"', "'")
+            ntype = n["type"]
+            lines.append(f'    {key}["{safe_title}<br/><i>({ntype})</i>"]')
+
+        lines.append("    %% Semantic Edges")
+        for edge in graph["edges"]:
+            s, t, rel = edge["source"], edge["target"], edge["relationship"]
+            if s in node_keys and t in node_keys:
+                lines.append(f'    {node_keys[s]} -->|"{rel}"| {node_keys[t]}')
+
+        return "\n".join(lines)
+
+    def export_concept_graph_json(self) -> Dict[str, Any]:
+        """
+        Exports the entire Concept Graph in standard D3.js / Cytoscape / DocGen JSON format.
+        """
+        graph = self.build_concept_graph()
+        json_nodes = []
+        for nid, data in graph["nodes"].items():
+            json_nodes.append({
+                "id": nid,
+                "label": data["title"],
+                "type": data["type"],
+                "trust_tier": data["trust_tier"],
+                "status": data["status"],
+                "source": data["source"],
+                "runtime": data["runtime"]
+            })
+
+        json_links = []
+        for e in graph["edges"]:
+            json_links.append({
+                "source": e["source"],
+                "target": e["target"],
+                "relationship": e["relationship"],
+                "label": e.get("label", "")
+            })
+
+        return {
+            "nodes": json_nodes,
+            "links": json_links,
+            "total_nodes": len(json_nodes),
+            "total_links": len(json_links)
+        }
+
 
 # Singleton registry instance for global system access
 skill_registry = LookerSkillRegistry()
@@ -707,3 +948,44 @@ def validate_okf_knowledge_catalog(bundle_path: Optional[str] = None) -> str:
     report = skill_registry.validate_okf_conformance(bundle_path)
     status = "🟢 CONFORMANT (OKF v0.2)" if report["conformant"] else "🔴 NON-CONFORMANT"
     return f"### 🛡️ OKF v0.2 Knowledge Catalog Conformance Report: {status}\n```json\n{json.dumps(report, indent=2)}\n```"
+
+
+def get_okf_concept_graph(concept_id: Optional[str] = None) -> str:
+    """
+    Tool function: Retrieves the connected Concept Graph for multi-hop semantic navigation (§6).
+    Returns related playbooks, references, and computations connected by provenance or cross-links.
+    
+    Args:
+        concept_id: Optional concept name or relative path. If omitted, returns global graph topology.
+    """
+    if concept_id:
+        related = skill_registry.get_related_concepts(concept_id)
+        mermaid = skill_registry.export_concept_graph_mermaid(root_concept=concept_id)
+        return (
+            f"### 🕸️ OKF Concept Subgraph for `{concept_id}` ({len(related)} Connected Concepts):\n\n"
+            f"```mermaid\n{mermaid}\n```\n\n"
+            f"#### 🔗 Connected Concepts:\n```json\n{json.dumps(related, indent=2)}\n```"
+        )
+
+    graph = skill_registry.build_concept_graph()
+    mermaid = skill_registry.export_concept_graph_mermaid(max_nodes=15)
+    return (
+        f"### 🌐 OKF Global Concept Graph Topology:\n"
+        f"- **Total Concept Nodes:** {graph['total_nodes']}\n"
+        f"- **Total Semantic Edges:** {graph['total_edges']}\n\n"
+        f"```mermaid\n{mermaid}\n```"
+    )
+
+
+def find_diagnostic_graph_path(start_concept: str, target_concept: str) -> str:
+    """
+    Tool function: Calculates the shortest diagnostic reasoning path between two concepts.
+    Allows the agent to traverse from a symptom/finding to the exact remediation recipe.
+    """
+    path = skill_registry.find_graph_path(start_concept, target_concept)
+    if not path:
+        return f"No direct semantic path found between `{start_concept}` and `{target_concept}` in the concept graph."
+
+    steps = " ➔ ".join(f"`{p}`" for p in path)
+    return f"### 🧭 Diagnostic Graph Path ({len(path)} hops):\n\n{steps}"
+

@@ -201,6 +201,40 @@ class TestOKFConformance(unittest.TestCase):
         report_output = validate_okf_knowledge_catalog("skills")
         self.assertIn("🟢 CONFORMANT (OKF v0.2)", report_output)
 
+    def test_13_concept_graph_engine_and_tools(self):
+        """OKF §6, §10, §11: Concept Graph construction, multi-hop traversal, and path finding."""
+        from agent.skills_registry import get_okf_concept_graph, find_diagnostic_graph_path
+
+        # 1. Graph construction
+        graph = self.registry.build_concept_graph()
+        self.assertGreater(graph["total_nodes"], 20)
+        self.assertGreater(graph["total_edges"], 50)
+        self.assertIn("nodes", graph)
+        self.assertIn("edges", graph)
+
+        # 2. Related concepts traversal
+        related = self.registry.get_related_concepts("playbook_looker_performance")
+        self.assertGreaterEqual(len(related), 2)
+        titles = [r["title"] for r in related]
+        self.assertTrue(any("Pipeline Architecture" in t or "Query Outliers" in t or "Delivery Playbook" in t for t in titles))
+
+        # 3. Path finding
+        path = self.registry.find_graph_path("playbook_looker_performance", "benchmarks")
+        self.assertGreaterEqual(len(path), 2)
+        self.assertEqual(path[0], "skills/custom/healthcheck/playbooks/playbook_looker_performance")
+
+        # 4. Agent tools
+        global_graph = get_okf_concept_graph()
+        self.assertIn("OKF Global Concept Graph Topology", global_graph)
+        self.assertIn("graph TD", global_graph)
+
+        sub_graph = get_okf_concept_graph("playbook_looker_performance")
+        self.assertIn("OKF Concept Subgraph", sub_graph)
+
+        path_tool = find_diagnostic_graph_path("playbook_looker_performance", "benchmarks")
+        self.assertIn("Diagnostic Graph Path", path_tool)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+

@@ -62,7 +62,12 @@ from .storage import (
 
 from agent.skills_registry import (
     get_skill_content,
-    list_registered_skills
+    list_registered_skills,
+    get_okf_index,
+    get_okf_attested_computation,
+    validate_okf_knowledge_catalog,
+    get_okf_concept_graph,
+    find_diagnostic_graph_path
 )
 
 __all__ = [
@@ -104,6 +109,13 @@ __all__ = [
     "save_audit_report",
     "get_audit_history",
     "get_audit_document",
+    "save_technical_design_document",
     "get_skill_content",
-    "list_registered_skills"
+    "list_registered_skills",
+    "get_okf_index",
+    "get_okf_attested_computation",
+    "validate_okf_knowledge_catalog",
+    "get_okf_concept_graph",
+    "find_diagnostic_graph_path"
 ]
+

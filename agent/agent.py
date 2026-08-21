@@ -109,6 +109,11 @@ from agent.tools.storage import (
 from agent.skills_registry import (
     get_skill_content,
     list_registered_skills,
+    get_okf_index,
+    get_okf_attested_computation,
+    validate_okf_knowledge_catalog,
+    get_okf_concept_graph,
+    find_diagnostic_graph_path,
     skill_registry
 )
 
@@ -148,7 +153,12 @@ looker_perf_agent = Agent(
         get_audit_history,
         get_audit_document,
         list_registered_skills,
-        get_skill_content
+        get_skill_content,
+        get_okf_index,
+        get_okf_attested_computation,
+        validate_okf_knowledge_catalog,
+        get_okf_concept_graph,
+        find_diagnostic_graph_path
     ]
 )
 # Backward-compatible alias
@@ -193,7 +203,12 @@ lookml_agent = Agent(
         get_audit_history,
         get_audit_document,
         list_registered_skills,
-        get_skill_content
+        get_skill_content,
+        get_okf_index,
+        get_okf_attested_computation,
+        validate_okf_knowledge_catalog,
+        get_okf_concept_graph,
+        find_diagnostic_graph_path
     ]
 )
 
@@ -224,7 +239,12 @@ bq_agent = Agent(
         get_audit_history,
         get_audit_document,
         list_registered_skills,
-        get_skill_content
+        get_skill_content,
+        get_okf_index,
+        get_okf_attested_computation,
+        validate_okf_knowledge_catalog,
+        get_okf_concept_graph,
+        find_diagnostic_graph_path
     ]
 )
 
@@ -336,6 +356,11 @@ ORCHESTRATOR_TOOLS = [
     save_technical_design_document,
     get_audit_history,
     get_audit_document,
+    get_okf_index,
+    get_okf_attested_computation,
+    validate_okf_knowledge_catalog,
+    get_okf_concept_graph,
+    find_diagnostic_graph_path
 ]
 
 ALL_30_TOOLS = ORCHESTRATOR_TOOLS
