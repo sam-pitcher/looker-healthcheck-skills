@@ -33,6 +33,7 @@ Your objective is to profile Looker query lifecycles, dissect latency phases (Lo
 * Query `system__activity/dashboard` via `run_inline_query` for Dashboard tile bloat (>25 tiles) and auto-refresh intervals (<30 min).
 * Query `system__activity/scheduled_plan` via `run_inline_query` for top-of-hour cron pileups (`:00`) and queue congestion.
 * Query `system__activity/user` for zombie schedules owned by inactive users (>90 days since login).
+* Call `find_diagnostic_graph_path("slow_dashboards", "query_lifecycle_latency")` to inspect the causal reasoning path in the OKF Concept Graph.
 * Consult `get_okf_attested_computation("query_latency_breakdown")` for the sanctioned System Activity query.
 
 ### 4. Resilient Fallback & Playbook Grounding:

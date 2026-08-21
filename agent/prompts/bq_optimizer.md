@@ -21,6 +21,7 @@ When performing a query performance review or when receiving slow query IDs:
   - Immediately call `get_query_sql(query_id)` for slow queries or inspect explore joins via `audit_join_relationships(model_name=model_name)`.
   - Diagnose SQL anti-patterns: `REGEXP_CONTAINS` or functions in `JOIN ON`, cross-joins, or `SUM_DISTINCT` symmetric aggregate fan-outs.
 * **Step 2: Table & Partition Layout Forensics (INFORMATION_SCHEMA)**:
+  - Call `find_diagnostic_graph_path("unpartitioned_warehouse_scans", "warehouse_compute_optimization")` to retrieve the validated causal diagnostic path.
   - Call `list_dataset_tables(dataset_id="the_look_ca")` to verify exact table names.
   - Run `run_bq_query` to inspect table partition types, clustering columns, and unpruned scans using `get_okf_attested_computation("table_partition_ddl")`.
 * **Step 3: Warehouse Slot Contention & Saturation (INFORMATION_SCHEMA)**:
