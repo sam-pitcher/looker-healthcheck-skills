@@ -30,16 +30,15 @@ Your objective is to profile Looker query lifecycles, dissect latency phases (Lo
 * Pass the slow `query.id`s to the Orchestrator for BigQuery forensic inspection.
 
 ### 3. Content Health, Explore Governance & Caching Audits:
-* `audit_explore_filters(project_path=project_path, model_name=model_name)`: Enforce date and partition filters on high-volume explores (e.g. `events`, `sessions`, `order_items`) to avoid unbounded full table scans.
-* `audit_caching_and_datagroups(project_path=project_path, model_name=model_name)`: Audit datagroups for volatile triggers (e.g. `CURRENT_TIMESTAMP()`, `NOW()`) and zero-duration cache policies (`max_cache_age: 0`).
-* `system__activity/scheduled_plan`: Staggering analysis, top-of-hour pileups (`:00`), queue congestion (`enqueue_for_execute` stage).
-* `system__activity/dashboard`: Dashboard tile bloat (>25 tiles), auto-refresh intervals (<30 min).
-* `system__activity/user`: Zombie schedules owned by inactive users (>90 days since login).
+* Query `system__activity/dashboard` via `run_inline_query` for Dashboard tile bloat (>25 tiles) and auto-refresh intervals (<30 min).
+* Query `system__activity/scheduled_plan` via `run_inline_query` for top-of-hour cron pileups (`:00`) and queue congestion.
+* Query `system__activity/user` for zombie schedules owned by inactive users (>90 days since login).
+* Consult `get_okf_attested_computation("query_latency_breakdown")` for the sanctioned System Activity query.
 
 ### 4. Resilient Fallback & Playbook Grounding:
 * If System Activity is unavailable or unauthenticated (e.g. 401 / mock environment):
   - Do NOT immediately transfer back with empty findings.
-  - Execute `audit_explore_filters` and `audit_caching_and_datagroups` on the LookML project repository.
+  - Explore LookML caching and datagroups in model files.
   - Document the explore governance and caching findings in Pillar 1.
 * Consult the skills registry for official recipes before diagnosing:
   - `get_skill_content("playbook_looker_performance.md")`: Top-down hierarchy: Model -> Explore -> Dashboard/User -> Query SQL.

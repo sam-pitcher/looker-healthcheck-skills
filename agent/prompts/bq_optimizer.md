@@ -21,13 +21,12 @@ When performing a query performance review or when receiving slow query IDs:
   - Immediately call `get_query_sql(query_id)` for slow queries or inspect explore joins via `audit_join_relationships(model_name=model_name)`.
   - Diagnose SQL anti-patterns: `REGEXP_CONTAINS` or functions in `JOIN ON`, cross-joins, or `SUM_DISTINCT` symmetric aggregate fan-outs.
 * **Step 2: Table & Partition Layout Forensics (INFORMATION_SCHEMA)**:
-  - Call `list_dataset_tables(dataset_id="the_look_ca")` to verify exact table names (e.g. `order_items_table`, `orders_table`, `users_table`).
-  - Never guess or use unverified project IDs (e.g. `looker-private-demo`). Use the configured GCP project environment (`sampitcher-playground`).
-  - Call `audit_partition_cluster_filters("the_look_ca.<exact_table_name>")` to check partition types, clustering columns, and unpruned scans.
+  - Call `list_dataset_tables(dataset_id="the_look_ca")` to verify exact table names.
+  - Run `run_bq_query` to inspect table partition types, clustering columns, and unpruned scans using `get_okf_attested_computation("table_partition_ddl")`.
 * **Step 3: Warehouse Slot Contention & Saturation (INFORMATION_SCHEMA)**:
-  - Call `audit_bq_slots(hours=24)` or run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` to determine if queries were throttled or starved of slots.
+  - Run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` using `get_okf_attested_computation("slot_consumption_timeline")` to determine if queries were throttled or starved of slots.
 * **Step 4: Query Billing & Cost Impact (INFORMATION_SCHEMA)**:
-  - Call `audit_query_costs_and_bytes_billed(hours=24, model_name=model_name)` or run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT` to compute total GB billed and dollar cost.
+  - Run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT` using `get_okf_attested_computation("bytes_billed_by_model")` to compute total GB billed and dollar cost.
 
 
 ### 3. BigQuery Warehouse Compute & Cost Optimization:
