@@ -581,15 +581,15 @@ def execute_complete_healthcheck(
     # PILLAR 1: LIVE INSTANCE & SYSTEM ACTIVITY CHECKS
     # =========================================================================
     # P1-01: Subsystems
-    _add("P1-01", 1, "Pillar 1: Instance & Content", "Subsystem Status & Endpoint Health", "PASSED", "Looker cluster responsive.", check_subsystem_status(), "JVM nodes healthy.", "Verify load balancer.", "benchmarks.md")
+    _add("P1-01", 1, "Pillar 1: Looker Performance", "Subsystem Status & Endpoint Health", "PASSED", "Looker cluster responsive.", check_subsystem_status(), "JVM nodes healthy.", "Verify load balancer.", "benchmarks.md")
 
     # P1-02: DB Connections
     try:
         conns = _client.get("/api/4.0/connections")
         conn_names = [c.get("name") for c in conns if isinstance(c, dict)]
-        _add("P1-02", 2, "Pillar 1: Instance & Content", "Database Connections & Pool Limits", "PASSED", f"Audited {len(conn_names)} connection pools.", f"Active connections: {conn_names}", "Regulates concurrency.", "Tune max_connections.", "playbook_looker_performance.md")
+        _add("P1-02", 2, "Pillar 1: Looker Performance", "Database Connections & Pool Limits", "PASSED", f"Audited {len(conn_names)} connection pools.", f"Active connections: {conn_names}", "Regulates concurrency.", "Tune max_connections.", "playbook_looker_performance.md")
     except Exception as e:
-        _add("P1-02", 2, "Pillar 1: Instance & Content", "Database Connections & Pool Limits", "PASSED", "Connections verified.", str(e), "Regulates concurrency.", "Tune max_connections.", "playbook_looker_performance.md")
+        _add("P1-02", 2, "Pillar 1: Looker Performance", "Database Connections & Pool Limits", "PASSED", "Connections verified.", str(e), "Regulates concurrency.", "Tune max_connections.", "playbook_looker_performance.md")
 
     # P1-03: Dashboard Density (>25 Tiles) - Optimized Single System Activity Query (No N+1)
     try:
@@ -602,25 +602,25 @@ def execute_complete_healthcheck(
         )
         st = "WARNING" if bloat_rows else "PASSED"
         msg = f"Found {len(bloat_rows)} dashboard(s) exceeding 25 tiles." if bloat_rows else "No dashboards exceed 25 tiles."
-        _add("P1-03", 3, "Pillar 1: Instance & Content", "Dashboard Query Density (>25 Tiles)", st, msg, bloat_rows or "All dashboards <= 25 tiles", "Prevents thread exhaustion.", "Split into tabbed dashboards.", "large_dashboards_optimization.md")
+        _add("P1-03", 3, "Pillar 1: Looker Performance", "Dashboard Query Density (>25 Tiles)", st, msg, bloat_rows or "All dashboards <= 25 tiles", "Prevents thread exhaustion.", "Split into tabbed dashboards.", "large_dashboards_optimization.md")
     except Exception as e:
-        _add("P1-03", 3, "Pillar 1: Instance & Content", "Dashboard Query Density (>25 Tiles)", "PASSED", "Dashboard density within limits.", str(e), "Prevents thread exhaustion.", "Split dashboards.", "large_dashboards_optimization.md")
+        _add("P1-03", 3, "Pillar 1: Looker Performance", "Dashboard Query Density (>25 Tiles)", "PASSED", "Dashboard density within limits.", str(e), "Prevents thread exhaustion.", "Split dashboards.", "large_dashboards_optimization.md")
 
     # P1-04: Auto-Refresh Rate Limits (<30m)
     try:
         refresh_rows = _client.run_query("system__activity", "dashboard", ["dashboard.id", "dashboard.title", "dashboard.auto_refresh_interval"], filters={"dashboard.auto_refresh_interval": "-NULL", "dashboard.deleted_date": "EMPTY"}, limit="5")
         st = "WARNING" if refresh_rows else "PASSED"
         msg = f"Found {len(refresh_rows)} dashboards with auto-refresh configured." if refresh_rows else "No aggressive auto-refresh intervals detected."
-        _add("P1-04", 4, "Pillar 1: Instance & Content", "Auto-Refresh Rate Limits (<30m)", st, msg, refresh_rows or "No auto-refresh configured", "Align with ETL.", "Set auto-refresh >=30m.", "large_dashboards_optimization.md")
+        _add("P1-04", 4, "Pillar 1: Looker Performance", "Auto-Refresh Rate Limits (<30m)", st, msg, refresh_rows or "No auto-refresh configured", "Align with ETL.", "Set auto-refresh >=30m.", "large_dashboards_optimization.md")
     except Exception as e:
-        _add("P1-04", 4, "Pillar 1: Instance & Content", "Auto-Refresh Rate Limits (<30m)", "PASSED", "Auto-refresh rates verified.", str(e), "Align with ETL.", "Set auto-refresh >=30m.", "large_dashboards_optimization.md")
+        _add("P1-04", 4, "Pillar 1: Looker Performance", "Auto-Refresh Rate Limits (<30m)", "PASSED", "Auto-refresh rates verified.", str(e), "Align with ETL.", "Set auto-refresh >=30m.", "large_dashboards_optimization.md")
 
     # P1-05: Schedule Time Spacing & Distribution
     try:
         sched_rows = _client.run_query("system__activity", "scheduled_plan", ["scheduled_plan.id", "scheduled_plan.name", "scheduled_plan.cron_schedule"], limit="5")
-        _add("P1-05", 5, "Pillar 1: Instance & Content", "Schedule Time Spacing & Distribution", "PASSED", f"Audited {len(sched_rows)} scheduled plans.", sched_rows or "Schedules staggered", "Avoid top-of-hour spikes.", "Stagger cron schedules.", "content_delivery_schedules.md")
+        _add("P1-05", 5, "Pillar 1: Looker Performance", "Schedule Time Spacing & Distribution", "PASSED", f"Audited {len(sched_rows)} scheduled plans.", sched_rows or "Schedules staggered", "Avoid top-of-hour spikes.", "Stagger cron schedules.", "content_delivery_schedules.md")
     except Exception as e:
-        _add("P1-05", 5, "Pillar 1: Instance & Content", "Schedule Time Spacing & Distribution", "PASSED", "Schedule distribution verified.", str(e), "Avoid top-of-hour spikes.", "Stagger cron schedules.", "content_delivery_schedules.md")
+        _add("P1-05", 5, "Pillar 1: Looker Performance", "Schedule Time Spacing & Distribution", "PASSED", "Schedule distribution verified.", str(e), "Avoid top-of-hour spikes.", "Stagger cron schedules.", "content_delivery_schedules.md")
 
     # P1-06: Concurrency Peaks & Queue Depths
     try:
@@ -628,18 +628,18 @@ def execute_complete_healthcheck(
         if model_name:
             q_filter["query.model"] = model_name
         conc_rows = _client.run_query("system__activity", "history", ["history.created_hour", "history.query_run_count"], filters=q_filter, sorts=["history.query_run_count desc"], limit="3")
-        _add("P1-06", 6, "Pillar 1: Instance & Content", "Concurrency Peaks & Queue Depths", "PASSED", "Concurrency distribution audited.", conc_rows or "No queue saturation", "Avoid pool saturation.", "Enable query pooling.", "playbook_looker_performance.md")
+        _add("P1-06", 6, "Pillar 1: Looker Performance", "Concurrency Peaks & Queue Depths", "PASSED", "Concurrency distribution audited.", conc_rows or "No queue saturation", "Avoid pool saturation.", "Enable query pooling.", "playbook_looker_performance.md")
     except Exception as e:
-        _add("P1-06", 6, "Pillar 1: Instance & Content", "Concurrency Peaks & Queue Depths", "PASSED", "Concurrency queue healthy.", str(e), "Avoid pool saturation.", "Enable query pooling.", "playbook_looker_performance.md")
+        _add("P1-06", 6, "Pillar 1: Looker Performance", "Concurrency Peaks & Queue Depths", "PASSED", "Concurrency queue healthy.", str(e), "Avoid pool saturation.", "Enable query pooling.", "playbook_looker_performance.md")
 
     # P1-07: Unused Content & Stale Dashboards
     try:
         stale_rows = _client.run_query("system__activity", "dashboard", ["dashboard.id", "dashboard.title", "dashboard.last_viewed_date"], filters={"dashboard.last_viewed_date": "before 90 days ago", "dashboard.deleted_date": "EMPTY"}, limit="5")
         st = "WARNING" if stale_rows else "PASSED"
         msg = f"Found {len(stale_rows)} dashboards unviewed in >90 days." if stale_rows else "No stale content found."
-        _add("P1-07", 7, "Pillar 1: Instance & Content", "Unused Content & Stale Dashboards", st, msg, stale_rows or "Clean content inventory", "De-clutters metadata.", "Archive unused content.", "playbook_content_governance.md")
+        _add("P1-07", 7, "Pillar 1: Looker Performance", "Unused Content & Stale Dashboards", st, msg, stale_rows or "Clean content inventory", "De-clutters metadata.", "Archive unused content.", "playbook_content_governance.md")
     except Exception as e:
-        _add("P1-07", 7, "Pillar 1: Instance & Content", "Unused Content & Stale Dashboards", "PASSED", "Unused content checked.", str(e), "De-clutters metadata.", "Archive unused content.", "playbook_content_governance.md")
+        _add("P1-07", 7, "Pillar 1: Looker Performance", "Unused Content & Stale Dashboards", "PASSED", "Unused content checked.", str(e), "De-clutters metadata.", "Archive unused content.", "playbook_content_governance.md")
 
     # P1-08: Unfiltered Dashboard Queries
     try:
@@ -649,9 +649,9 @@ def execute_complete_healthcheck(
         unfilt_rows = _client.run_query("system__activity", "history", ["dashboard.id", "dashboard.title", "history.query_run_count"], filters=unfilt_f, limit="5")
         st = "WARNING" if unfilt_rows else "PASSED"
         msg = f"Found {len(unfilt_rows)} dashboard queries executing without filters." if unfilt_rows else "Dashboard queries use required filters."
-        _add("P1-08", 8, "Pillar 1: Instance & Content", "Unfiltered Dashboard Queries", st, msg, unfilt_rows or "All queries filtered", "Prevents unbounded scans.", "Add dashboard filters.", "playbook_looker_performance.md")
+        _add("P1-08", 8, "Pillar 1: Looker Performance", "Unfiltered Dashboard Queries", st, msg, unfilt_rows or "All queries filtered", "Prevents unbounded scans.", "Add dashboard filters.", "playbook_looker_performance.md")
     except Exception as e:
-        _add("P1-08", 8, "Pillar 1: Instance & Content", "Unfiltered Dashboard Queries", "PASSED", "Dashboard filters verified.", str(e), "Prevents unbounded scans.", "Add dashboard filters.", "playbook_looker_performance.md")
+        _add("P1-08", 8, "Pillar 1: Looker Performance", "Unfiltered Dashboard Queries", "PASSED", "Dashboard filters verified.", str(e), "Prevents unbounded scans.", "Add dashboard filters.", "playbook_looker_performance.md")
 
     # P1-09: In-Memory Merged Query Risks
     try:
@@ -661,9 +661,9 @@ def execute_complete_healthcheck(
         merge_rows = _client.run_query("system__activity", "history", ["query.id", "dashboard.title", "history.runtime"], filters=merge_f, limit="5")
         st = "WARNING" if merge_rows else "PASSED"
         msg = f"Detected {len(merge_rows)} in-memory merged queries." if merge_rows else "Zero merged queries detected."
-        _add("P1-09", 9, "Pillar 1: Instance & Content", "In-Memory Merged Query Risks", st, msg, merge_rows or "No merged queries", "Eliminates JVM heap pressure.", "Migrate to LookML joins.", "merged_queries_remediation.md")
+        _add("P1-09", 9, "Pillar 1: Looker Performance", "In-Memory Merged Query Risks", st, msg, merge_rows or "No merged queries", "Eliminates JVM heap pressure.", "Migrate to LookML joins.", "merged_queries_remediation.md")
     except Exception as e:
-        _add("P1-09", 9, "Pillar 1: Instance & Content", "In-Memory Merged Query Risks", "PASSED", "Merged query usage checked.", str(e), "Eliminates JVM heap pressure.", "Migrate to LookML joins.", "merged_queries_remediation.md")
+        _add("P1-09", 9, "Pillar 1: Looker Performance", "In-Memory Merged Query Risks", "PASSED", "Merged query usage checked.", str(e), "Eliminates JVM heap pressure.", "Migrate to LookML joins.", "merged_queries_remediation.md")
 
     # P1-10: Legacy Features Deprecation
     try:
@@ -671,9 +671,9 @@ def execute_complete_healthcheck(
         enabled_legacy = [f.get("name") for f in features if isinstance(f, dict) and f.get("enabled")]
         st = "WARNING" if enabled_legacy else "PASSED"
         msg = f"Legacy features enabled: {enabled_legacy}" if enabled_legacy else "All legacy features deprecated."
-        _add("P1-10", 10, "Pillar 1: Instance & Content", "Legacy Features Deprecation", st, msg, enabled_legacy or "None active", "Maintains platform compatibility.", "Deprecate legacy flags.", "benchmarks.md")
+        _add("P1-10", 10, "Pillar 1: Looker Performance", "Legacy Features Deprecation", st, msg, enabled_legacy or "None active", "Maintains platform compatibility.", "Deprecate legacy flags.", "benchmarks.md")
     except Exception as e:
-        _add("P1-10", 10, "Pillar 1: Instance & Content", "Legacy Features Deprecation", "PASSED", "Legacy features checked.", str(e), "Maintains platform compatibility.", "Deprecate legacy flags.", "benchmarks.md")
+        _add("P1-10", 10, "Pillar 1: Looker Performance", "Legacy Features Deprecation", "PASSED", "Legacy features checked.", str(e), "Maintains platform compatibility.", "Deprecate legacy flags.", "benchmarks.md")
 
     # =========================================================================
     # PILLAR 2: LOOKML & MODELING CHECKS
@@ -775,7 +775,11 @@ def execute_complete_healthcheck(
 
     for f in findings:
         badge = "✅ PASSED" if f["status"] == "PASSED" else ("⚠️ WARNING" if f["status"] == "WARNING" else "❌ CRITICAL")
-        lines.append(f"| `{f['check_id']}` | {f['pillar'].split(':')[0]} | **{f['name']}** | {badge} | {f['score']} | {f['summary']} — *{f['prescribed_remediation']}* | `{f['recommended_skill']}` |")
+        lines.append(f"| `{f['check_id']}` | {f['pillar']} | **{f['name']}** | {badge} | {f['score']} | {f['summary']} — *{f['prescribed_remediation']}* | `{f['recommended_skill']}` |")
+
+    lines.append("\n### 🔗 Provenance & Telemetry Sources")
+    lines.append("[^system-activity-query-metrics]: Looker System Activity Query Metrics Explore")
+    lines.append("[^bq-jobs-timeline]: BigQuery Jobs Timeline by Project")
 
     report_markdown = "\n".join(lines)
     return report_markdown, structured

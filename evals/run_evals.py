@@ -84,6 +84,8 @@ def run_all_evaluations():
             ("OKF §5.1 Concept Metadata & Provenance Sources", okf_test.test_09_concept_metadata_and_provenance),
             ("OKF Technical Design Document (TDD) Adherence", okf_test.test_10_technical_design_document_adherence),
             ("OKF Progressive Disclosure & Tool Integration", lambda: (okf_test.test_11_save_technical_design_document_storage_tool(), okf_test.test_12_progressive_disclosure_tools())),
+            ("OKF Concept Graph Engine & Traversal (§6, §10, §11)", okf_test.test_13_concept_graph_engine_and_tools),
+            ("OKF Concept Graph Quality & Health Audit (Score: 100)", okf_test.test_14_concept_graph_health_audit),
         ])
     ]
 
