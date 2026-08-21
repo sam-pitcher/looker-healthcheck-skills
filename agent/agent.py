@@ -102,7 +102,8 @@ from agent.tools.storage import (
     get_audit_history,
     get_audit_document,
     record_audit_finding,
-    save_technical_design_document
+    save_technical_design_document,
+    compile_and_save_technical_design_document
 )
 
 # Dynamic Looker Skills Registry (Pure Knowledge Playbooks)
@@ -115,6 +116,7 @@ from agent.skills_registry import (
     get_okf_concept_graph,
     find_diagnostic_graph_path,
     audit_okf_concept_graph,
+    get_active_graph_traversal_path,
     skill_registry
 )
 
@@ -158,7 +160,9 @@ looker_perf_agent = Agent(
         get_okf_attested_computation,
         validate_okf_knowledge_catalog,
         get_okf_concept_graph,
-        find_diagnostic_graph_path
+        find_diagnostic_graph_path,
+        get_active_graph_traversal_path,
+        compile_and_save_technical_design_document
     ]
 )
 # Backward-compatible alias
@@ -191,6 +195,7 @@ lookml_agent = Agent(
         list_models,
         record_audit_finding,
         save_technical_design_document,
+        compile_and_save_technical_design_document,
         get_audit_history,
         get_audit_document,
         list_registered_skills,
@@ -199,7 +204,8 @@ lookml_agent = Agent(
         get_okf_attested_computation,
         validate_okf_knowledge_catalog,
         get_okf_concept_graph,
-        find_diagnostic_graph_path
+        find_diagnostic_graph_path,
+        get_active_graph_traversal_path
     ]
 )
 
@@ -221,6 +227,7 @@ bq_agent = Agent(
         record_audit_finding,
         save_audit_report,
         save_technical_design_document,
+        compile_and_save_technical_design_document,
         get_audit_history,
         get_audit_document,
         list_registered_skills,
@@ -229,7 +236,8 @@ bq_agent = Agent(
         get_okf_attested_computation,
         validate_okf_knowledge_catalog,
         get_okf_concept_graph,
-        find_diagnostic_graph_path
+        find_diagnostic_graph_path,
+        get_active_graph_traversal_path
     ]
 )
 
@@ -339,6 +347,7 @@ ORCHESTRATOR_TOOLS = [
     save_audit_report,
     record_audit_finding,
     save_technical_design_document,
+    compile_and_save_technical_design_document,
     get_audit_history,
     get_audit_document,
     get_okf_index,
@@ -346,6 +355,7 @@ ORCHESTRATOR_TOOLS = [
     validate_okf_knowledge_catalog,
     get_okf_concept_graph,
     find_diagnostic_graph_path,
+    get_active_graph_traversal_path,
     audit_okf_concept_graph
 ]
 

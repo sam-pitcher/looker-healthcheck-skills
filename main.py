@@ -377,6 +377,17 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     <button class="nav-tab" id="btn-graph-audit" style="padding: 4px 10px; font-size: 0.75rem; border-color: var(--green); color: var(--green);" onclick="showGraphAudit()">🛡️ Graph Health: 100%</button>
                     <button class="nav-tab" style="padding: 4px 10px; font-size: 0.75rem;" onclick="resetGraphZoom()">⟲ Reset Zoom</button>
                 </div>
+            <div id="traversal-bar" style="background:#0f172a; border:1px solid #334155; border-radius:8px; padding:8px 12px; margin-bottom:10px; display:flex; flex-direction:column; gap:6px;">
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <div style="font-size:0.78rem; font-weight:bold; color:#38bdf8; display:flex; align-items:center; gap:6px;">
+                        <span>🧭 Agent Concept Graph Traversal Path</span>
+                        <span id="traversal-count" class="badge-comp" style="font-size:0.68rem;">0 Steps</span>
+                    </div>
+                    <button class="nav-tab" style="padding:3px 8px; font-size:0.72rem; border-color:#38bdf8; color:#38bdf8;" onclick="animateTraversalPath()">▶ Trace Hops</button>
+                </div>
+                <div id="traversal-trail" style="display:flex; align-items:center; gap:6px; overflow-x:auto; padding-bottom:4px; font-size:0.72rem;">
+                    <span style="color:#64748b;">No active traversal recorded yet. Run a healthcheck to see the agent's diagnostic path.</span>
+                </div>
             </div>
 
             <div class="graph-canvas-container" id="graph-container">
@@ -396,12 +407,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         </div>
     </div>
 
-    <script>
         let graphData = null;
         let simulation = null;
         let svgGroup = null;
         let zoomBehavior = null;
         let activeConcept = null;
+        let traversalPath = [];
+        let isAnimating = false;
 
         function switchView(view) {
             document.getElementById('tab-report').classList.toggle('active', view === 'report');
@@ -409,9 +421,64 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             document.getElementById('pane-report').style.display = view === 'report' ? 'flex' : 'none';
             document.getElementById('pane-graph').style.display = view === 'graph' ? 'flex' : 'none';
 
-            if (view === 'graph' && !graphData) {
-                renderConceptGraph();
+            if (view === 'graph') {
+                fetchTraversalPath();
+                if (!graphData) renderConceptGraph();
             }
+        }
+
+        async function fetchTraversalPath() {
+            try {
+                const res = await fetch('/api/graph/traversal');
+                const data = await res.json();
+                traversalPath = data.steps || [];
+                const container = document.getElementById('traversal-trail');
+                const countBadge = document.getElementById('traversal-count');
+                if (!traversalPath.length) {
+                    container.innerHTML = '<span style="color:#64748b;">No active traversal recorded yet. Run a healthcheck to trace the agent path.</span>';
+                    countBadge.innerText = '0 Steps';
+                    return;
+                }
+                countBadge.innerText = traversalPath.length + ' Steps';
+                container.innerHTML = traversalPath.map((step, idx) => `
+                    <div class="skill-item" style="padding:4px 8px; display:inline-flex; align-items:center; gap:4px; white-space:nowrap; cursor:pointer; background:#1e293b; border-radius:4px; border:1px solid ${step.type === 'Attested Computation' ? '#f59e0b' : '#38bdf8'};" onclick="focusConcept('${step.concept_id}')">
+                        <span style="color:#f59e0b; font-weight:bold;">${step.step}.</span>
+                        <strong style="font-size:0.72rem;">${step.title || step.concept_id.split('/').pop()}</strong>
+                        <span style="color:#94a3b8; font-size:0.65rem;">(${step.action.replace('diagnosed_', '')})</span>
+                    </div>
+                    ${idx < traversalPath.length - 1 ? '<span style="color:#38bdf8; font-weight:bold; font-size:0.8rem;">➔</span>' : ''}
+                `).join('');
+            } catch (err) {
+                console.error("Error fetching traversal path:", err);
+            }
+        }
+
+        function focusConcept(conceptId) {
+            if (!graphData || !graphData.nodes || !svgGroup || !zoomBehavior) return;
+            const cleanId = (conceptId || '').toLowerCase().trim();
+            const target = graphData.nodes.find(n => n.id.toLowerCase() === cleanId || n.label.toLowerCase() === cleanId || n.id.toLowerCase().includes(cleanId));
+            if (target && target.x && target.y) {
+                const container = document.getElementById('graph-container');
+                const width = container.clientWidth || 900;
+                const height = container.clientHeight || 600;
+                const transform = d3.zoomIdentity
+                    .translate(width / 2, height / 2)
+                    .scale(1.8)
+                    .translate(-target.x, -target.y);
+                d3.select('#graph-svg').transition().duration(750).call(zoomBehavior.transform, transform);
+                inspectNode(target);
+            }
+        }
+
+        async function animateTraversalPath() {
+            if (isAnimating || !traversalPath || !traversalPath.length) return;
+            isAnimating = true;
+            for (let i = 0; i < traversalPath.length; i++) {
+                const step = traversalPath[i];
+                focusConcept(step.concept_id);
+                await new Promise(r => setTimeout(r, 1600));
+            }
+            isAnimating = false;
         }
 
         async function fetchModels() {
@@ -596,11 +663,23 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         .on('end', dragended))
                     .on('click', (event, d) => inspectNode(d));
 
+                const traversedSet = new Set(traversalPath.map(s => (s.concept_id || '').toLowerCase().trim()));
+
                 node.append('circle')
-                    .attr('r', d => (d.type === 'Attested Computation' || d.type === 'Playbook') ? 11 : 7)
+                    .attr('r', d => {
+                        const isTraversed = traversedSet.has((d.id || '').toLowerCase()) || traversedSet.has((d.label || '').toLowerCase());
+                        if (isTraversed) return 13;
+                        return (d.type === 'Attested Computation' || d.type === 'Playbook') ? 10 : 7;
+                    })
                     .attr('fill', d => getNodeColor(d.type))
-                    .attr('stroke', '#1e293b')
-                    .attr('stroke-width', 2);
+                    .attr('stroke', d => {
+                        const isTraversed = traversedSet.has((d.id || '').toLowerCase()) || traversedSet.has((d.label || '').toLowerCase());
+                        return isTraversed ? '#f59e0b' : '#1e293b';
+                    })
+                    .attr('stroke-width', d => {
+                        const isTraversed = traversedSet.has((d.id || '').toLowerCase()) || traversedSet.has((d.label || '').toLowerCase());
+                        return isTraversed ? 3.5 : 2;
+                    });
 
                 node.append('text')
                     .attr('x', 14)
@@ -810,6 +889,12 @@ class ADKWebHandler(SimpleHTTPRequestHandler):
             self.send_header("Content-Type", "application/json")
             self.end_headers()
             self.wfile.write(json.dumps(audit_report).encode("utf-8"))
+        elif parsed.path == "/api/graph/traversal":
+            steps = skill_registry.get_active_traversal_path()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.end_headers()
+            self.wfile.write(json.dumps({"steps": steps, "count": len(steps)}).encode("utf-8"))
         elif parsed.path == "/api/graph":
             query = urllib.parse.parse_qs(parsed.query)
             cid = query.get("concept", [None])[0]

@@ -4,8 +4,8 @@ title: "Looker Health Check - Technical Design Document (thelook)"
 description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for thelook."
 status: stable
 tags: [looker, bigquery, healthcheck, modernization, tdd, performance]
-generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: 2026-08-21T15:32:29Z }
-verified: { by: human:sampitcher, at: 2026-08-21T15:32:29Z }
+generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-21T15:45:29Z" }
+verified: { by: "human:sampitcher", at: "2026-08-21T15:45:29Z" }
 sources:
   - id: system-activity-query-metrics
     resource: "system__activity/query_metrics"
@@ -31,7 +31,7 @@ This Technical Design Document (TDD) delivers an authoritative, production-grade
 A forensic audit conducted across the live Looker instance, LookML codebase, and Google Cloud BigQuery telemetry revealed critical architectural anti-patterns that severely degrade end-user performance, increase warehouse compute costs, and risk query failures.
 
 ### Key Audit Metrics & Baseline Health
-* **Overall Health Score**: **18.3% / 100** (Critical Action Required)
+* **Overall Health Score**: **20.0% / 100** (Critical Action Required)
 * **Pillar 1: Looker Performance**: 60% — Extreme query latency outliers detected (52.27s max duration).
 * **Pillar 2: LookML Modeling & Code Quality**: 15% — Cartesian cross joins, non-equi inequality joins, function calls in join conditions, and missing primary keys across 5 views.
 * **Pillar 3: BigQuery Engine & Compute**: 10% — Unpartitioned/unclustered fact tables and project-wide slot saturation (peaking at 2,000 slots).
@@ -287,6 +287,12 @@ Phase 3: Warehouse Partitioning & Acceleration (Week 3)
 | **Symmetric Aggregation Hashing Overhead** | Active (5 Views) | **Zero (Primary Keys Enforced)** | **100% Eliminated** |
 
 ---
+
+## 8. Diagnostic Graph Traversal & Provenance Trail
+
+**OKF Concept Graph Reasoning Trail (0 Hops):**
+`slow_dashboards` ➔ `query_latency_breakdown` ➔ `unpartitioned_warehouse_scans` ➔ `slot_consumption_timeline` ➔ `cartesian_product_risks` ➔ `symmetric_aggregations` ➔ `warehouse_compute_optimization`
+
 
 ### 🔗 Provenance & Telemetry Sources
 [^system-activity-query-metrics]: Looker System Activity Query Metrics Explore (`system__activity/query_metrics`)

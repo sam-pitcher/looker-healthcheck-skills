@@ -195,6 +195,7 @@ class LookerSkillRegistry:
         self.registry: Dict[str, Dict[str, Any]] = {}
         self.indexes: Dict[str, Dict[str, Any]] = {}
         self.logs: Dict[str, Dict[str, Any]] = {}
+        self._active_traversal_history: List[Dict[str, Any]] = []
         self.load_all_skills()
 
     def load_all_skills(self):
@@ -858,13 +859,48 @@ class LookerSkillRegistry:
                     resolved_neighbor = c.get("id")
 
                 if resolved_neighbor == target_id:
-                    return path + [resolved_neighbor]
+                    final_path = path + [resolved_neighbor]
+                    for p in final_path:
+                        self.record_traversal_step(p, action="graph_path_traversal", metadata={"path_start": start_concept, "path_target": target_concept})
+                    return final_path
 
                 if resolved_neighbor not in visited:
                     visited.add(resolved_neighbor)
                     queue.append(path + [resolved_neighbor])
 
         return []
+
+    def record_traversal_step(self, concept_id: str, action: str = "visited", agent: str = "DiagnosticAgent", metadata: Optional[Dict[str, Any]] = None):
+        """Records an active step in the multi-agent Concept Graph diagnostic traversal path."""
+        concept = self.get_concept(concept_id)
+        cid = concept.get("id", concept_id) if concept else concept_id
+        title = concept.get("title", concept_id.split("/")[-1]) if concept else concept_id.split("/")[-1]
+        ctype = concept.get("type", "Concept") if concept else "Concept"
+        
+        # Deduplicate immediate consecutive steps on the same concept
+        if self._active_traversal_history and self._active_traversal_history[-1].get("concept_id") == cid and self._active_traversal_history[-1].get("action") == action:
+            return self._active_traversal_history[-1]
+
+        step_record = {
+            "step": len(self._active_traversal_history) + 1,
+            "concept_id": cid,
+            "title": title,
+            "type": ctype,
+            "action": action,
+            "agent": agent,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "metadata": metadata or {}
+        }
+        self._active_traversal_history.append(step_record)
+        return step_record
+
+    def get_active_traversal_path(self) -> List[Dict[str, Any]]:
+        """Returns the chronological sequence of graph nodes traversed during the review."""
+        return list(self._active_traversal_history)
+
+    def clear_traversal_history(self):
+        """Resets the traversal path for a new audit session."""
+        self._active_traversal_history = []
 
     def export_concept_graph_mermaid(self, root_concept: Optional[str] = None, max_nodes: int = 25) -> str:
         """
@@ -1066,6 +1102,7 @@ def get_skill_content(skill_name: str) -> str:
     Tool function: Dynamically retrieves official or custom Looker skill/playbook content,
     attested computation contracts, or reference documentation for an agent.
     """
+    skill_registry.record_traversal_step(skill_name, action="playbook_consulted")
     content = skill_registry.get_skill_prompt(skill_name)
     concept = skill_registry.get_concept(skill_name)
     
@@ -1106,6 +1143,7 @@ def get_okf_attested_computation(computation_id: str) -> str:
     """
     Tool function: Retrieves the contract and sanctioned computation for an Attested Computation concept (§10).
     """
+    skill_registry.record_traversal_step(computation_id, action="attested_computation")
     comp = skill_registry.get_attested_computation(computation_id)
     if comp:
         output = {
@@ -1188,5 +1226,27 @@ def audit_okf_concept_graph() -> str:
         f"- **Attested Computation Issues:** {len(report['attested_computation_issues'])}\n\n"
         f"```json\n{json.dumps(report, indent=2)}\n```"
     )
+
+
+def get_active_graph_traversal_path() -> str:
+    """
+    Tool function: Retrieves the sequential path of graph concept nodes and playbooks navigated by the agents during this review.
+    Allows the agent and user to review the exact diagnostic trail through the Open Knowledge Format (OKF) Concept Graph.
+    """
+    steps = skill_registry.get_active_traversal_path()
+    if not steps:
+        return "No graph concept navigation steps recorded yet for the active session."
+
+    formatted_lines = []
+    for s in steps:
+        formatted_lines.append(f"- **Step {s['step']}**: `{s['concept_id'].split('/')[-1]}` ({s['type']}) — *{s['action']}* by `{s['agent']}`")
+
+    trail = " ➔ ".join(f"`{s['concept_id'].split('/')[-1]}`" for s in steps)
+    return (
+        f"### 🧭 Active Agent Concept Graph Traversal Path ({len(steps)} Diagnostic Steps):\n\n"
+        f"**Sequential Reasoning Trail:**\n{trail}\n\n"
+        f"#### 📋 Step-by-Step Traversal Details:\n" + "\n".join(formatted_lines)
+    )
+
 
 
