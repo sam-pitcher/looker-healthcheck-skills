@@ -21,7 +21,10 @@ sources:
 This reference catalog provides the exact SQL query definitions, diagnostic thresholds, and optimization patterns for auditing BigQuery compute, slot contention, on-demand query costs, partition pruning, and datagroup ETL synchronization.
 
 > [!NOTE]
-> **Upstream Vendor References**:
+> **Attested Computations & Upstream References**:
+> * [`slot_consumption_timeline.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/healthcheck/computations/slot_consumption_timeline.md): Attested BigQuery 24-hour slot consumption & saturation timeline query.
+> * [`bytes_billed_by_model.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/healthcheck/computations/bytes_billed_by_model.md): Attested query cost and gigabytes billed audit query.
+> * [`table_partition_ddl.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/healthcheck/computations/table_partition_ddl.md): Attested BigQuery DDL generator for table partitioning and clustering.
 > * [`connecting-looker-to-bigquery`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/connecting-looker-to-bigquery/SKILL.md): BigQuery connection architecture, BI Engine setup, and dataset permissions.
 > * [`mig-optimize`](https://google-cloud-professional-services.googlesource.com/mig-optimize): Google Cloud Professional Services BigQuery migration & slot/stage performance diagnostic framework.
 
@@ -29,7 +32,7 @@ This reference catalog provides the exact SQL query definitions, diagnostic thre
 
 ## ⚡ 1. Slot Contention & Reservation Analysis
 
-When queries experience long execution or queue times, check for slot starvation and reservation saturation in BigQuery.
+When queries experience long execution or queue times, check for slot starvation and reservation saturation in BigQuery using the sanctioned [`slot_consumption_timeline.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/healthcheck/computations/slot_consumption_timeline.md) computation contract.
 
 ### SQL Query: Slot Consumption Timeline (Past 24 Hours)
 ```sql

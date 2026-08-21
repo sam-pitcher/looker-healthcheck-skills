@@ -706,15 +706,55 @@ class LookerSkillRegistry:
                 attester = c.get("attester", {}).get("resource") if isinstance(c.get("attester"), dict) else None
                 if executor:
                     edges.append({"source": cid, "target": str(executor), "relationship": "executed_by", "label": "Executor Tool"})
+                    adjacency[cid].append(str(executor))
                 if attester:
                     edges.append({"source": cid, "target": str(attester), "relationship": "attested_by", "label": "Attester"})
+                    adjacency[cid].append(str(attester))
+
+        # Deduplicate edges
+        deduped_edges = []
+        seen_edges = set()
+        for e in edges:
+            key = (e["source"], e["target"], e["relationship"])
+            if key not in seen_edges:
+                seen_edges.add(key)
+                deduped_edges.append(e)
+
+        # Synthesize nodes for external resources, tools, and explores so graph is fully connected
+        for e in deduped_edges:
+            for endpoint in (e["source"], e["target"]):
+                if endpoint not in nodes:
+                    ep_str = str(endpoint)
+                    if ep_str.startswith("http"):
+                        etype = "External Source"
+                        label = ep_str.split("/")[-1] or ep_str
+                    elif "INFORMATION_SCHEMA" in ep_str or "system__activity" in ep_str:
+                        etype = "Data Source / View"
+                        label = ep_str.split(".")[-1]
+                    elif ep_str.startswith("agent/tools") or ep_str.endswith(".py"):
+                        etype = "Execution Tool"
+                        label = ep_str.split("/")[-1]
+                    else:
+                        etype = "Resource"
+                        label = ep_str.split("/")[-1]
+
+                    nodes[endpoint] = {
+                        "id": endpoint,
+                        "title": label,
+                        "type": etype,
+                        "status": "external",
+                        "trust_tier": "machine-confirmed" if "INFORMATION_SCHEMA" in ep_str else "unverified",
+                        "source": "environment",
+                        "runtime": None,
+                        "path": ep_str
+                    }
 
         return {
             "nodes": nodes,
-            "edges": edges,
+            "edges": deduped_edges,
             "adjacency": adjacency,
             "total_nodes": len(nodes),
-            "total_edges": len(edges)
+            "total_edges": len(deduped_edges)
         }
 
     def get_related_concepts(self, concept_id: str, max_depth: int = 1) -> List[Dict[str, Any]]:

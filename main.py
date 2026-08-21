@@ -29,6 +29,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Looker & BigQuery Healthcheck Hub</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <script src="https://d3js.org/d3.v7.min.js"></script>
     <style>
         :root {
             --bg-primary: #0b0f19;
@@ -40,6 +41,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             --accent-hover: #0284c7;
             --green: #10b981;
             --yellow: #f59e0b;
+            --purple: #a855f7;
             --red: #ef4444;
         }
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -163,22 +165,55 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             border-radius: 4px;
             width: fit-content;
         }
+        .badge-comp {
+            display: inline-block;
+            font-size: 0.62rem;
+            background: rgba(245, 158, 11, 0.15);
+            color: var(--yellow);
+            padding: 2px 5px;
+            border-radius: 4px;
+            width: fit-content;
+        }
         .main-content {
             flex: 1;
             display: flex;
             flex-direction: column;
             background: var(--bg-primary);
-            padding: 28px;
-            overflow-y: auto;
-            gap: 14px;
+            padding: 24px;
+            overflow: hidden;
+            gap: 12px;
         }
-        .header-title {
-            font-size: 1.5rem;
-            font-weight: 700;
+        .nav-tabs {
+            display: flex;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 8px;
         }
-        .header-sub {
+        .nav-tab {
+            background: transparent;
+            border: 1px solid transparent;
             color: var(--text-muted);
+            padding: 8px 16px;
+            border-radius: 6px;
             font-size: 0.88rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .nav-tab.active {
+            background: var(--bg-card);
+            border-color: var(--border);
+            color: var(--accent);
+        }
+        .nav-tab:hover:not(.active) {
+            color: var(--text-main);
+        }
+        .view-pane {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            gap: 12px;
         }
         .report-view {
             background: var(--bg-card);
@@ -192,6 +227,100 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             color: #cbd5e1;
             flex: 1;
             overflow-y: auto;
+        }
+        /* Graph Visualizer Styles */
+        .graph-toolbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            padding: 8px 14px;
+            border-radius: 8px;
+            gap: 10px;
+        }
+        .graph-search {
+            background: #0b0f19;
+            border: 1px solid var(--border);
+            color: var(--text-main);
+            padding: 6px 12px;
+            border-radius: 6px;
+            font-size: 0.82rem;
+            width: 320px;
+            outline: none;
+        }
+        .graph-search:focus {
+            border-color: var(--accent);
+        }
+        .graph-legend {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+        .legend-dot {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 4px;
+        }
+        .graph-canvas-container {
+            flex: 1;
+            background: #060911;
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+        }
+        #graph-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        .graph-drawer {
+            position: absolute;
+            top: 12px;
+            right: 12px;
+            width: 320px;
+            max-height: calc(100% - 24px);
+            background: rgba(21, 30, 50, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            padding: 14px;
+            font-size: 0.8rem;
+            display: none;
+            flex-direction: column;
+            gap: 8px;
+            overflow-y: auto;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+        .graph-drawer-title {
+            font-size: 0.95rem;
+            font-weight: 700;
+            color: var(--accent);
+        }
+        .node circle {
+            cursor: pointer;
+            transition: stroke 0.2s, stroke-width 0.2s;
+        }
+        .node:hover circle {
+            stroke: #fff !important;
+            stroke-width: 3px !important;
+        }
+        .node text {
+            font-family: 'Inter', sans-serif;
+            font-size: 9px;
+            fill: #94a3b8;
+            pointer-events: none;
+        }
+        .link {
+            stroke: #334155;
+            stroke-opacity: 0.6;
+            stroke-width: 1.2px;
         }
     </style>
 </head>
@@ -222,12 +351,66 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     </div>
 
     <div class="main-content">
-        <div class="header-title">Looker & BigQuery Instance Healthcheck</div>
-        <div class="header-sub">Model-Scoped Diagnostic Engine connected to <code>Firestore: looker-healthcheck-db</code></div>
-        <div class="report-view" id="report-box">Loading latest healthcheck report...</div>
+        <div class="nav-tabs">
+            <button class="nav-tab active" id="tab-report" onclick="switchView('report')">📄 Specification & Reports</button>
+            <button class="nav-tab" id="tab-graph" onclick="switchView('graph')">🕸️ OKF Concept Graph Explorer</button>
+        </div>
+
+        <!-- View 1: Report Text -->
+        <div class="view-pane" id="pane-report">
+            <div class="header-sub">Model-Scoped Diagnostic Engine connected to <code>Firestore: looker-healthcheck-db</code></div>
+            <div class="report-view" id="report-box">Loading latest healthcheck report...</div>
+        </div>
+
+        <!-- View 2: D3.js Force-Directed Concept Graph -->
+        <div class="view-pane" id="pane-graph" style="display: none;">
+            <div class="graph-toolbar">
+                <input type="text" class="graph-search" id="graph-search-input" placeholder="🔍 Search concept (e.g. slot, latency, primary_key)..." oninput="filterGraph()">
+                <div class="graph-legend">
+                    <span><span class="legend-dot" style="background:#f59e0b;"></span>Attested Computation</span>
+                    <span><span class="legend-dot" style="background:#38bdf8;"></span>Playbook</span>
+                    <span><span class="legend-dot" style="background:#a855f7;"></span>Reference</span>
+                    <span><span class="legend-dot" style="background:#10b981;"></span>Skill</span>
+                    <span><span class="legend-dot" style="background:#64748b;"></span>Source / Tool</span>
+                </div>
+                <button class="nav-tab" style="padding: 4px 10px; font-size: 0.75rem;" onclick="resetGraphZoom()">⟲ Reset Zoom</button>
+            </div>
+
+            <div class="graph-canvas-container" id="graph-container">
+                <svg id="graph-svg"></svg>
+                <div class="graph-drawer" id="graph-drawer">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <span id="drawer-type-badge" class="badge-comp">Type</span>
+                        <button onclick="closeDrawer()" style="background:transparent; border:none; color:#94a3b8; cursor:pointer;">✕</button>
+                    </div>
+                    <div class="graph-drawer-title" id="drawer-title">Concept Title</div>
+                    <div style="font-size:0.72rem; color:var(--text-muted);" id="drawer-id">id</div>
+                    <div style="font-size:0.75rem; color:#cbd5e1;" id="drawer-desc">Description</div>
+                    <div id="drawer-details" style="font-size:0.72rem; color:var(--text-muted); line-height:1.5;"></div>
+                    <button class="btn-audit" style="padding: 6px 10px; font-size: 0.75rem; margin-top: 6px;" onclick="loadDrawerConcept()">📖 View Full Content</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
+        let graphData = null;
+        let simulation = null;
+        let svgGroup = null;
+        let zoomBehavior = null;
+        let activeConcept = null;
+
+        function switchView(view) {
+            document.getElementById('tab-report').classList.toggle('active', view === 'report');
+            document.getElementById('tab-graph').classList.toggle('active', view === 'graph');
+            document.getElementById('pane-report').style.display = view === 'report' ? 'flex' : 'none';
+            document.getElementById('pane-graph').style.display = view === 'graph' ? 'flex' : 'none';
+
+            if (view === 'graph' && !graphData) {
+                renderConceptGraph();
+            }
+        }
+
         async function fetchModels() {
             try {
                 const res = await fetch('/api/models');
@@ -268,19 +451,24 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             try {
                 const res = await fetch('/api/skills');
                 const data = await res.json();
-                sBox.innerHTML = data.map(s => `
-                    <div class="skill-item" onclick="loadSkill('${s.name}')">
-                        <strong>${s.name}</strong>
-                        <span class="history-meta">${s.description || 'Looker skill'}</span>
-                        <span class="badge-vendor">${s.source}</span>
-                    </div>
-                `).join('');
+                sBox.innerHTML = data.map(s => {
+                    let badgeClass = 'badge-vendor';
+                    if (s.type === 'Attested Computation') badgeClass = 'badge-comp';
+                    return `
+                        <div class="skill-item" onclick="loadSkill('${s.name || s.id}')">
+                            <strong>${s.title || s.name}</strong>
+                            <span class="history-meta">${s.description || 'Looker concept'}</span>
+                            <span class="${badgeClass}">${s.type}</span>
+                        </div>
+                    `;
+                }).join('');
             } catch (e) {
                 sBox.innerHTML = '<div style="font-size: 0.8rem; color: var(--red);">Error loading skills.</div>';
             }
         }
 
         async function loadDoc(auditId) {
+            switchView('report');
             const box = document.getElementById('report-box');
             box.innerText = "Fetching document " + auditId + " from Firestore...";
             try {
@@ -293,8 +481,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         async function loadSkill(skillName) {
+            switchView('report');
             const box = document.getElementById('report-box');
-            box.innerText = "Loading official skill " + skillName + "...";
+            box.innerText = "Loading OKF concept " + skillName + "...";
             try {
                 const res = await fetch('/api/skill?name=' + encodeURIComponent(skillName));
                 const data = await res.json();
@@ -305,6 +494,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
 
         async function runAudit() {
+            switchView('report');
             const box = document.getElementById('report-box');
             const btn = document.getElementById('btn-run');
             const model = document.getElementById('model-select').value;
@@ -321,6 +511,183 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             } finally {
                 btn.disabled = false;
                 btn.innerText = "⚡ Run Scoped Healthcheck";
+            }
+        }
+
+        // =====================================================================
+        // D3.js Interactive Concept Graph Renderer
+        // =====================================================================
+        function getNodeColor(type) {
+            switch(type) {
+                case 'Attested Computation': return '#f59e0b'; // Gold / Amber
+                case 'Playbook': return '#38bdf8';            // Sky Blue
+                case 'Reference': return '#a855f7';           // Purple
+                case 'Skill': return '#10b981';               // Emerald Green
+                case 'Technical Design Document': return '#ec4899'; // Pink
+                case 'Data Source / View': return '#3b82f6';
+                case 'Execution Tool': return '#06b6d4';
+                default: return '#64748b';                    // Slate Slate
+            }
+        }
+
+        async function renderConceptGraph() {
+            try {
+                const res = await fetch('/api/graph');
+                graphData = await res.json();
+                if (!graphData || !graphData.nodes) return;
+
+                const container = document.getElementById('graph-container');
+                const width = container.clientWidth || 900;
+                const height = container.clientHeight || 600;
+
+                const svg = d3.select('#graph-svg')
+                    .attr('viewBox', [0, 0, width, height]);
+                svg.selectAll('*').remove();
+
+                // Arrow marker definition
+                svg.append('defs').append('marker')
+                    .attr('id', 'arrow')
+                    .attr('viewBox', '0 -5 10 10')
+                    .attr('refX', 20)
+                    .attr('refY', 0)
+                    .attr('markerWidth', 6)
+                    .attr('markerHeight', 6)
+                    .attr('orient', 'auto')
+                    .append('path')
+                    .attr('d', 'M0,-5L10,0L0,5')
+                    .attr('fill', '#475569');
+
+                svgGroup = svg.append('g');
+
+                zoomBehavior = d3.zoom()
+                    .scaleExtent([0.15, 4])
+                    .on('zoom', (event) => {
+                        svgGroup.attr('transform', event.transform);
+                    });
+
+                svg.call(zoomBehavior);
+
+                simulation = d3.forceSimulation(graphData.nodes)
+                    .force('link', d3.forceLink(graphData.links).id(d => d.id).distance(90))
+                    .force('charge', d3.forceManyBody().strength(-280))
+                    .force('center', d3.forceCenter(width / 2, height / 2))
+                    .force('collision', d3.forceCollide().radius(25));
+
+                const link = svgGroup.append('g')
+                    .attr('class', 'links')
+                    .selectAll('line')
+                    .data(graphData.links)
+                    .join('line')
+                    .attr('class', 'link')
+                    .attr('marker-end', 'url(#arrow)');
+
+                const node = svgGroup.append('g')
+                    .attr('class', 'nodes')
+                    .selectAll('g')
+                    .data(graphData.nodes)
+                    .join('g')
+                    .attr('class', 'node')
+                    .call(d3.drag()
+                        .on('start', dragstarted)
+                        .on('drag', dragged)
+                        .on('end', dragended))
+                    .on('click', (event, d) => inspectNode(d));
+
+                node.append('circle')
+                    .attr('r', d => (d.type === 'Attested Computation' || d.type === 'Playbook') ? 11 : 7)
+                    .attr('fill', d => getNodeColor(d.type))
+                    .attr('stroke', '#1e293b')
+                    .attr('stroke-width', 2);
+
+                node.append('text')
+                    .attr('x', 14)
+                    .attr('y', 3)
+                    .text(d => d.label.length > 28 ? d.label.substring(0, 26) + '...' : d.label);
+
+                simulation.on('tick', () => {
+                    link
+                        .attr('x1', d => d.source.x)
+                        .attr('y1', d => d.source.y)
+                        .attr('x2', d => d.target.x)
+                        .attr('y2', d => d.target.y);
+
+                    node
+                        .attr('transform', d => `translate(${d.x},${d.y})`);
+                });
+
+            } catch (err) {
+                console.error("Error rendering graph:", err);
+            }
+        }
+
+        function dragstarted(event, d) {
+            if (!event.active) simulation.alphaTarget(0.3).restart();
+            d.fx = d.x;
+            d.fy = d.y;
+        }
+
+        function dragged(event, d) {
+            d.fx = event.x;
+            d.fy = event.y;
+        }
+
+        function dragended(event, d) {
+            if (!event.active) simulation.alphaTarget(0);
+            d.fx = null;
+            d.fy = null;
+        }
+
+        function resetGraphZoom() {
+            if (svgGroup && zoomBehavior) {
+                d3.select('#graph-svg').transition().duration(500).call(
+                    zoomBehavior.transform,
+                    d3.zoomIdentity
+                );
+            }
+        }
+
+        function filterGraph() {
+            const query = document.getElementById('graph-search-input').value.toLowerCase().trim();
+            d3.selectAll('.node circle').each(function(d) {
+                const match = !query || d.label.toLowerCase().includes(query) || (d.type && d.type.toLowerCase().includes(query)) || d.id.toLowerCase().includes(query);
+                d3.select(this)
+                    .attr('opacity', match ? 1 : 0.15)
+                    .attr('stroke', match && query ? '#38bdf8' : '#1e293b')
+                    .attr('stroke-width', match && query ? 4 : 2);
+            });
+            d3.selectAll('.node text').attr('opacity', function(d) {
+                return (!query || d.label.toLowerCase().includes(query) || d.id.toLowerCase().includes(query)) ? 1 : 0.15;
+            });
+            d3.selectAll('.link').attr('stroke-opacity', query ? 0.1 : 0.6);
+        }
+
+        function inspectNode(nodeData) {
+            activeConcept = nodeData;
+            const drawer = document.getElementById('graph-drawer');
+            drawer.style.display = 'flex';
+            document.getElementById('drawer-title').innerText = nodeData.label;
+            document.getElementById('drawer-type-badge').innerText = nodeData.type || 'Concept';
+            document.getElementById('drawer-type-badge').style.background = getNodeColor(nodeData.type) + '25';
+            document.getElementById('drawer-type-badge').style.color = getNodeColor(nodeData.type);
+            document.getElementById('drawer-id').innerText = nodeData.id;
+            document.getElementById('drawer-desc').innerText = "Trust Tier: " + (nodeData.trust_tier || 'unverified') + (nodeData.runtime ? " | Runtime: " + nodeData.runtime : "");
+
+            // Find neighbors
+            const neighbors = graphData.links
+                .filter(l => l.source.id === nodeData.id || l.target.id === nodeData.id)
+                .map(l => (l.source.id === nodeData.id ? '➔ ' + l.relationship + ' : ' + l.target.label : '⬅ ' + l.relationship + ' : ' + l.source.label));
+
+            document.getElementById('drawer-details').innerHTML = "<strong>Semantic Connections (" + neighbors.length + "):</strong><br/>" +
+                (neighbors.length ? neighbors.slice(0, 6).join('<br/>') : 'No direct neighbors');
+        }
+
+        function closeDrawer() {
+            document.getElementById('graph-drawer').style.display = 'none';
+        }
+
+        function loadDrawerConcept() {
+            if (activeConcept) {
+                loadSkill(activeConcept.id);
             }
         }
 
