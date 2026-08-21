@@ -234,7 +234,27 @@ class TestOKFConformance(unittest.TestCase):
         path_tool = find_diagnostic_graph_path("playbook_looker_performance", "benchmarks")
         self.assertIn("Diagnostic Graph Path", path_tool)
 
+    def test_14_concept_graph_health_audit(self):
+        """OKF §6 & §11: Automated Concept Graph Quality and Integrity Audit."""
+        from agent.skills_registry import audit_okf_concept_graph
+
+        audit_res = self.registry.audit_concept_graph_health()
+        self.assertEqual(audit_res["graph_health_score"], 100)
+        self.assertEqual(audit_res["status"], "HEALTHY")
+        self.assertEqual(audit_res["broken_links_count"], 0)
+        self.assertEqual(audit_res["orphan_nodes_count"], 0)
+        self.assertEqual(len(audit_res["attested_computation_issues"]), 0)
+
+        # Critical path tests
+        for p in audit_res["critical_path_reachability"]:
+            self.assertTrue(p["reachable"], f"Critical path from {p['from']} to {p['to']} is unreachable!")
+
+        # Tool output check
+        tool_output = audit_okf_concept_graph()
+        self.assertIn("OKF Concept Graph Health Audit: **HEALTHY** (100/100)", tool_output)
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
+
 

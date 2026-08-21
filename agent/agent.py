@@ -114,6 +114,7 @@ from agent.skills_registry import (
     validate_okf_knowledge_catalog,
     get_okf_concept_graph,
     find_diagnostic_graph_path,
+    audit_okf_concept_graph,
     skill_registry
 )
 
@@ -304,7 +305,7 @@ If the user provides a minimal or open-ended prompt (e.g. *"run a healthcheck"*,
      - 🎯 **Executive Scorecard Table** (Overall Health %, Pillar 1, 2, 3 Ratings).
      - 🚨 **Top 4 Critical Anti-Patterns** (1 bullet point each).
      - 💾 **Persistence Confirmation** (`✅ All findings recorded in Firestore (looker_healthchecks)`).
-     - 📑 **Published Document Link**: Clickable link `[TECHNICAL_DESIGN_DOCUMENT.md](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/TECHNICAL_DESIGN_DOCUMENT.md)`.
+     - 📑 **Published Document Link**: Clickable link `[TECHNICAL_DESIGN_DOCUMENT.md](TECHNICAL_DESIGN_DOCUMENT.md)`.
 2. **ALL DETAILED ARCHITECTURE & REMEDIATIONS BELONG IN TECHNICAL_DESIGN_DOCUMENT.MD**:
    - Telemetry and findings are persisted to Firestore in real time.
    - The authoritative 7-section engineering spec is written to `TECHNICAL_DESIGN_DOCUMENT.md` via `save_technical_design_document()`.
@@ -343,7 +344,7 @@ When a user asks to write a **Technical Design Document (TDD)**, architecture sp
      - Quantified ROI table (Expected % latency reduction, slot capacity freed, dollar cost savings).
 3. **SAVE TO FILE - DO NOT FLOOD THE CHAT WINDOW**:
    - **MANDATORY**: Call `save_technical_design_document(tdd_markdown, output_filename="TECHNICAL_DESIGN_DOCUMENT.md")`.
-   - In your chat turn, output ONLY a concise 1-page Executive Summary, the Target State Mermaid diagram, and a direct clickable link: `[TECHNICAL_DESIGN_DOCUMENT.md](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/TECHNICAL_DESIGN_DOCUMENT.md)`.
+   - In your chat turn, output ONLY a concise 1-page Executive Summary, the Target State Mermaid diagram, and a direct clickable link: `[TECHNICAL_DESIGN_DOCUMENT.md](TECHNICAL_DESIGN_DOCUMENT.md)`.
    - Prompt the user to explore specific sections or approve automated branch remediation.
 """
 
@@ -360,7 +361,8 @@ ORCHESTRATOR_TOOLS = [
     get_okf_attested_computation,
     validate_okf_knowledge_catalog,
     get_okf_concept_graph,
-    find_diagnostic_graph_path
+    find_diagnostic_graph_path,
+    audit_okf_concept_graph
 ]
 
 ALL_30_TOOLS = ORCHESTRATOR_TOOLS

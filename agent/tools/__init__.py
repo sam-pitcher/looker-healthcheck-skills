@@ -67,7 +67,8 @@ from agent.skills_registry import (
     get_okf_attested_computation,
     validate_okf_knowledge_catalog,
     get_okf_concept_graph,
-    find_diagnostic_graph_path
+    find_diagnostic_graph_path,
+    audit_okf_concept_graph
 )
 
 __all__ = [
@@ -116,6 +117,7 @@ __all__ = [
     "get_okf_attested_computation",
     "validate_okf_knowledge_catalog",
     "get_okf_concept_graph",
-    "find_diagnostic_graph_path"
+    "find_diagnostic_graph_path",
+    "audit_okf_concept_graph"
 ]
 

@@ -27,10 +27,14 @@ This reference document defines the official **LookML Style Standards**, **Namin
 
 > [!NOTE]
 > **Upstream Vendor References**:
-> * [`lookml-modeling-guidelines`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-modeling-guidelines/SKILL.md): DRY join modeling, view modularity, and dimension design.
-> * [`lookml-liquid`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-liquid/SKILL.md): Liquid templating, parameter fields, and conditional formatting.
-> * [`lookml-access-grants`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-access-grants/SKILL.md): Group-based access control and user attribute security.
-> * [`lookml-refinements`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/lookml-refinements/SKILL.md): LookML view and explore refinements (`+view:`, `+explore:`).
+> * [`lookml-modeling-guidelines`](../../../vendor/looker-skills/skills/lookml-modeling-guidelines/SKILL.md): DRY join modeling, view modularity, and dimension design.
+> * [`lookml-liquid`](../../../vendor/looker-skills/skills/lookml-liquid/SKILL.md): Liquid templating, parameter fields, and conditional formatting.
+> * [`lookml-access-grants`](../../../vendor/looker-skills/skills/lookml-access-grants/SKILL.md): Group-based access control and user attribute security.
+> * [`lookml-refinements`](../../../vendor/looker-skills/skills/lookml-refinements/SKILL.md): LookML view and explore refinements (`+view:`, `+explore:`).
+> * [`lookml-tests`](../../../vendor/looker-skills/skills/lookml-tests/SKILL.md): LookML automated assertion tests and model unit testing.
+> * [`lookml-sets`](../../../vendor/looker-skills/skills/lookml-sets/SKILL.md): Field set grouping, drilling set modularity, and explore exposure.
+> * [`lookml-pdt`](../../../vendor/looker-skills/skills/lookml-pdt/SKILL.md): Persistent derived tables, persistence triggers, and SQL derived table best practices.
+> * [`using-looker-cli`](../../../vendor/looker-skills/skills/using-looker-cli/SKILL.md): Looker CLI utilities for validation and project automation.
 
 ---
 

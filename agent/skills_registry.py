@@ -14,6 +14,7 @@ import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Dict, Any, List, Optional, Tuple
+from collections import Counter, defaultdict
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
 
@@ -412,17 +413,45 @@ class LookerSkillRegistry:
         if cid.startswith("/"):
             cid = cid.lstrip("/")
 
-        clean_id = cid[:-3] if cid.endswith(".md") else cid
-        stem_id = Path(cid).stem
+        # Strip relative parent navigation ('../../')
+        p = Path(cid)
+        clean_parts = [part for part in p.parts if part not in ('..', '.', '')]
+        norm_path = "/".join(clean_parts)
+        if norm_path.endswith(".md"):
+            norm_path = norm_path[:-3]
 
-        for candidate in [cid, clean_id, stem_id]:
-            if candidate in self.concepts:
+        clean_id = cid[:-3] if cid.endswith(".md") else cid
+        stem_id = p.stem
+
+        # If stem is a generic filename (SKILL, index, README), the meaningful slug is the parent folder
+        folder_slug = p.parent.name if stem_id in ("SKILL", "index", "README", "log") and p.parent.name else None
+
+        candidates = [cid, norm_path, clean_id]
+        if folder_slug:
+            candidates.append(folder_slug)
+        if stem_id and stem_id not in ("SKILL", "index", "README", "log"):
+            candidates.append(stem_id)
+
+        for candidate in candidates:
+            if candidate and candidate in self.concepts:
                 return self.concepts[candidate]
 
-        # Search by suffix match (e.g. 'playbook_looker_performance')
-        for k, v in self.concepts.items():
-            if k == cid or k == clean_id or k.endswith(clean_id) or k.endswith(f"/{clean_id}") or (stem_id and k.endswith(f"/{stem_id}")):
-                return v
+        # Suffix matching against normalized path or specific slug
+        if norm_path:
+            for k, v in self.concepts.items():
+                if k == norm_path or k.endswith(norm_path) or k.endswith(f"/{norm_path}"):
+                    return v
+
+        if folder_slug:
+            for k, v in self.concepts.items():
+                if k.endswith(f"/{folder_slug}") or k.endswith(f"/{folder_slug}/SKILL"):
+                    return v
+
+        if stem_id and stem_id not in ("SKILL", "index", "README", "log"):
+            for k, v in self.concepts.items():
+                if k.endswith(f"/{stem_id}"):
+                    return v
+
         return None
 
     def get_skill(self, skill_name: str) -> Optional[Dict[str, Any]]:
@@ -653,10 +682,14 @@ class LookerSkillRegistry:
         edges: List[Dict[str, str]] = []
         adjacency: Dict[str, List[str]] = {}
 
-        for cid, c in self.concepts.items():
-            if "/" not in cid and not cid.endswith(".md"):
-                continue  # Skip short stem aliases to prevent duplicate nodes
+        # Collect unique canonical concepts
+        canonical_map: Dict[str, Dict[str, Any]] = {}
+        for raw_id, c in self.concepts.items():
+            cid = c.get("id") or raw_id
+            if cid not in canonical_map:
+                canonical_map[cid] = c
 
+        for cid, c in canonical_map.items():
             nodes[cid] = {
                 "id": cid,
                 "title": c.get("title", cid),
@@ -910,6 +943,115 @@ class LookerSkillRegistry:
             "total_links": len(json_links)
         }
 
+    def audit_concept_graph_health(self) -> Dict[str, Any]:
+        """
+        Performs a comprehensive quality and integrity audit of the Concept Graph:
+        1. Broken link detection (identifies markdown links that point to missing files/concepts).
+        2. Orphan node detection (concepts with 0 in-degree and 0 out-degree).
+        3. Attested Computation integrity (verifies runtime, executor tool existence, parameters).
+        4. Graph topology metrics (nodes by type, edge density, multi-hop reachability).
+        5. Computes overall Concept Graph Quality Score (0-100%).
+        """
+        graph = self.build_concept_graph()
+        nodes = graph["nodes"]
+        edges = graph["edges"]
+
+        in_degree = defaultdict(int)
+        out_degree = defaultdict(int)
+        for e in edges:
+            out_degree[e["source"]] += 1
+            in_degree[e["target"]] += 1
+
+        broken_links = []
+        for e in edges:
+            rel = e["relationship"]
+            if rel == "references":
+                t = e["target"]
+                if not t.startswith("http") and not "INFORMATION_SCHEMA" in t and not "system__activity" in t:
+                    if t not in nodes and not self.get_concept(t):
+                        broken_links.append({
+                            "source": e["source"],
+                            "target": t,
+                            "label": e.get("label", "")
+                        })
+
+        orphans = []
+        for nid, data in nodes.items():
+            # Exclude external nodes, repo metadata documentation, and IDE mirror dirs from pure concept orphan checks
+            is_meta = (
+                data.get("type") == "Documentation" or
+                "CODE_OF_CONDUCT" in nid or
+                "CHANGELOG" in nid or
+                "CONTRIBUTING" in nid or
+                nid.startswith(".agents/")
+            )
+            if data.get("status") != "external" and not is_meta and in_degree[nid] == 0 and out_degree[nid] == 0:
+                orphans.append({
+                    "id": nid,
+                    "title": data.get("title"),
+                    "type": data.get("type")
+                })
+
+        # Check Attested Computations
+        computations = [n for n in nodes.values() if n.get("type") == "Attested Computation"]
+        comp_issues = []
+        for c in computations:
+            cid = c["id"]
+            if in_degree[cid] == 0:
+                comp_issues.append(f"Computation '{c['title']}' has 0 incoming references (not linked from any playbook)")
+            raw_c = self.get_concept(cid)
+            if raw_c:
+                executor_res = raw_c.get("executor", {}).get("resource") if isinstance(raw_c.get("executor"), dict) else None
+                if executor_res and not (ROOT_DIR / executor_res).exists() and not Path(executor_res).exists():
+                    comp_issues.append(f"Computation '{c['title']}' specifies non-existent executor tool: '{executor_res}'")
+
+        # Node type breakdown
+        type_counts = Counter(n.get("type", "Unknown") for n in nodes.values())
+
+        # Path tests
+        critical_paths = [
+            ("playbook_looker_performance", "slot_consumption_timeline"),
+            ("playbook_looker_performance", "table_partition_ddl"),
+            ("warehouse_optimization", "table_partition_ddl")
+        ]
+        path_results = []
+        for start, target in critical_paths:
+            path = self.find_graph_path(start, target)
+            path_results.append({
+                "from": start,
+                "to": target,
+                "reachable": len(path) > 0,
+                "hops": len(path)
+            })
+
+        # Health score calculation
+        score = 100
+        if broken_links:
+            score -= min(30, len(broken_links) * 5)
+        if orphans:
+            score -= min(20, len(orphans) * 5)
+        if comp_issues:
+            score -= min(20, len(comp_issues) * 10)
+        unreachable = [p for p in path_results if not p["reachable"]]
+        if unreachable:
+            score -= min(20, len(unreachable) * 10)
+
+        score = max(0, score)
+
+        return {
+            "graph_health_score": score,
+            "status": "HEALTHY" if score >= 90 else ("WARNING" if score >= 70 else "DEGRADED"),
+            "total_nodes": len(nodes),
+            "total_edges": len(edges),
+            "node_type_breakdown": dict(type_counts),
+            "broken_links_count": len(broken_links),
+            "broken_links": broken_links,
+            "orphan_nodes_count": len(orphans),
+            "orphan_nodes": orphans,
+            "attested_computation_issues": comp_issues,
+            "critical_path_reachability": path_results
+        }
+
 
 # Singleton registry instance for global system access
 skill_registry = LookerSkillRegistry()
@@ -1028,4 +1170,23 @@ def find_diagnostic_graph_path(start_concept: str, target_concept: str) -> str:
 
     steps = " ➔ ".join(f"`{p}`" for p in path)
     return f"### 🧭 Diagnostic Graph Path ({len(path)} hops):\n\n{steps}"
+
+
+def audit_okf_concept_graph() -> str:
+    """
+    Tool function: Performs an automated quality and structural integrity audit of the Concept Graph.
+    Checks for broken cross-links, orphan concepts, computation validity, and path reachability.
+    """
+    report = skill_registry.audit_concept_graph_health()
+    status_emoji = "🟢" if report["status"] == "HEALTHY" else ("🟡" if report["status"] == "WARNING" else "🔴")
+    return (
+        f"### {status_emoji} OKF Concept Graph Health Audit: **{report['status']}** ({report['graph_health_score']}/100)\n"
+        f"- **Total Concept Nodes:** {report['total_nodes']}\n"
+        f"- **Total Semantic Edges:** {report['total_edges']}\n"
+        f"- **Broken Cross-Links:** {report['broken_links_count']}\n"
+        f"- **Orphan Isolated Nodes:** {report['orphan_nodes_count']}\n"
+        f"- **Attested Computation Issues:** {len(report['attested_computation_issues'])}\n\n"
+        f"```json\n{json.dumps(report, indent=2)}\n```"
+    )
+
 

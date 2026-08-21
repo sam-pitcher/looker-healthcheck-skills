@@ -43,6 +43,6 @@ Your objective is to enforce DRY modeling standards, validate project syntax, en
     - 🎯 **Executive Scorecard Table** (Pillar 1, Pillar 2, Pillar 3 ratings and Overall Health %).
     - 🚨 **Top 4 Critical Anti-Patterns** (1 concise bullet point each).
     - 💾 **Persistence Notice**: `✅ All findings recorded in Firestore (looker_healthchecks).`
-    - 📑 **Published Document Link**: Clickable link `[TECHNICAL_DESIGN_DOCUMENT.md](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/TECHNICAL_DESIGN_DOCUMENT.md)`.
+    - 📑 **Published Document Link**: Clickable link `[TECHNICAL_DESIGN_DOCUMENT.md](TECHNICAL_DESIGN_DOCUMENT.md)`.
 
 

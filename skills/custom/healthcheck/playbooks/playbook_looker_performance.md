@@ -24,9 +24,15 @@ This reference document defines the complete diagnostic and remediation protocol
 
 > [!NOTE]
 > **Core Architecture & Playbook References**:
-> * [`looker_bigquery_pipeline_architecture.md`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/custom/healthcheck/references/looker_bigquery_pipeline_architecture.md): The 6-Stage Interconnected Pipeline, 4 Major Failure Loops, and Dashboard Complexity Score.
-> * [`looker-performance-optimizer`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/looker-performance-optimizer/SKILL.md): Master Looker performance-by-design & active tuning engineering standards.
-> * [`connecting-looker-to-bigquery`](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/skills/vendor/looker-skills/skills/connecting-looker-to-bigquery/SKILL.md): BigQuery connection tuning, partition pruning, and BI Engine acceleration.
+> * [`looker_bigquery_pipeline_architecture.md`](../references/looker_bigquery_pipeline_architecture.md): The 6-Stage Interconnected Pipeline, 4 Major Failure Loops, and Dashboard Complexity Score.
+> * [`warehouse_optimization.md`](../references/warehouse_optimization.md): BigQuery compute, slot contention, on-demand query costs, partition pruning.
+> * [`query_latency_breakdown.md`](../computations/query_latency_breakdown.md): Attested Looker JVM compile vs database execution vs queue wait decomposition query.
+> * [`slot_consumption_timeline.md`](../computations/slot_consumption_timeline.md): Attested BigQuery 24-hour slot consumption & saturation timeline query.
+> * [`bytes_billed_by_model.md`](../computations/bytes_billed_by_model.md): Attested BigQuery query cost and bytes billed audit query.
+> * [`pdt_failure_event_log.md`](../computations/pdt_failure_event_log.md): Attested PDT build failure event log and error code tracker.
+> * [`table_partition_ddl.md`](../computations/table_partition_ddl.md): Attested BigQuery table partitioning and clustering DDL generator.
+> * [`looker-performance-optimizer`](../../../vendor/looker-skills/skills/looker-performance-optimizer/SKILL.md): Master Looker performance-by-design & active tuning engineering standards.
+> * [`connecting-looker-to-bigquery`](../../../vendor/looker-skills/skills/connecting-looker-to-bigquery/SKILL.md): BigQuery connection tuning, partition pruning, and BI Engine acceleration.
 
 ---
 
@@ -238,7 +244,7 @@ When you identify the top slow Query IDs from the query above, **never assume ad
 1. **Vector 1 (Phase Breakdown)**: Query `system__activity/query_metrics` for that `query.id` to verify if latency was physical database execution (`execute_main_query`), connection pool wait (`acquire_connection`), or network streaming (`stream_to_cache`).
 2. **Vector 2 (SQL & Join Inefficiencies)**: Call `get_query_sql(query_id)`. Look for redundant `LEFT JOIN`s where no columns from the joined table are in `SELECT`, or `SUM(DISTINCT ...)` symmetric aggregation overhead caused by missing `primary_key: yes` or bad `relationship:` parameters.
 3. **Vector 3 (Aggregate Acceleration)**: If the query is an intentional full-table scan for lifetime/cohort metrics, prescribe **LookML Aggregate Awareness (`aggregate_table:`)** or an **Incremental PDT** to pre-aggregate the data instead of breaking business logic with date filters.
-4. **Vector 4 (Warehouse Slot Contention)**: Run `run_bq_query` with `INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` (from `warehouse_optimization.md`) to check if BigQuery slots were saturated at that exact execution timestamp.
+4. **Vector 4 (Warehouse Slot Contention)**: Run `run_bq_query` with the [`slot_consumption_timeline.md`](../computations/slot_consumption_timeline.md) contract (from [`warehouse_optimization.md`](../references/warehouse_optimization.md)) to check if BigQuery slots were saturated at that exact execution timestamp.
 5. **Vector 5 (Colocated Query Bursts)**: Query `system__activity/history` for all queries executed at the same timestamp (`history.created_time`) to see if a 25-tile dashboard or cron burst saturated the instance.
 
 ---
