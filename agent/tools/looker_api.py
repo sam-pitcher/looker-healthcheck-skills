@@ -779,3 +779,8 @@ def execute_complete_healthcheck(
 
     report_markdown = "\n".join(lines)
     return report_markdown, structured
+
+
+# Backward-compatible alias
+run_healthcheck_audit = execute_complete_healthcheck
+

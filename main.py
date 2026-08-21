@@ -18,7 +18,7 @@ try:
 except ImportError:
     pass
 
-from agent.tools.looker_api import run_healthcheck_audit, execute_complete_healthcheck, _client
+from agent.tools.looker_api import execute_complete_healthcheck, _client
 from agent.tools.storage import save_audit_report, save_technical_design_document, get_audit_history, get_audit_document
 from agent.skills_registry import skill_registry
 
