@@ -1,6 +1,21 @@
 ---
+type: Skill
+title: Looker Healthcheck & Performance Optimization Master Skill
 name: looker-healthcheck
-description: Master developer skill for diagnosing, auditing, and optimizing Looker instance performance, query lifecycles, and LookML codebases. Implements the full 8-Component Healthcheck Offering and complete reference suite extracted from historical health check dashboards.
+description: Master developer skill for diagnosing, auditing, and optimizing Looker instance performance, query lifecycles, and LookML codebases.
+tags: [looker, healthcheck, performance, modeling, bigquery, pso]
+status: stable
+generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-20T12:00:00Z" }
+verified: { by: "human:sampitcher", at: "2026-08-20T14:00:00Z" }
+sources:
+  - id: google-pso-benchmarks
+    resource: /skills/custom/healthcheck/references/benchmarks.md
+    title: Google Cloud PSO Latency & Healthcheck Benchmarks
+    author: "team:google-pso"
+  - id: system-activity-catalog
+    resource: /skills/custom/healthcheck/references/system_activity_queries.md
+    title: Looker System Activity Query Catalog
+    author: "process:looker-system-activity"
 ---
 
 # Looker Healthcheck & Performance Optimization Playbook
@@ -125,4 +140,3 @@ Every audit evaluates the instance across 4 key dimensions:
 * 🔒 **`references/security_roles_and_access_control.md`**: Group-Based Access Control (GBAC) and access grants.
 * 📋 **`references/system_activity_queries.md`**: Centralized JSON query dictionary for System Activity.
 * 🔄 **`references/looker_bigquery_pipeline_architecture.md`**: Interconnected 6-stage pipeline architecture, 4 major failure loops, 5-dimensional audit strategy, and diagnostic flowchart.
-

@@ -19,7 +19,7 @@ except ImportError:
     pass
 
 from agent.tools.looker_api import run_healthcheck_audit, execute_complete_healthcheck, _client
-from agent.tools.storage import save_audit_report, get_audit_history, get_audit_document
+from agent.tools.storage import save_audit_report, save_technical_design_document, get_audit_history, get_audit_document
 from agent.skills_registry import skill_registry
 
 HTML_TEMPLATE = """<!DOCTYPE html>
@@ -445,7 +445,9 @@ def main():
             print(f"🚀 Executing Complete 30-Check Looker Healthcheck Audit" + (f" for model '{model_arg}'..." if model_arg else "..."))
             report, structured_findings = execute_complete_healthcheck(model_name=model_arg)
             save_result = save_audit_report(report, structured_findings, model_name=model_arg)
+            save_technical_design_document(report, model_name=model_arg)
             print(f"\n✅ Audit complete! Score: {structured_findings.get('overall_health_score')}% ({structured_findings.get('passed')} Passed, {structured_findings.get('warning')} Warnings, {structured_findings.get('critical')} Critical).")
+            print(f"📄 Publication-grade specification written to TECHNICAL_DESIGN_DOCUMENT.md")
             print(save_result + "\n")
         except Exception as e:
             print(f"❌ Error running healthcheck audit: {e}", file=sys.stderr)

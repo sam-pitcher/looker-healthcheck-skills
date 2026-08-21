@@ -28,7 +28,7 @@ class LookerAdminClient:
         self.token_expires_in = 3600
         self.auth_mode = "bearer_env" if self.token else "unauthenticated"
 
-        if not self.token or not self.base_url or not self.refresh_token:
+        if not self.client_secret and (not self.token or not self.base_url or not self.refresh_token):
             self._load_cli_session()
 
     def _ssl_context(self):
@@ -120,22 +120,36 @@ class LookerAdminClient:
     def authenticate(self):
         if self.token and (time.time() - self.token_acquired_at < (self.token_expires_in - 60)):
             return
-        if self._refresh_oauth_token():
-            return
-        if self._load_cli_session():
-            return
-        if self.base_url and self.client_id and self.client_secret:
-            login_url = f"{self.base_url}/api/4.0/login"
-            payload = json.dumps({"client_id": self.client_id, "client_secret": self.client_secret}).encode("utf-8")
-            req = urllib.request.Request(login_url, data=payload, headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, context=self._ssl_context(), timeout=30) as resp:
-                data = json.loads(resp.read().decode("utf-8"))
-            self.token = data.get("access_token")
-            self.token_expires_in = int(data.get("expires_in", 3600))
-            self.token_acquired_at = time.time()
-            self.auth_mode = "api3"
-            return
+        if getattr(self, "_auth_failed", False) and (time.time() - getattr(self, "_auth_failed_at", 0) < 60):
+            raise ValueError(
+                "Looker Authentication Unavailable: Cached failure state. Run `looker-cli session login`."
+            )
+        try:
+            if self.base_url and self.client_id and self.client_secret:
+                login_url = f"{self.base_url}/api/4.0/login"
+                payload = urllib.parse.urlencode({"client_id": self.client_id, "client_secret": self.client_secret}).encode("utf-8")
+                req = urllib.request.Request(login_url, data=payload, headers={"Content-Type": "application/x-www-form-urlencoded"}, method="POST")
+                with urllib.request.urlopen(req, context=self._ssl_context(), timeout=5) as resp:
+                    data = json.loads(resp.read().decode("utf-8"))
+                self.token = data.get("access_token")
+                self.token_expires_in = int(data.get("expires_in", 3600))
+                self.token_acquired_at = time.time()
+                self.auth_mode = "api3"
+                self._auth_failed = False
+                return
+            if self._refresh_oauth_token():
+                self._auth_failed = False
+                return
+            if self._load_cli_session():
+                self._auth_failed = False
+                return
+        except Exception:
+            self._auth_failed = True
+            self._auth_failed_at = time.time()
+            raise
 
+        self._auth_failed = True
+        self._auth_failed_at = time.time()
         raise ValueError(
             "Looker Authentication Required: Run `looker-cli session login --oauth --client-id com.looker.cli` "
             "to authenticate under your active user identity."
@@ -146,12 +160,18 @@ class LookerAdminClient:
             self.authenticate()
         return {"Authorization": f"token {self.token}", "Content-Type": "application/json"}
 
-    def _request(self, method: str, endpoint: str, data: Optional[bytes] = None) -> Any:
+    def _request(self, method: str, endpoint: str, data: Optional[bytes] = None, timeout: int = 5) -> Any:
         url = f"{self.base_url}{endpoint}" if endpoint.startswith("/") else f"{self.base_url}/{endpoint}"
+        if endpoint in ("/alive", "alive"):
+            req = urllib.request.Request(url, data=data, method=method)
+            with urllib.request.urlopen(req, context=self._ssl_context(), timeout=timeout) as resp:
+                raw = resp.read().decode("utf-8")
+                return json.loads(raw) if raw.strip() else {}
+
         headers = self._headers()
         req = urllib.request.Request(url, data=data, headers=headers, method=method)
         try:
-            with urllib.request.urlopen(req, context=self._ssl_context(), timeout=120) as resp:
+            with urllib.request.urlopen(req, context=self._ssl_context(), timeout=timeout) as resp:
                 raw = resp.read().decode("utf-8")
                 return json.loads(raw) if raw.strip() else {}
         except urllib.error.HTTPError as e:
@@ -159,13 +179,28 @@ class LookerAdminClient:
                 if self._refresh_oauth_token() or self._load_cli_session():
                     headers = self._headers()
                     req = urllib.request.Request(url, data=data, headers=headers, method=method)
-                    with urllib.request.urlopen(req, context=self._ssl_context(), timeout=120) as resp:
+                    with urllib.request.urlopen(req, context=self._ssl_context(), timeout=timeout) as resp:
                         raw = resp.read().decode("utf-8")
                         return json.loads(raw) if raw.strip() else {}
             raise
 
     def get(self, endpoint: str) -> Any:
         return self._request("GET", endpoint)
+
+    def post(self, endpoint: str, body: Optional[Dict[str, Any]] = None) -> Any:
+        data = json.dumps(body).encode("utf-8") if body is not None else None
+        return self._request("POST", endpoint, data=data)
+
+    def patch(self, endpoint: str, body: Optional[Dict[str, Any]] = None) -> Any:
+        data = json.dumps(body).encode("utf-8") if body is not None else None
+        return self._request("PATCH", endpoint, data=data)
+
+    def put(self, endpoint: str, body: Optional[Dict[str, Any]] = None) -> Any:
+        data = json.dumps(body).encode("utf-8") if body is not None else None
+        return self._request("PUT", endpoint, data=data)
+
+    def delete(self, endpoint: str) -> Any:
+        return self._request("DELETE", endpoint)
 
     def run_query(self, model: str, view: str, fields: List[str], filters: Optional[Dict[str, str]] = None, sorts: Optional[List[str]] = None, limit: str = "50") -> List[Dict[str, Any]]:
         body = {"model": model, "view": view, "fields": fields, "limit": str(limit)}
@@ -175,6 +210,7 @@ class LookerAdminClient:
             body["sorts"] = sorts
         payload = json.dumps(body).encode("utf-8")
         return self._request("POST", "/api/4.0/queries/run/json", data=payload)
+
 
 
 _client = LookerAdminClient()
@@ -669,7 +705,10 @@ def execute_complete_healthcheck(
     # =========================================================================
     # PILLAR 3: BIGQUERY & WAREHOUSE COMPUTE CHECKS
     # =========================================================================
-    _add("P3-21", 21, "Pillar 3: BigQuery & Compute", "Partition & Cluster Filter Enforcement", "PASSED", "Partition filters verified.", audit_partition_cluster_filters("looker_scratch.orders", model_name=model_name), "Prevents full table scans.", "Add always_filter: or conditionally_filter:.", "connecting-looker-to-bigquery")
+    target_tbl = os.getenv("DEFAULT_AUDIT_TABLE", "the_look_ca.events_table")
+    part_report = audit_partition_cluster_filters(target_tbl, model_name=model_name)
+    part_st = "CRITICAL" if "Enforce partition filter" in part_report or "UNPARTITIONED" in part_report else "PASSED"
+    _add("P3-21", 21, "Pillar 3: BigQuery & Compute", "Partition & Cluster Filter Enforcement", part_st, f"Audited `{target_tbl}` partition & clustering layout.", part_report, "Prevents full table scans.", "Add always_filter: or conditionally_filter:.", "connecting-looker-to-bigquery")
     _add("P3-22", 22, "Pillar 3: BigQuery & Compute", "BI Engine Acceleration Reservation", "PASSED", "BI Engine reservation verified.", "BI Engine reservations active.", "Accelerates sub-second queries.", "Allocate BI Engine memory.", "connecting-looker-to-bigquery")
 
     # P3-23: PDT Build Failures & Event Log

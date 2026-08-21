@@ -77,6 +77,18 @@ def run_bq_query(sql_query: str, project_id: Optional[str] = None, location: Opt
 # PILLAR 3: BIGQUERY INTEGRATION & DATABASE OPTIMIZATION (Tasks 21 to 30)
 # ==============================================================================
 
+DEFAULT_DATASET = os.getenv("BIGQUERY_DATASET", "the_look_ca")
+
+def _resolve_table_id(table_id: str, project_id: Optional[str] = None) -> str:
+    cleaned = table_id.strip("`'\" \t\n")
+    parts = cleaned.split(".")
+    pid = project_id or GCP_PROJECT_ID
+    if len(parts) == 1:
+        return f"{pid}.{DEFAULT_DATASET}.{parts[0]}" if pid else f"{DEFAULT_DATASET}.{parts[0]}"
+    elif len(parts) == 2:
+        return f"{pid}.{cleaned}" if pid else cleaned
+    return cleaned
+
 def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = None, model_name: Optional[str] = None) -> str:
     """
     Task 21: Partition & Cluster Alignment.
@@ -84,11 +96,12 @@ def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = N
     """
     pid = project_id or GCP_PROJECT_ID
     client = _get_bq_client(pid, GCP_LOCATION)
+    resolved_id = _resolve_table_id(table_id, pid)
     if not client:
-        return f"Ensure LookML views for table `{table_id}` enforce `conditionally_filter` or `require_partition_filter: yes`."
+        return f"Ensure LookML views for table `{resolved_id}` enforce `conditionally_filter` or `require_partition_filter: yes`."
     
     try:
-        table_ref = client.get_table(table_id)
+        table_ref = client.get_table(resolved_id)
         p_info = None
         if table_ref.time_partitioning:
             p_info = {
@@ -100,14 +113,15 @@ def audit_partition_cluster_filters(table_id: str, project_id: Optional[str] = N
         c_fields = list(table_ref.clustering_fields) if table_ref.clustering_fields else []
         
         report = {
-            "table_id": table_id,
+            "table_id": resolved_id,
             "partitioning": p_info or "UNPARTITIONED",
             "clustering": c_fields or "NONE",
             "action_required": "Enforce partition filter in LookML view" if not (p_info and p_info.get("require_partition_filter")) else "HEALTHY"
         }
-        return f"### 🎯 Partition & Clustering Alignment (`{table_id}`):\n```json\n{json.dumps(report, indent=2)}\n```"
+        return f"### 🎯 Partition & Clustering Alignment (`{resolved_id}`):\n```json\n{json.dumps(report, indent=2)}\n```"
     except Exception as e:
-        return f"### ⚠️ BigQuery Table Inspection Failed (`{table_id}`):\n{type(e).__name__}: {str(e)}"
+        return f"### ⚠️ BigQuery Table Partition & Layout Inspection Failed (`{resolved_id}`):\n{type(e).__name__}: {str(e)}"
+
 
 
 def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:

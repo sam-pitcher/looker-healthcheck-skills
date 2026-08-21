@@ -1,3 +1,23 @@
+---
+type: Playbook
+title: Query Performance Audit & Forensic Triage Playbook
+description: Diagnostic and remediation protocol for auditing query performance, query lifecycle latencies, connection contention, and Looker JVM internal overhead.
+tags: [looker, performance, query-lifecycle, triage, latency, jvm]
+status: stable
+generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-20T12:00:00Z" }
+verified: { by: "human:sampitcher", at: "2026-08-20T14:00:00Z" }
+sources:
+  - id: pipeline-architecture
+    resource: /skills/custom/healthcheck/references/looker_bigquery_pipeline_architecture.md
+    title: Looker BigQuery Pipeline Architecture
+  - id: vendor-perf-optimizer
+    resource: /skills/vendor/looker-skills/skills/looker-performance-optimizer/SKILL.md
+    title: Looker Performance Optimizer
+  - id: connecting-bq
+    resource: /skills/vendor/looker-skills/skills/connecting-looker-to-bigquery/SKILL.md
+    title: Connecting Looker to BigQuery
+---
+
 # Query Performance Audit & Forensic Triage Playbook
 
 This reference document defines the complete diagnostic and remediation protocol for auditing query performance, query lifecycle latencies, connection contention, and Looker JVM internal overhead.

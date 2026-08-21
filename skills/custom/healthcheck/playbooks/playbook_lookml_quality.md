@@ -1,3 +1,26 @@
+---
+type: Playbook
+title: Looker Style Guide & LookML Modeling Standards Playbook
+description: Official LookML style standards, naming conventions, formatting rules, and DRY modeling patterns for high-quality Looker projects.
+tags: [lookml, style-guide, modeling, dry, primary-keys, snake-case]
+status: stable
+generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-20T12:00:00Z" }
+verified: { by: "human:sampitcher", at: "2026-08-20T14:00:00Z" }
+sources:
+  - id: modeling-guidelines
+    resource: /skills/vendor/looker-skills/skills/lookml-modeling-guidelines/SKILL.md
+    title: LookML Modeling Guidelines
+  - id: liquid-guidelines
+    resource: /skills/vendor/looker-skills/skills/lookml-liquid/SKILL.md
+    title: LookML Liquid Guidelines
+  - id: access-grants
+    resource: /skills/vendor/looker-skills/skills/lookml-access-grants/SKILL.md
+    title: LookML Access Grants
+  - id: refinements
+    resource: /skills/vendor/looker-skills/skills/lookml-refinements/SKILL.md
+    title: LookML Refinements
+---
+
 # Looker Style Guide & LookML Modeling Standards Playbook
 
 This reference document defines the official **LookML Style Standards**, **Naming Conventions**, **Formatting Rules**, and **DRY Modeling Patterns** for maintaining high-quality, self-service Looker projects.

@@ -69,12 +69,16 @@ from agent.tools.lookml_fs import (
     run_lookml_validation,
     audit_primary_keys,
     audit_join_relationships,
+    audit_caching_and_datagroups,
+    audit_explore_filters,
+    audit_lookml_dashboards,
     run_henry_vacuum,
     audit_explore_field_exposure,
     audit_folder_structure,
     audit_naming_conventions,
     audit_metadata_descriptions,
     audit_unused_joins,
+    discover_model_tables,
     list_lookml_files,
     read_lookml_file,
     search_lookml_code
@@ -96,7 +100,9 @@ from agent.tools.bq_client import (
 from agent.tools.storage import (
     save_audit_report,
     get_audit_history,
-    get_audit_document
+    get_audit_document,
+    record_audit_finding,
+    save_technical_design_document
 )
 
 # Dynamic Looker Skills Registry (Pure Knowledge Playbooks)
@@ -129,11 +135,16 @@ looker_perf_agent = Agent(
         run_inline_query,
         get_query_sql,
         get_explore_definition,
+        audit_explore_filters,
+        audit_caching_and_datagroups,
+        audit_lookml_dashboards,
         looker_cli_discover,
         looker_cli_inspect_payload,
         looker_cli_execute,
         check_subsystem_status,
+        record_audit_finding,
         save_audit_report,
+        save_technical_design_document,
         get_audit_history,
         get_audit_document,
         list_registered_skills,
@@ -161,18 +172,24 @@ lookml_agent = Agent(
         run_lookml_validation,
         audit_primary_keys,
         audit_join_relationships,
+        audit_caching_and_datagroups,
+        audit_explore_filters,
+        audit_lookml_dashboards,
         run_henry_vacuum,
         audit_explore_field_exposure,
         audit_folder_structure,
         audit_naming_conventions,
         audit_metadata_descriptions,
         audit_unused_joins,
+        discover_model_tables,
         list_projects,
         list_models,
         list_lookml_files,
         read_lookml_file,
         search_lookml_code,
+        record_audit_finding,
         save_audit_report,
+        save_technical_design_document,
         get_audit_history,
         get_audit_document,
         list_registered_skills,
@@ -193,6 +210,7 @@ bq_agent = Agent(
         run_inline_query,
         get_query_sql,
         get_explore_definition,
+        discover_model_tables,
         audit_partition_cluster_filters,
         audit_bq_slots,
         list_dataset_tables,
@@ -200,13 +218,19 @@ bq_agent = Agent(
         estimate_query_cost_dry_run,
         audit_query_costs_and_bytes_billed,
         audit_datagroup_sync,
+        record_audit_finding,
         save_audit_report,
+        save_technical_design_document,
         get_audit_history,
         get_audit_document,
         list_registered_skills,
         get_skill_content
     ]
 )
+
+# Multi-Agent Pipeline Chaining: LookerPerf -> BQOptimizer -> LookMLQuality
+looker_perf_agent.sub_agents = [bq_agent]
+bq_agent.sub_agents = [lookml_agent]
 
 # ==============================================================================
 # MASTER ORCHESTRATOR: Root Supervisor Agent
@@ -218,26 +242,89 @@ You are the **Looker & BigQuery Optimization Orchestrator**, the master supervis
 You coordinate 3 specialized sub-agents to perform deep-dive investigations:
 
 1. **`LookerPerformanceAgent`** (Pillar 1 - Query Lifecycle & Looker Performance):
-   - **DELEGATE TO THIS AGENT FOR**: Looker System Activity query profiling, finding top slow queries across models/explores, breaking down query latency phases (Looker overhead vs Database time), checking connection queueing, dashboard tile bloat (>25 tiles), auto-refresh intervals, and schedule staggering.
+   - **MANDATORY CHECKS**:
+     - System Activity latency phase breakdown (`query_metrics`): Looker JVM overhead % vs BigQuery `execute_main_query` vs connection queue wait.
+     - Explore governance & partition filter enforcement (`audit_explore_filters`).
+     - Caching & datagroup policy inspection (`audit_caching_and_datagroups`).
+     - Dashboard tile bloat and schedule concurrency.
 2. **`BqOptimizerAgent`** (Pillar 3 - BigQuery Engine & SQL Optimization):
-   - **DELEGATE TO THIS AGENT FOR**: Inspecting physical compiled SQL, detecting BigQuery anti-patterns (e.g. functions in JOIN ON, timezone conversion in WHERE), querying BigQuery INFORMATION_SCHEMA for slot contention, validating partition/clustering pruning, and estimating query cost dry-runs.
+   - **MANDATORY CHECKS**:
+     - Physical SQL extraction & join anti-pattern detection (`get_query_sql`).
+     - Dataset table & partition/clustering alignment (`list_dataset_tables`, `audit_partition_cluster_filters`).
+     - Warehouse slot contention & saturation (`audit_bq_slots`).
+     - Query costs & bytes billed (`audit_query_costs_and_bytes_billed`).
 3. **`LookmlQualityAgent`** (Pillar 2 - LookML Modeling & Code Quality):
-   - **DELEGATE TO THIS AGENT FOR**: Auditing LookML syntax, checking primary keys to prevent SUM_DISTINCT fan-outs, verifying join relationships, running Henry dead-field vacuums, and generating prescriptive LookML code fixes.
+   - **MANDATORY CHECKS**:
+     - Primary key integrity (`audit_primary_keys`) to prevent Symmetric Aggregate fan-out multiplier overhead.
+     - Join relationships & SQL join conditions (`audit_join_relationships`) to catch `REGEXP_CONTAINS` and mismatched 1:1 fanout relations.
+     - LookML naming hygiene (`audit_naming_conventions`) and raw key masking (`audit_explore_field_exposure`).
+     - Dashboard quality & calculations (`audit_lookml_dashboards`).
+     - Prescriptive, copy-paste LookML remediation code blocks.
+
+### ⚡ Continuous Real-Time Finding Ingestion:
+* **STREAM FINDINGS AS YOU WORK**: Sub-agents MUST call `record_audit_finding(...)` immediately upon identifying any issue, warning, or check score.
+* Do NOT wait until the end of the entire audit. Continuous streaming ensures Firestore is always up to date even if a session is interrupted.
+
+### 📢 LIVE USER PROGRESS COMMUNICATION (CRITICAL):
+* **No Silent Spans**: Sub-agents MUST output short, informative status messages in chat as they transition through phases so the user sees live progress in real time (e.g. `🔍 [Phase 1: Looker Performance] Auditing query latency breakdown and dashboard bloat...`, `⚡ [Phase 2: BigQuery & Compute] Auditing slot utilization and partition layout...`, `🧩 [Phase 3: LookML Quality] Checking primary keys and join conditions...`).
+
+### 🎯 Zero-Configuration & Minimal Prompt Handling:
+If the user provides a minimal or open-ended prompt (e.g. *"run a healthcheck"*, *"audit performance"*, *"check my instance"*, *"how are we doing?"*, *"audit thelook"*):
+* **DO NOT ASK CLARIFYING QUESTIONS OR REQUEST MISSING ARGS.** Autonomously infer the environment:
+  - **Target Project & Model**: Infer from environment (`thelook-antigravity` / `thelook`) or discover via `list_models()`.
+  - **Target BigQuery Dataset**: Infer from environment (`sampitcher-playground.the_look_ca`).
+* **Autonomously run the complete 3-Pillar pipeline**:
+  1. Transfer to `LookerPerformanceAgent` (Explore filters, datagroups, dashboard bloat, System Activity).
+  2. Transfer to `BqOptimizerAgent` (Table partition layout, slot timeline, query billing).
+  3. Transfer to `LookmlQualityAgent` (Primary keys, join conditions, AST naming rules, and final synthesis).
+
+### 🛑 CRITICAL UI RESPONSE LENGTH & FINAL DELIVERY RULES:
+1. **NEVER FLOOD THE CHAT WINDOW (MAX 30–40 LINES TOTAL)**:
+   - When presenting the audit findings in chat, output ONLY:
+     - 🎯 **Executive Scorecard Table** (Overall Health %, Pillar 1, 2, 3 Ratings).
+     - 🚨 **Top 4 Critical Anti-Patterns** (1 bullet point each).
+     - 💾 **Persistence Confirmation** (`✅ All findings recorded in Firestore (looker_healthchecks)`).
+     - 📑 **Published Document Link**: Clickable link `[TECHNICAL_DESIGN_DOCUMENT.md](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/TECHNICAL_DESIGN_DOCUMENT.md)`.
+2. **ALL DETAILED ARCHITECTURE & REMEDIATIONS BELONG IN TECHNICAL_DESIGN_DOCUMENT.MD**:
+   - Telemetry and findings are persisted to Firestore in real time.
+   - The authoritative 7-section engineering spec is written to `TECHNICAL_DESIGN_DOCUMENT.md` via `save_technical_design_document()`.
+3. **MANDATORY CONCLUDING OUTPUT**: Never end a turn with an empty message or only tool output. The concluding agent MUST write the final executive message.
 
 ---
 
-### 🧠 Autonomous Multi-Agent Investigation Workflow:
-When a user asks for a performance investigation, slow query triage, or full healthcheck:
-
-1. **Phase 1 (Looker Query Profiling)**:
-   - Delegate to `LookerPerformanceAgent` to query `system__activity`, identify the top slow query IDs, and calculate the Looker vs Database latency split.
-2. **Phase 2 (Database SQL Forensics)**:
-   - Delegate to `BqOptimizerAgent` with the identified slow query ID(s) to extract compiled SQL, check BigQuery anti-patterns, and evaluate warehouse compute / slot contention.
-3. **Phase 3 (LookML Code Fixes)**:
-   - Delegate to `LookmlQualityAgent` to inspect the explore/view definitions and formulate exact LookML code remediations (e.g. `primary_key: yes`, `convert_tz: no`, `aggregate_table:`).
-4. **Phase 4 (Synthesis & Persistence)**:
-   - Synthesize all sub-agent findings into the standardized Scorecard report.
-   - **MANDATORY**: Call `save_audit_report(report_markdown, structured_findings, model_name=model_name)` to persist the final deliverable to Firestore and AUDIT_REPORT.md.
+### 📝 Enterprise Technical Design Document (TDD) Authoring Protocol:
+When a user asks to write a **Technical Design Document (TDD)**, architecture spec, or modernization proposal:
+1. **Retrieve Playbook & Audit State**:
+   - Call `get_skill_content("playbook_technical_design_document.md")` for the authoritative TDD specification.
+   - Call `get_audit_document(audit_id)` or `get_audit_history()` to extract baseline telemetry, scores, and all structured findings from Firestore.
+   - Ground in `looker_bigquery_pipeline_architecture.md`, `warehouse_optimization.md`, and `aggregate_awareness_and_architecture.md`.
+2. **Synthesize an In-Depth, Publication-Grade 7-Section Document (NOT a simple pass/fail table)**:
+   - **Section 1: Executive Summary & Modernization Objectives**: Scope, target KPIs (latency reductions, slot savings), and baseline ratings.
+   - **Section 2: Current State Architecture & Forensic Telemetry**:
+     - *2.1 What Is Working Well*: Explicitly commend existing architectural strengths, clean syntax, and valid models.
+     - *2.2 Bottleneck Deep-Dive*: Latency phase breakdown (Looker JVM overhead vs DB query time vs Connection queue wait), slot saturation curves (>200 slots), and slow query profiles (>10s–25s) with Job IDs.
+   - **Section 3: Target State Architecture & Data Flow**: Complete end-to-end Mermaid diagram from dashboards -> Looker datagroups -> Aggregate Awareness -> BigQuery partitioned/clustered tables.
+   - **Section 4: Pillar 1 Technical Design (Looker Performance & Content Governance)**:
+     - Decomposing 35-tile monolithic dashboards into modular tabbed navigation.
+     - Datagroup overhaul (replacing `GENERATE_UUID()` with ETL watermark triggers).
+     - Explore partition filter enforcement and schedule staggering.
+   - **Section 5: Pillar 2 Technical Design (LookML Modeling & Hygiene)**:
+     - Primary key strategy (eliminating `SUM(DISTINCT ...)` symmetric aggregate hashing overhead).
+     - Refactoring cross joins and non-equi joins into equi-joins or pre-aggregated derived tables.
+     - Eliminating functions/regex (`LOWER(TRIM())`, `REGEXP_CONTAINS()`) from `sql_on:`.
+     - Exact copy-paste Before & After LookML code blocks.
+   - **Section 6: Pillar 3 Technical Design (BigQuery Engine & Physical Storage Layout)**:
+     - Exact BigQuery DDL for table partitioning (`PARTITION BY DATE(created_at)`) and clustering (`CLUSTER BY ...`).
+     - LookML `aggregate_table` specifications for high-frequency queries.
+     - BI Engine memory sizing.
+   - **Section 7: Phased Migration Roadmap, Risk Matrix & Projected ROI**:
+     - 3-Phase rollout plan (Zero-risk hotfixes -> LookML restructuring -> Warehouse partitioning).
+     - Rollback procedures and validation gates.
+     - Quantified ROI table (Expected % latency reduction, slot capacity freed, dollar cost savings).
+3. **SAVE TO FILE - DO NOT FLOOD THE CHAT WINDOW**:
+   - **MANDATORY**: Call `save_technical_design_document(tdd_markdown, output_filename="TECHNICAL_DESIGN_DOCUMENT.md")`.
+   - In your chat turn, output ONLY a concise 1-page Executive Summary, the Target State Mermaid diagram, and a direct clickable link: `[TECHNICAL_DESIGN_DOCUMENT.md](file:///Users/sampitcher/Documents/Projects/looker-healthcheck-agent/TECHNICAL_DESIGN_DOCUMENT.md)`.
+   - Prompt the user to explore specific sections or approve automated branch remediation.
 """
 
 ORCHESTRATOR_TOOLS = [
@@ -245,6 +332,8 @@ ORCHESTRATOR_TOOLS = [
     list_registered_skills,
     get_skill_content,
     save_audit_report,
+    record_audit_finding,
+    save_technical_design_document,
     get_audit_history,
     get_audit_document,
 ]

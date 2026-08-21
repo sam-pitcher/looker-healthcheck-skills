@@ -1,3 +1,18 @@
+---
+type: Reference
+title: Looker System Activity Query Catalog & Telemetry Bank
+description: Centralized JSON query dictionary, dimensions, and table calculation formulas for querying Looker system__activity models.
+tags: [looker, system-activity, queries, telemetry, formulas]
+status: stable
+generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-20T12:00:00Z" }
+verified: { by: "human:sampitcher", at: "2026-08-20T14:00:00Z" }
+sources:
+  - id: system-activity-docs
+    resource: "https://cloud.google.com/looker/docs/system-activity-pages"
+    title: Looker System Activity Documentation
+    author: "team:google-cloud"
+---
+
 # Looker System Activity Query Catalog & Telemetry Bank
 
 This reference catalog documents the exact JSON query definitions, dimensions, and table calculation formulas for querying Looker's internal `system__activity` models.

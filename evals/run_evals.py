@@ -36,6 +36,8 @@ from evals.eval_agent_trajectories import (
     test_trajectory_dynamic_skill_resolution
 )
 
+from evals.test_okf_conformance import TestOKFConformance
+
 CYAN = "\033[96m"
 GREEN = "\033[92m"
 YELLOW = "\033[93m"
@@ -45,8 +47,11 @@ RESET = "\033[0m"
 
 
 def run_all_evaluations():
-    print(f"\n{BOLD}{CYAN}🧪 Looker & BigQuery Optimization Multi-Agent Evaluation Suite{RESET}\n" + "=" * 70)
-    
+    print(f"\n{BOLD}{CYAN}🧪 Looker & BigQuery Optimization Multi-Agent Evaluation Suite{RESET}\n" + "=" * 70, flush=True)
+
+    okf_test = TestOKFConformance()
+    okf_test.setUpClass()
+
     test_suites = [
         ("Layer 1: Deterministic Tool & Healthcheck Audits", [
             ("Pillar 1: Subsystem & Project Discovery", test_pillar1_subsystem_and_project_discovery),
@@ -68,6 +73,17 @@ def run_all_evaluations():
             ("Scenario 3: Performance Outlier Triage & Benchmark", test_trajectory_performance_outlier_triage),
             ("Scenario 4: LookML Quality & Dead Code Vacuum Routing", test_trajectory_lookml_quality_and_henry),
             ("Scenario 5: Dynamic Skills Registry & Playbook Lookup", test_trajectory_dynamic_skill_resolution),
+        ]),
+        ("Layer 4: Open Knowledge Format (OKF v0.2) Conformance Suite", [
+            ("OKF §11 Normative Conformance (skills/ Tree)", okf_test.test_01_normative_conformance_skills_bundle),
+            ("OKF §11 Custom Knowledge Bundles (custom/)", okf_test.test_02_normative_conformance_custom_bundle),
+            ("OKF §12 & §8 Bundle Root & Sub-Index Hierarchy", lambda: (okf_test.test_03_root_index_and_version(), okf_test.test_04_sub_indexes_no_frontmatter())),
+            ("OKF §9 Directory Update Log Audit", okf_test.test_05_directory_update_logs),
+            ("OKF §5.3 & §5.5 Trust Tiers & Staleness Engine", lambda: (okf_test.test_06_trust_tier_computation(), okf_test.test_07_staleness_computation())),
+            ("OKF §10 Attested Computations Contract & Runtimes", okf_test.test_08_attested_computations),
+            ("OKF §5.1 Concept Metadata & Provenance Sources", okf_test.test_09_concept_metadata_and_provenance),
+            ("OKF Technical Design Document (TDD) Adherence", okf_test.test_10_technical_design_document_adherence),
+            ("OKF Progressive Disclosure & Tool Integration", lambda: (okf_test.test_11_save_technical_design_document_storage_tool(), okf_test.test_12_progressive_disclosure_tools())),
         ])
     ]
 
@@ -78,8 +94,8 @@ def run_all_evaluations():
     results = []
 
     for suite_name, tests in test_suites:
-        print(f"\n{BOLD}{suite_name}{RESET}")
-        print("-" * 70)
+        print(f"\n{BOLD}{suite_name}{RESET}", flush=True)
+        print("-" * 70, flush=True)
         for test_title, test_func in tests:
             total_tests += 1
             t_start = time.time()
@@ -88,25 +104,25 @@ def run_all_evaluations():
                 duration = round((time.time() - t_start) * 1000, 2)
                 passed_tests += 1
                 results.append({"name": test_title, "status": "PASSED", "duration_ms": duration})
-                print(f"  {GREEN}✔ PASS{RESET}  {test_title:<54} {CYAN}({duration:>6.2f} ms){RESET}")
+                print(f"  {GREEN}✔ PASS{RESET}  {test_title:<54} {CYAN}({duration:>6.2f} ms){RESET}", flush=True)
             except Exception as e:
                 duration = round((time.time() - t_start) * 1000, 2)
                 failed_tests += 1
                 results.append({"name": test_title, "status": "FAILED", "duration_ms": duration, "error": str(e)})
-                print(f"  {RED}✖ FAIL{RESET}  {test_title:<54} {RED}({duration:>6.2f} ms){RESET}")
-                print(f"        {RED}Error: {e}{RESET}")
+                print(f"  {RED}✖ FAIL{RESET}  {test_title:<54} {RED}({duration:>6.2f} ms){RESET}", flush=True)
+                print(f"        {RED}Error: {e}{RESET}", flush=True)
 
     total_duration = round((time.time() - start_time), 2)
     pass_rate = round((passed_tests / total_tests) * 100, 1) if total_tests > 0 else 0
 
-    print("\n" + "=" * 70)
-    print(f"{BOLD}📊 EVALUATION SUMMARY SCORECARD:{RESET}")
-    print(f"  • Total Test Cases:   {total_tests}")
-    print(f"  • Passed:             {GREEN}{passed_tests}{RESET}")
-    print(f"  • Failed:             {RED if failed_tests > 0 else GREEN}{failed_tests}{RESET}")
-    print(f"  • Pass Rate:          {GREEN if pass_rate >= 90 else YELLOW}{pass_rate}%{RESET}")
-    print(f"  • Total Time:         {total_duration}s")
-    print("=" * 70 + "\n")
+    print("\n" + "=" * 70, flush=True)
+    print(f"{BOLD}📊 EVALUATION SUMMARY SCORECARD:{RESET}", flush=True)
+    print(f"  • Total Test Cases:   {total_tests}", flush=True)
+    print(f"  • Passed:             {GREEN}{passed_tests}{RESET}", flush=True)
+    print(f"  • Failed:             {RED if failed_tests > 0 else GREEN}{failed_tests}{RESET}", flush=True)
+    print(f"  • Pass Rate:          {GREEN if pass_rate >= 90 else YELLOW}{pass_rate}%{RESET}", flush=True)
+    print(f"  • Total Time:         {total_duration}s", flush=True)
+    print("=" * 70 + "\n", flush=True)
 
     if failed_tests > 0:
         sys.exit(1)

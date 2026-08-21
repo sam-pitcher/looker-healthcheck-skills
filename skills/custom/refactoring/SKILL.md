@@ -1,6 +1,21 @@
 ---
+type: Skill
+title: LookML Project Refactoring & Legacy Runtime Migration Skill
 name: looker-refactoring-skill
-description: Master developer skill for Looker project refactoring, Henry-driven model bloat auditing, legacy runtime migration, and CI/CD content validation using looker-cli and Henry.
+description: Master developer skill for Looker project refactoring, Henry-driven model bloat auditing, legacy runtime migration, and CI/CD content validation.
+tags: [looker, refactoring, henry, spectacles, legacy-runtime, ci-cd]
+status: stable
+generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-20T12:00:00Z" }
+verified: { by: "human:sampitcher", at: "2026-08-20T14:00:00Z" }
+sources:
+  - id: henry-cli
+    resource: "https://github.com/looker-open-source/henry"
+    title: Henry Looker Pulse & Vacuum CLI
+    author: "team:looker-open-source"
+  - id: spectacles
+    resource: "https://github.com/spectacles-ci/spectacles"
+    title: Spectacles LookML CI Validator
+    author: "team:spectacles"
 ---
 
 # Looker Project Refactoring & CI/CD Validation Playbook

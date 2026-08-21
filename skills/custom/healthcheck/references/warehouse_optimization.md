@@ -1,3 +1,21 @@
+---
+type: Reference
+title: BigQuery & Warehouse Compute Optimization Guide
+description: SQL definitions and diagnostic thresholds for auditing BigQuery compute, slot contention, on-demand query costs, and partitioning.
+tags: [bigquery, slots, partition-pruning, query-costs, information-schema]
+status: stable
+generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-20T12:00:00Z" }
+verified: { by: "human:sampitcher", at: "2026-08-20T14:00:00Z" }
+sources:
+  - id: connecting-bq
+    resource: /skills/vendor/looker-skills/skills/connecting-looker-to-bigquery/SKILL.md
+    title: Connecting Looker to BigQuery
+  - id: mig-optimize
+    resource: "https://google-cloud-professional-services.googlesource.com/mig-optimize"
+    title: MIG Optimize Diagnostic Framework
+    author: "team:google-pso"
+---
+
 # BigQuery & Warehouse Compute Optimization Playbook
 
 This reference catalog provides the exact SQL query definitions, diagnostic thresholds, and optimization patterns for auditing BigQuery compute, slot contention, on-demand query costs, partition pruning, and datagroup ETL synchronization.

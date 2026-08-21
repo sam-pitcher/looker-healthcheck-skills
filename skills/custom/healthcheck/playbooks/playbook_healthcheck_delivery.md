@@ -1,3 +1,23 @@
+---
+type: Playbook
+title: Master Looker Healthcheck Delivery Playbook
+description: Authoritative 4-Pillar engagement delivery methodology, stakeholder interview frameworks, and thematic review structures.
+tags: [looker, healthcheck, delivery, interview, methodology, playbooks]
+status: stable
+generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-20T12:00:00Z" }
+verified: { by: "human:sampitcher", at: "2026-08-20T14:00:00Z" }
+sources:
+  - id: benchmarks
+    resource: /skills/custom/healthcheck/references/benchmarks.md
+    title: Google Cloud PSO Performance Benchmarks
+  - id: transcriber-rubric
+    resource: /skills/custom/healthcheck/playbooks/playbook_transcriber_scoring.md
+    title: Transcriber Scoring Rubric
+  - id: system-activity
+    resource: /skills/custom/healthcheck/references/system_activity_queries.md
+    title: System Activity Query Bank
+---
+
 # Master Looker Healthcheck Delivery Playbook
 
 This document defines the authoritative **End-to-End Looker Healthcheck Engagement Delivery Methodology**, stakeholder interview frameworks, thematic review structures, and consultant deliverables structured across the **4 Strategic Pillars**.

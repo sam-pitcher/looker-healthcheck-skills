@@ -26,12 +26,16 @@ from .lookml_fs import (
     run_lookml_validation,
     audit_primary_keys,
     audit_join_relationships,
+    audit_caching_and_datagroups,
+    audit_explore_filters,
+    audit_lookml_dashboards,
     run_henry_vacuum,
     audit_explore_field_exposure,
     audit_folder_structure,
     audit_naming_conventions,
     audit_metadata_descriptions,
     audit_unused_joins,
+    discover_model_tables,
     list_lookml_files,
     read_lookml_file,
     search_lookml_code
@@ -51,7 +55,9 @@ from .bq_client import (
 from .storage import (
     save_audit_report,
     get_audit_history,
-    get_audit_document
+    get_audit_document,
+    record_audit_finding,
+    save_technical_design_document
 )
 
 from agent.skills_registry import (
@@ -84,6 +90,7 @@ __all__ = [
     "audit_naming_conventions",
     "audit_metadata_descriptions",
     "audit_unused_joins",
+    "discover_model_tables",
     "list_lookml_files",
     "read_lookml_file",
     "search_lookml_code",
