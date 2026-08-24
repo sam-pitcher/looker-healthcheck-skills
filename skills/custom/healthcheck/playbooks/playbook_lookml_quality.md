@@ -11,8 +11,14 @@ sources:
     resource: /skills/vendor/looker-skills/skills/lookml-modeling-guidelines/SKILL.md
     title: LookML Modeling Guidelines
   - id: liquid-guidelines
-    resource: /skills/vendor/looker-skills/skills/lookml-liquid/SKILL.md
+    resource: .agents/skills/lookml-liquid-guidelines/SKILL.md
     title: LookML Liquid Guidelines
+  - id: pop-guidelines
+    resource: .agents/skills/lookml-pop-guidelines/SKILL.md
+    title: Period-over-Period (PoP) Guidelines
+  - id: conversational-analytics
+    resource: skills/custom/healthcheck/references/conversational_analytics_best_practices.md
+    title: LookML Best Practices for Conversational Analytics & Gemini Data Agents
   - id: access-grants
     resource: /skills/vendor/looker-skills/skills/lookml-access-grants/SKILL.md
     title: LookML Access Grants

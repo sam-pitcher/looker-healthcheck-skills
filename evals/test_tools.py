@@ -35,6 +35,8 @@ from agent.tools import (
     audit_partition_cluster_filters,
     audit_datagroup_sync,
     audit_query_costs_and_bytes_billed,
+    get_looker_bigquery_job_correlations,
+    get_looker_history_by_slug,
     audit_bq_slots,
     list_dataset_tables,
     optimize_table_layout,
@@ -183,3 +185,14 @@ def test_telemetry_tracer():
     assert summary["tool_calls_count"] >= 1
     assert summary["slow_tools_count"] == 1
     assert len(summary["slowest_tools"]) == 1
+
+
+def test_looker_bigquery_job_correlation_tools():
+    """Verify BigQuery Job Labels correlation and Looker history_slug lookup."""
+    bq_corr = get_looker_bigquery_job_correlations(hours=24, limit=5)
+    assert isinstance(bq_corr, str)
+    assert "Job Label" in bq_corr or "Correlations" in bq_corr or "SQL" in bq_corr
+
+    looker_slug_res = get_looker_history_by_slug("mock_slug_12345")
+    assert isinstance(looker_slug_res, str)
+    assert "mock_slug_12345" in looker_slug_res

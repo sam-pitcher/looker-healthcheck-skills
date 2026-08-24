@@ -828,7 +828,8 @@ class LookerSkillRegistry:
 
     def find_graph_path(self, start_concept: str, target_concept: str) -> List[str]:
         """
-        Calculates the shortest semantic reasoning path between two concepts using BFS graph traversal.
+        Calculates the shortest semantic reasoning path between two concepts using bidirectional BFS graph traversal.
+        Allows agents to traverse seamlessly from symptom/finding concepts to exact remediation playbooks and computations.
         """
         graph = self.build_concept_graph()
         s_concept = self.get_concept(start_concept)
@@ -843,6 +844,18 @@ class LookerSkillRegistry:
         if start_id == target_id:
             return [start_id]
 
+        # Construct bidirectional adjacency map for diagnostic navigation
+        adj: Dict[str, List[str]] = defaultdict(list)
+        for edge in graph["edges"]:
+            s, t = edge["source"], edge["target"]
+            # Resolve canonical concept IDs
+            sc = self.get_concept(s)
+            tc = self.get_concept(t)
+            s_res = sc.get("id") if sc else s
+            t_res = tc.get("id") if tc else t
+            adj[s_res].append(t_res)
+            adj[t_res].append(s_res)
+
         queue = [[start_id]]
         visited = {start_id}
 
@@ -850,7 +863,7 @@ class LookerSkillRegistry:
             path = queue.pop(0)
             node = path[-1]
 
-            neighbors = graph["adjacency"].get(node, [])
+            neighbors = adj.get(node, [])
             for neighbor in neighbors:
                 # Resolve neighbor concept ID if relative path
                 resolved_neighbor = neighbor

@@ -13,3 +13,7 @@
 * [Single Dashboard Optimization](single_dashboard_optimization.md) - 10-Point single dashboard forensic audit checklist.
 * [System Activity Queries](system_activity_queries.md) - Centralized JSON query dictionary for Looker System Activity models.
 * [Warehouse Optimization](warehouse_optimization.md) - BigQuery slot consumption, query cost forensics, and table partitioning.
+* [Incremental PDTs Guide](incremental_pdts_guide.md) - Architecture, LookML patterns, and BigQuery partition alignment for Incremental PDTs.
+* [BigQuery Search Indexes](bigquery_search_indexes.md) - Accelerating text-based filtering and string queries in Looker using BigQuery SEARCH indexes.
+* [BI Engine Optimization](bi_engine_optimization.md) - Architecture, SQL compatibility patterns, and capacity reservation strategies for BigQuery BI Engine.
+* [Conversational Analytics & Gemini LookML](conversational_analytics_best_practices.md) - Google Cloud guide for preparing LookML models, Explores, and Data Agent instructions for Conversational Analytics.

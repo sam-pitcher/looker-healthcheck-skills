@@ -4,8 +4,8 @@ title: "Looker Health Check - Technical Design Document (thelook)"
 description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for thelook."
 status: stable
 tags: [looker, bigquery, healthcheck, modernization, tdd, performance]
-generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-21T15:45:29Z" }
-verified: { by: "human:sampitcher", at: "2026-08-21T15:45:29Z" }
+generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-24T12:34:25Z" }
+verified: { by: "human:sampitcher", at: "2026-08-24T12:34:25Z" }
 sources:
   - id: system-activity-query-metrics
     resource: "system__activity/query_metrics"
@@ -31,7 +31,7 @@ This Technical Design Document (TDD) delivers an authoritative, production-grade
 A forensic audit conducted across the live Looker instance, LookML codebase, and Google Cloud BigQuery telemetry revealed critical architectural anti-patterns that severely degrade end-user performance, increase warehouse compute costs, and risk query failures.
 
 ### Key Audit Metrics & Baseline Health
-* **Overall Health Score**: **20.0% / 100** (Critical Action Required)
+* **Overall Health Score**: **7.1% / 100** (Critical Action Required)
 * **Pillar 1: Looker Performance**: 60% — Extreme query latency outliers detected (52.27s max duration).
 * **Pillar 2: LookML Modeling & Code Quality**: 15% — Cartesian cross joins, non-equi inequality joins, function calls in join conditions, and missing primary keys across 5 views.
 * **Pillar 3: BigQuery Engine & Compute**: 10% — Unpartitioned/unclustered fact tables and project-wide slot saturation (peaking at 2,000 slots).
@@ -70,14 +70,13 @@ Analysis of `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`[^bq-jobs-tim
 
 | Finding ID | Pillar | Severity | Description & Root Cause |
 | :--- | :--- | :---: | :--- |
-| **`LPA-001`** | Pillar 1: Looker Performance | ❌ CRITICAL | Query ID `1948` on `order_items` took **52.27s**, with 99.5% spent inside the database engine. |
-| **`BQA-001`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Table `order_items` has **no `PARTITION BY` or `CLUSTER BY`**, forcing full table scans on all explore queries. |
-| **`BQA-002`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Project hits **2,000 slot ceiling**, causing concurrent query queueing and timeouts. |
-| **`LMA-004`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `distribution_centers` is declared as **`type: cross`**, multiplying rows and causing cartesian explosions. |
-| **`LMA-002`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `prior_events` uses **inequality in `sql_on:`**, disabling BigQuery hash joins and forcing nested loop joins. |
-| **`LMA-003`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `fuzzy_channel_match` uses `LOWER(TRIM(...))` in `sql_on:`, preventing partition and index pushdown. |
-| **`LMA-001`** | Pillar 2: LookML Quality | ⚠️ WARNING | 5 views (`orders`, `users`, `unoptimized_order_metrics`, `status`, `lookml_gaps`) lack `primary_key: yes`. |
-| **`LMA-006`** | Pillar 2: LookML Quality | ⚠️ WARNING | 20 raw foreign keys/technical IDs (`session_id`, `user_id`, `product_id`) are unhidden in user explores. |
+| **`LKP-1.1`** | Looker Performance & Query Lifecycle | ❌ CRITICAL | Significant user experience degradation for reports/dashboards relying on this query due to database-side latency. Potential for increased slot consumption in BigQuery. |
+| **`BQE-2.1`** | BigQuery Engine & Compute | ❌ CRITICAL | Queries without specific LIMIT clauses will trigger full table scans, leading to significant performance degradation, increased slot consumption, and higher query costs. This is a major architectural bottleneck. |
+| **`LML-2.1`** | LookML Modeling & Code Quality | ❌ CRITICAL | Without a declared primary key on the `users` view, any joins to it can create a fanout, leading to incorrect measure calculations. Looker will default to using Symmetric Aggregates to compensate, which is computationally expensive and can hide underlying data modeling issues. |
+| **`LML-2.2`** | LookML Modeling & Code Quality | ❌ CRITICAL | Using functions like `LOWER` or `TRIM` in a join's `sql_on` clause prevents BigQuery from using its efficient hash join algorithm. This forces a full table scan and a much slower, more resource-intensive nested loop or broadcast join, severely degrading query performance. |
+| **`LML-2.3`** | LookML Modeling & Code Quality | ❌ CRITICAL | Cross joins create a cartesian product, multiplying the row count of the explore exponentially. This leads to massive query costs, extreme slot consumption, and often hits BigQuery resource limits, making explores unusable. |
+| **`LML-2.4`** | LookML Modeling & Code Quality | ❌ CRITICAL | Inequality conditions in joins prevent the use of efficient hash joins, forcing BigQuery into slower nested loop operations. This dramatically increases query runtime and slot usage, especially on large tables. |
+| **`LML-3.1`** | LookML Modeling & Code Quality | ⚠️ WARNING | Exposing raw database keys (e.g., user_id, order_id) to business users clutters the explore interface, can be confusing, and offers no analytical value. These should be hidden to provide a cleaner, more intuitive user experience. |
 
 ---
 
@@ -290,8 +289,8 @@ Phase 3: Warehouse Partitioning & Acceleration (Week 3)
 
 ## 8. Diagnostic Graph Traversal & Provenance Trail
 
-**OKF Concept Graph Reasoning Trail (0 Hops):**
-`slow_dashboards` ➔ `query_latency_breakdown` ➔ `unpartitioned_warehouse_scans` ➔ `slot_consumption_timeline` ➔ `cartesian_product_risks` ➔ `symmetric_aggregations` ➔ `warehouse_compute_optimization`
+**OKF Concept Graph Reasoning Trail (8 Hops):**
+`query_outliers_diagnosis` ➔ `warehouse_optimization` ➔ `warehouse_optimization` ➔ `lookml-modeling-guidelines` ➔ `query_diagnostic` ➔ `query_diagnostic` ➔ `query_diagnostic` ➔ `lookml-modeling-guidelines`
 
 
 ### 🔗 Provenance & Telemetry Sources

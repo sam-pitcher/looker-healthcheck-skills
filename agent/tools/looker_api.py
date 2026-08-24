@@ -291,6 +291,44 @@ def get_query_sql(query_id: str) -> str:
     return f"Query `{qid}` definition not found in System Activity."
 
 
+def get_looker_history_by_slug(history_slug: str) -> str:
+    """
+    Looks up Looker System Activity context (Dashboard, Look, Explore, User, Runtime)
+    using the BigQuery Job Label `looker-context-history_slug` (`history.slug`).
+    Enables instant 2-way correlation from BigQuery slow/expensive jobs to Looker assets.
+    
+    Args:
+        history_slug: The unique execution slug attached by Looker to the BigQuery job (e.g. 'a1b2c3d4e5f6').
+    """
+    slug = str(history_slug).strip()
+    try:
+        rows = _client.run_query(
+            model="system__activity",
+            view="history",
+            fields=[
+                "history.id",
+                "history.slug",
+                "history.created_time",
+                "history.status",
+                "history.runtime",
+                "query.model",
+                "query.view",
+                "dashboard.title",
+                "dashboard.id",
+                "user.name",
+                "user.email",
+                "history.source"
+            ],
+            filters={"history.slug": slug},
+            limit="1"
+        )
+        if not rows:
+            return f"### 🔍 Looker History Lookup: 0 rows found for slug `{slug}`."
+        return f"### 🔍 Looker Asset Context for Slug `{slug}`:\n```json\n{json.dumps(rows[0], indent=2)}\n```"
+    except Exception as e:
+        return f"Error retrieving Looker history for slug `{slug}`: {str(e)}"
+
+
 def get_explore_definition(model_name: str, explore_name: str) -> str:
     """
     Retrieves complete LookML Explore metadata from Looker API, including base table SQL, joins,

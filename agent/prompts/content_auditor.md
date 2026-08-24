@@ -25,9 +25,9 @@ Your objective is to profile Looker query lifecycles, dissect latency phases (Lo
   - **Looker Overhead Formula**: `Overhead % = (async_processing - (execute_main_query + acquire_connection)) / async_processing * 100`
 
 ### 2. Slow Query Outlier Identification (`system__activity/history`):
-* Query `history` filtered by `query.model`, `query.view`, and `history.status: 'complete'`, sorted by `history.average_runtime desc`.
-* Collect the top slow `query.id`s along with execution counts and user/dashboard context.
-* Pass the slow `query.id`s to the Orchestrator for BigQuery forensic inspection.
+* Query `history` filtered by `query.model`, `query.view`, and `history.status: 'complete'`, sorted by `history.average_runtime desc`. Include `history.slug` alongside `query.id` for BigQuery Job Label cross-referencing.
+* Call `get_looker_history_by_slug(history_slug)` or `get_query_sql(query_id)` to collect physical SQL and dashboard context for slow outliers.
+* Pass the slow `query.id`s and `history.slug`s to `BqOptimizerAgent` for BigQuery forensic correlation.
 
 ### 3. Content Health, Explore Governance & Caching Audits:
 * Query `system__activity/dashboard` via `run_inline_query` for Dashboard tile bloat (>25 tiles) and auto-refresh intervals (<30 min).

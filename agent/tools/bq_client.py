@@ -166,7 +166,7 @@ def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str]
 def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """
     Task 30: Query Cost Optimization with Model Scoping.
-    Audits bytes scanned, GB billed, and on-demand costs for all queries executed by Looker using BigQuery INFORMATION_SCHEMA.
+    Audits bytes scanned, GB billed, and on-demand costs for all queries executed by Looker using BigQuery INFORMATION_SCHEMA and BigQuery Job Labels.
     """
     pid = project_id or GCP_PROJECT_ID
     raw_reg = region or (GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us")
@@ -175,7 +175,7 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
     safe_hours = max(1, min(int(hours), 168))
     client = _get_bq_client(pid, target_loc)
     
-    filter_clause = "(query LIKE '%Looker%' OR query LIKE '%-- Looker%')"
+    filter_clause = "(EXISTS (SELECT 1 FROM UNNEST(labels) WHERE key LIKE 'looker-context%') OR query LIKE '%Looker%' OR query LIKE '%-- Looker%')"
     if model_name:
         clean_model = _sanitize_identifier(model_name)
         if clean_model:
@@ -186,11 +186,13 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
       TIMESTAMP_TRUNC(creation_time, HOUR) as hour_window,
       COUNT(DISTINCT job_id) as looker_queries_count,
       ROUND(SUM(total_bytes_billed) / (1024 * 1024 * 1024), 2) as total_gb_billed,
-      ROUND(SUM(total_bytes_billed) / (1024 * 1024 * 1024) * 0.00625, 2) as estimated_cost_usd
+      ROUND((SUM(total_bytes_billed) / POW(10, 12)) * 6.25, 4) as estimated_cost_usd,
+      ROUND(SUM(total_slot_ms) / 1000, 2) as total_slot_seconds
     FROM
       `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
     WHERE
       creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_hours} HOUR)
+      AND job_type = 'QUERY'
       AND {filter_clause}
     GROUP BY 1
     ORDER BY hour_window DESC
@@ -207,6 +209,72 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
         return f"### 💰 Looker BigQuery Cost & Bytes Billed (Past {safe_hours}h - {scope_str}):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
     except Exception as e:
         return f"Cost audit query:\n```sql\n{query}\n```\n*(Execution note: {str(e)})*"
+
+
+def get_looker_bigquery_job_correlations(
+    project_id: Optional[str] = None,
+    region: Optional[str] = None,
+    hours: int = 24,
+    min_gb_billed: float = 0.0,
+    model_name: Optional[str] = None,
+    limit: int = 25
+) -> str:
+    """
+    Correlates BigQuery query execution telemetry with Looker System Activity using BigQuery Job Labels.
+    Extracts looker-context-user_id, looker-context-history_slug, and looker-context-instance_slug
+    from INFORMATION_SCHEMA.JOBS_BY_PROJECT structured metadata without regex parsing overhead.
+    """
+    pid = project_id or GCP_PROJECT_ID
+    raw_reg = region or (GCP_LOCATION.split("-")[0] if GCP_LOCATION else "us")
+    reg = _sanitize_identifier(raw_reg) or "us"
+    target_loc = "US" if reg.lower() == "us" else ("EU" if reg.lower() == "eu" else reg)
+    safe_hours = max(1, min(int(hours), 168))
+    client = _get_bq_client(pid, target_loc)
+
+    filter_clause = "job_type = 'QUERY' AND EXISTS (SELECT 1 FROM UNNEST(labels) WHERE key LIKE 'looker-context%')"
+    if min_gb_billed > 0:
+        filter_clause += f" AND total_bytes_billed >= {int(min_gb_billed * (1024**3))}"
+    if model_name:
+        clean_model = _sanitize_identifier(model_name)
+        if clean_model:
+            filter_clause += f" AND (query LIKE '%{clean_model}%' OR query LIKE '%lookml_model: {clean_model}%')"
+
+    query = f"""
+    SELECT
+      project_id,
+      job_id,
+      creation_time,
+      user_email,
+      -- Structured Looker Job Labels
+      (SELECT value FROM UNNEST(labels) WHERE key = 'looker-context-user_id') AS looker_user_id,
+      (SELECT value FROM UNNEST(labels) WHERE key = 'looker-context-history_slug') AS looker_history_slug,
+      (SELECT value FROM UNNEST(labels) WHERE key = 'looker-context-instance_slug') AS looker_instance_slug,
+      -- Performance & Cost metrics
+      total_bytes_billed,
+      ROUND(total_bytes_billed / (1024 * 1024 * 1024), 2) AS gb_billed,
+      ROUND((total_bytes_billed / POW(10, 12)) * 6.25, 4) AS estimated_cost_usd,
+      total_slot_ms,
+      ROUND(total_slot_ms / 1000, 2) AS total_slot_seconds,
+      query
+    FROM
+      `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
+    WHERE
+      creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_hours} HOUR)
+      AND {filter_clause}
+    ORDER BY
+      total_bytes_billed DESC
+    LIMIT {limit};
+    """
+
+    if not client:
+        return f"### ⚡ BigQuery Looker Job Label Correlation SQL:\n```sql\n{query}\n```"
+
+    try:
+        query_job = client.query(query)
+        results = [dict(row) for row in query_job.result()]
+        return f"### ⚡ Looker-BigQuery Job Label Correlations ({len(results)} Found - Past {safe_hours}h):\n```json\n{json.dumps(results, indent=2, default=str)}\n```"
+    except Exception as e:
+        return f"Correlation query error:\n```sql\n{query}\n```\n*(Execution note: {str(e)})*"
 
 def audit_bq_slots(project_id: Optional[str] = None, region: Optional[str] = None, hours: int = 24, model_name: Optional[str] = None) -> str:
     """Audits slot consumption and reservation ceilings."""

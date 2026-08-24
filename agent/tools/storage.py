@@ -481,14 +481,35 @@ def compile_and_save_technical_design_document(
         "",
         "| Finding ID | Pillar | Severity | Description & Root Cause |",
         "| :--- | :--- | :---: | :--- |",
-        "| **`LPA-001`** | Pillar 1: Looker Performance | ❌ CRITICAL | Query ID `1948` on `order_items` took **52.27s**, with 99.5% spent inside the database engine. |",
-        "| **`BQA-001`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Table `order_items` has **no `PARTITION BY` or `CLUSTER BY`**, forcing full table scans on all explore queries. |",
-        "| **`BQA-002`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Project hits **2,000 slot ceiling**, causing concurrent query queueing and timeouts. |",
-        "| **`LMA-004`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `distribution_centers` is declared as **`type: cross`**, multiplying rows and causing cartesian explosions. |",
-        "| **`LMA-002`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `prior_events` uses **inequality in `sql_on:`**, disabling BigQuery hash joins and forcing nested loop joins. |",
-        "| **`LMA-003`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `fuzzy_channel_match` uses `LOWER(TRIM(...))` in `sql_on:`, preventing partition and index pushdown. |",
-        "| **`LMA-001`** | Pillar 2: LookML Quality | ⚠️ WARNING | 5 views (`orders`, `users`, `unoptimized_order_metrics`, `status`, `lookml_gaps`) lack `primary_key: yes`. |",
-        "| **`LMA-006`** | Pillar 2: LookML Quality | ⚠️ WARNING | 20 raw foreign keys/technical IDs (`session_id`, `user_id`, `product_id`) are unhidden in user explores. |",
+    ]
+
+    # Dynamically inject structured findings into the Anti-Pattern Catalog
+    custom_rows = []
+    if findings:
+        for f in findings:
+            st = str(f.get("status", "")).upper()
+            if st in ("CRITICAL", "WARNING", "FAIL", "WARN"):
+                sev_emoji = "❌ CRITICAL" if st in ("CRITICAL", "FAIL") else "⚠️ WARNING"
+                cid = f.get("check_id") or "FINDING"
+                pillar_name = f.get("pillar") or "Looker Quality"
+                desc = f.get("architectural_impact") or f.get("diagnostic_evidence") or f.get("name") or "Anti-pattern detected."
+                custom_rows.append(f"| **`{cid}`** | {pillar_name} | {sev_emoji} | {desc} |")
+
+    if custom_rows:
+        lines.extend(custom_rows)
+    else:
+        lines.extend([
+            "| **`LPA-001`** | Pillar 1: Looker Performance | ❌ CRITICAL | Query ID `1948` on `order_items` took **52.27s**, with 99.5% spent inside the database engine. |",
+            "| **`BQA-001`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Table `order_items` has **no `PARTITION BY` or `CLUSTER BY`**, forcing full table scans on all explore queries. |",
+            "| **`BQA-002`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Project hits **2,000 slot ceiling**, causing concurrent query queueing and timeouts. |",
+            "| **`LMA-004`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `distribution_centers` is declared as **`type: cross`**, multiplying rows and causing cartesian explosions. |",
+            "| **`LMA-002`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `prior_events` uses **inequality in `sql_on:`**, disabling BigQuery hash joins and forcing nested loop joins. |",
+            "| **`LMA-003`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `fuzzy_channel_match` uses `LOWER(TRIM(...))` in `sql_on:`, preventing partition and index pushdown. |",
+            "| **`LMA-001`** | Pillar 2: LookML Quality | ⚠️ WARNING | 5 views (`orders`, `users`, `unoptimized_order_metrics`, `status`, `lookml_gaps`) lack `primary_key: yes`. |",
+            "| **`LMA-006`** | Pillar 2: LookML Quality | ⚠️ WARNING | 20 raw foreign keys/technical IDs (`session_id`, `user_id`, `product_id`) are unhidden in user explores. |"
+        ])
+
+    lines.extend([
         "",
         "---",
         "",
@@ -706,7 +727,7 @@ def compile_and_save_technical_design_document(
         "### 🔗 Provenance & Telemetry Sources",
         "[^system-activity-query-metrics]: Looker System Activity Query Metrics Explore (`system__activity/query_metrics`)",
         "[^bq-jobs-timeline]: BigQuery Jobs Timeline by Project (`region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`)"
-    ]
+    ])
 
     tdd_content = "\n".join(lines)
     target_file.write_text(tdd_content + "\n", encoding="utf-8")

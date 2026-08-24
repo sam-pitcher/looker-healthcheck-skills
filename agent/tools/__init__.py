@@ -12,6 +12,7 @@ from .dynamic_cli import (
 from .looker_api import (
     run_inline_query,
     get_query_sql,
+    get_looker_history_by_slug,
     get_explore_definition,
     check_subsystem_status,
     list_projects,
@@ -46,6 +47,7 @@ from .bq_client import (
     audit_partition_cluster_filters,
     audit_datagroup_sync,
     audit_query_costs_and_bytes_billed,
+    get_looker_bigquery_job_correlations,
     audit_bq_slots,
     list_dataset_tables,
     optimize_table_layout,
@@ -74,6 +76,7 @@ from agent.skills_registry import (
 __all__ = [
     "run_inline_query",
     "get_query_sql",
+    "get_looker_history_by_slug",
     "get_explore_definition",
     "run_bq_query",
     "looker_cli_discover",
@@ -103,6 +106,7 @@ __all__ = [
     "audit_partition_cluster_filters",
     "audit_datagroup_sync",
     "audit_query_costs_and_bytes_billed",
+    "get_looker_bigquery_job_correlations",
     "audit_bq_slots",
     "list_dataset_tables",
     "optimize_table_layout",

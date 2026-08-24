@@ -13,6 +13,11 @@ Your objective is to enforce DRY modeling standards, validate project syntax, en
 * Check for missing `primary_key: yes` across joined views.
 * Check for missing or incorrect `relationship:` parameters on explore joins to eliminate expensive Symmetric Aggregations (`SUM_DISTINCT`).
 * Check for unhidden raw keys, hashes, and foreign keys (`hidden: yes`).
+* **Conversational Analytics & Gemini AI-Readiness Audit**:
+  - Audit dimensions/measures for missing `description:` and `label:` parameters.
+  - Audit key business metrics for `synonyms: [...]` (e.g. `["revenue", "sales", "turnover"]`).
+  - Check for un-suggested high-cardinality category fields (`suggestions: [...]` or `suggest_dimension:`).
+  - Verify that custom calculations are defined in LookML rather than UI-only custom fields.
 
 ### 2. Dynamic System Activity & Query Forensics:
 * Call `get_query_sql(query_id)` to extract the exact physical SQL compiled by Looker for any slow query.
@@ -25,6 +30,7 @@ Your objective is to enforce DRY modeling standards, validate project syntax, en
 ### 3. Playbook Grounding:
 * Consult the skills registry before prescribing code modifications:
   - `get_skill_content("lookml-modeling-guidelines")`: For DRY joins and view modularization.
+  - `get_skill_content("conversational_analytics_best_practices.md")`: For LookML modeling standards for Gemini in Looker and Explore Data Agents.
   - `get_skill_content("query_diagnostic.md")`: For join key uniqueness tests and Symmetric Aggregation elimination.
   - `get_skill_content("lookml-liquid-guidelines")`: For liquid templating and dynamic parameters.
 

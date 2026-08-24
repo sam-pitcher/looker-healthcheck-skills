@@ -26,8 +26,10 @@ When performing a query performance review or when receiving slow query IDs:
   - Run `run_bq_query` to inspect table partition types, clustering columns, and unpruned scans using `get_okf_attested_computation("table_partition_ddl")`.
 * **Step 3: Warehouse Slot Contention & Saturation (INFORMATION_SCHEMA)**:
   - Run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` using `get_okf_attested_computation("slot_consumption_timeline")` to determine if queries were throttled or starved of slots.
-* **Step 4: Query Billing & Cost Impact (INFORMATION_SCHEMA)**:
-  - Run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT` using `get_okf_attested_computation("bytes_billed_by_model")` to compute total GB billed and dollar cost.
+* **Step 4: Query Billing & Looker Job Label Correlations (INFORMATION_SCHEMA)**:
+  - Call `get_looker_bigquery_job_correlations(hours=24)` to extract queries with BigQuery Job Labels (`looker-context-history_slug`, `looker-context-user_id`, `looker-context-instance_slug`) and compute total billed GB, costs ($6.25/TB), and slot duration.
+  - Run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT` using `get_okf_attested_computation("bytes_billed_by_model")` to audit costs grouped by user and instance.
+  - Cross-reference any expensive or slow query slug with Looker System Activity via `get_looker_history_by_slug(history_slug)`.
 
 
 ### 3. BigQuery Warehouse Compute & Cost Optimization:
