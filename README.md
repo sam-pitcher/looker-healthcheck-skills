@@ -439,17 +439,93 @@ print(response)
 
 ---
 
-## 8. Telemetry, Tracing & Persistence
+## 8. Telemetry, Observability & Google Cloud Logging
 
-### Dual-Layer Storage:
+The agent features a built-in enterprise observability engine ([`agent/telemetry.py`](agent/telemetry.py)) powered by the ADK `CloudLoggingPlugin`. Every conversation turn, user prompt, subagent handoff, tool execution latency, and diagnostic finding is streamed live to **Google Cloud Logging** and persisted to **Firestore**.
+
+### Structured Log Stream: `looker_healthcheck_telemetry`
+
+All structured telemetry is logged under the log channel:
+```
+projects/<YOUR_GOOGLE_CLOUD_PROJECT>/logs/looker_healthcheck_telemetry
+```
+
+---
+
+### Inspecting Traces in Google Cloud Logs Explorer
+
+Open [Google Cloud Logs Explorer](https://console.cloud.google.com/logs/query) and use the following queries to inspect live sessions:
+
+#### 1. Filter by Session ID (e.g. Session `7d15e056-f54e-4066-a426-8a1dbfa2f18d`):
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d"
+```
+
+#### 2. Inspect User Prompts & Invocations:
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+jsonPayload.event="user_message"
+jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d"
+```
+
+#### 3. Inspect Tool Execution Latencies (Find Slow Queries & Audits):
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+jsonPayload.event="tool_execution"
+jsonPayload.data.duration_ms > 1000
+```
+
+#### 4. Filter Diagnostic Errors & Subagent Warnings:
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+severity >= WARNING
+```
+
+---
+
+### Streaming Logs via `gcloud` CLI
+
+You can stream real-time conversation traces for any session directly in your terminal:
+
+```bash
+# Stream all telemetry events for session 7d15e056-f54e-4066-a426-8a1dbfa2f18d:
+gcloud logging read \
+  'logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry" AND jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d"' \
+  --project=sampitcher-playground \
+  --limit=25 \
+  --format="table(timestamp, jsonPayload.event, jsonPayload.data.agent_name, jsonPayload.data.tool_name, jsonPayload.data.duration_ms)"
+```
+
+---
+
+### Structured JSON Telemetry Schema
+
+Every log entry emitted by the agent conforms to standard structured JSON:
+
+```json
+{
+  "event": "tool_execution",
+  "timestamp": "2026-08-28T08:15:22.450123Z",
+  "data": {
+    "session_id": "7d15e056-f54e-4066-a426-8a1dbfa2f18d",
+    "agent_name": "LookmlQualityAgent",
+    "tool_name": "looker_cli_execute",
+    "duration_ms": 520,
+    "status": "SUCCESS",
+    "input_args": {
+      "command": "project file cat thelook views/users.view.lkml"
+    }
+  }
+}
+```
+
+---
+
+### Dual-Layer Storage & Local Tracing:
 1. **Technical Design Document**: Every engagement compiles comprehensive root-cause diagnostics, LookML before/after diffs, and BigQuery DDL into `TECHNICAL_DESIGN_DOCUMENT.md` at the repository root.
 2. **Google Cloud Firestore Database**: Structured JSON audit documents are saved to the `looker_healthchecks` collection, tracking 30 diagnostic check results, pillar sub-scores (0–100), and timestamps for long-term health trajectory analytics.
-
-### Execution Tracing:
-Inspect session spans, tool runtimes, and token counts using the trace inspection utility:
-```bash
-python3 scripts/inspect_session_traces.py
-```
+3. **ADK Web UI Trace Inspector**: In `http://localhost:8000`, click on session `7d15e056-f54e-4066-a426-8a1dbfa2f18d` in the sidebar and select the **Trace / Debug** tab to view step-by-step agent timings and token metrics.
 
 ---
 
