@@ -7,3 +7,5 @@ description: "Warehouse compute and SQL optimization playbooks."
 # BigQuery Compute Playbooks
 
 Warehouse compute and SQL optimization playbooks.
+
+* [Playbook BigQuery Compute Optimization](playbook_bigquery_compute.md)
