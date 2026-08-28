@@ -186,7 +186,19 @@ class LookerAdminClient:
                     with urllib.request.urlopen(req, context=self._ssl_context(), timeout=timeout) as resp:
                         raw = resp.read().decode("utf-8")
                         return json.loads(raw) if raw.strip() else {}
-            raise
+            # Extract detailed error message from Looker API body
+            try:
+                err_body = e.read().decode("utf-8")
+                try:
+                    err_json = json.loads(err_body)
+                    err_msg = err_json.get("message") or err_json.get("error") or err_body
+                except Exception:
+                    err_msg = err_body
+                raise ValueError(f"Looker API Error ({e.code}): {err_msg}") from None
+            except ValueError:
+                raise
+            except Exception:
+                raise e
 
     def get(self, endpoint: str) -> Any:
         return self._request("GET", endpoint)
