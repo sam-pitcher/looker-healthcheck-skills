@@ -459,24 +459,49 @@ Open [Google Cloud Logs Explorer](https://console.cloud.google.com/logs/query) a
 #### 1. Filter by Session ID (e.g. Session `7d15e056-f54e-4066-a426-8a1dbfa2f18d`):
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d"
+(jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d" OR jsonPayload.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d")
 ```
 
-#### 2. Inspect User Prompts & Invocations:
+#### 2. Inspect Physical SQL Executed (BigQuery & Looker SQL Runner):
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+(jsonPayload.tool_name="run_bq_query" OR jsonPayload.tool_name="get_query_sql" OR jsonPayload.data.tool_name="run_bq_query" OR jsonPayload.data.tool_name="get_query_sql")
+```
+*💡 Displays the exact compiled SQL extracted for slow queries and the raw BigQuery queries run against `INFORMATION_SCHEMA`.*
+
+#### 3. Inspect Looker `run_inline_query` Function Calls & Results:
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+(jsonPayload.tool_name="run_inline_query" OR jsonPayload.data.tool_name="run_inline_query")
+```
+*💡 Filter specifically for System Activity telemetry queries (e.g. query metrics, history, user errors):*
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+jsonPayload.tool_name="run_inline_query"
+jsonPayload.tool_args.model="system__activity"
+```
+
+#### 4. Inspect Live Looker CLI Commands & Remote LookML Ingestion:
+```sql
+logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+(jsonPayload.tool_name="looker_cli_execute" OR jsonPayload.data.tool_name="looker_cli_execute")
+```
+
+#### 5. Inspect User Prompts & Invocations:
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
 jsonPayload.event="user_message"
 jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d"
 ```
 
-#### 3. Inspect Tool Execution Latencies (Find Slow Queries & Audits):
+#### 6. Inspect Tool Execution Latencies (Find Slow Queries & Audits):
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-jsonPayload.event="tool_execution"
-jsonPayload.data.duration_ms > 1000
+(jsonPayload.event="tool_execution" OR jsonPayload.event="tool_completed")
+(jsonPayload.data.duration_ms > 1000 OR jsonPayload.duration_ms > 1000)
 ```
 
-#### 4. Filter Diagnostic Errors & Subagent Warnings:
+#### 7. Filter Diagnostic Errors & Subagent Warnings:
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
 severity >= WARNING
