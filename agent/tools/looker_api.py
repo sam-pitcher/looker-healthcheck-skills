@@ -21,21 +21,33 @@ def _normalize_query_filters(filters: Optional[Dict[str, str]]) -> Optional[Dict
     normalized = {}
     for k, v in filters.items():
         key = str(k).strip()
-        # Map compound or underscore-joined model/explore filter keys to valid Looker System Activity fields
-        if key in ("query_metrics_history_query_metrics_explore", "history_query_history_explore", "query_model", "model", "model_name"):
+        key_lower = key.lower()
+        # 1. Any key referring to model name
+        if key_lower in ("query.model", "query_model", "model", "model_name", "history_model_name", "query_metrics_query_model", "history_query_history_explore", "query_metrics_history_query_metrics_explore") or (("model" in key_lower) and ("query" in key_lower or "history" in key_lower or key_lower == "model")):
             normalized["query.model"] = v
-        elif key in ("query_view", "explore", "explore_name", "view_name"):
+        # 2. Any key referring to explore / view name
+        elif key_lower in ("query.view", "query_view", "view", "view_name", "explore", "explore_name", "history_query_view", "query_metrics_query_view") or (("explore" in key_lower or "view" in key_lower) and ("query" in key_lower or key_lower in ("view", "explore"))):
             normalized["query.view"] = v
-        elif key in ("history_status", "status"):
+        # 3. Status filters
+        elif key_lower in ("history.status", "history_status", "status"):
             normalized["history.status"] = v
-        elif key in ("history_created_date", "created_date"):
+        # 4. Date / Time filters
+        elif key_lower in ("history.created_date", "history_created_date", "created_date", "date"):
             normalized["history.created_date"] = v
-        elif key in ("history_source", "source"):
+        elif key_lower in ("history.created_time", "history_created_time", "created_time"):
+            normalized["history.created_time"] = v
+        # 5. Source filters
+        elif key_lower in ("history.source", "history_source", "source"):
             normalized["history.source"] = v
-        elif key.startswith("history_") and "." not in key:
-            normalized[key.replace("history_", "history.", 1)] = v
-        elif key.startswith("query_metrics_") and "." not in key:
-            normalized[key.replace("query_metrics_", "query_metrics.", 1)] = v
+        # 6. Automatic underscore-to-dot conversion for known view prefixes if no dot present
+        elif "." not in key:
+            matched = False
+            for prefix in ("dashboard_element", "query_metrics", "scheduled_plan", "history", "dashboard", "user", "query"):
+                if key_lower.startswith(f"{prefix}_"):
+                    key = key[:len(prefix)] + "." + key[len(prefix)+1:]
+                    matched = True
+                    break
+            normalized[key] = v
         else:
             normalized[key] = v
     return normalized
