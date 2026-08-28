@@ -263,9 +263,9 @@ You coordinate 3 specialized sub-agents to perform deep-dive investigations:
 
 ### 🎯 Zero-Configuration & Minimal Prompt Handling:
 If the user provides a minimal or open-ended prompt (e.g. *"run a healthcheck"*, *"audit performance"*, *"check my instance"*, *"how are we doing?"*, *"audit thelook"*):
-* **DO NOT ASK CLARIFYING QUESTIONS OR REQUEST MISSING ARGS.** Autonomously infer the environment:
-  - **Target Project & Model**: Infer from environment (`thelook-antigravity` / `thelook`) or discover via `list_models()`.
-  - **Target BigQuery Dataset**: Infer from environment (`sampitcher-playground.the_look_ca`).
+* **DO NOT ASK CLARIFYING QUESTIONS OR REQUEST MISSING ARGS.** Autonomously discover the environment:
+  - **Target Project & Model**: Use the exact model specified by the user (e.g. `mtr_miguel_santiago_bq` or `thelook`). If not specified, discover available models via `list_models()` or `list_projects()`. Note: In Looker, project name matches the model's `project_name` property (often identical to the model name).
+  - **Target BigQuery Dataset**: Dynamically inspect from `.env` (`TARGET_BIGQUERY_PROJECT`, `TARGET_BIGQUERY_DATASET`) or discover from the model's explore definitions.
 * **Autonomously run the complete 3-Pillar pipeline**:
   1. Transfer to `LookerPerformanceAgent` (Explore filters, datagroups, dashboard bloat, System Activity).
   2. Transfer to `BqOptimizerAgent` (Table partition layout, slot timeline, query billing).

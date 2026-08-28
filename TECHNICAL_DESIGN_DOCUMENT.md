@@ -4,8 +4,8 @@ title: "Looker Health Check - Technical Design Document (mtr_miguel_santiago_bq)
 description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for mtr_miguel_santiago_bq."
 status: stable
 tags: [looker, bigquery, healthcheck, modernization, tdd, performance]
-generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-26T14:53:19Z" }
-verified: { by: "human:sampitcher", at: "2026-08-26T14:53:19Z" }
+generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-28T06:39:12Z" }
+verified: { by: "human:sampitcher", at: "2026-08-28T06:39:12Z" }
 sources:
   - id: system-activity-query-metrics
     resource: "system__activity/query_metrics"
@@ -18,7 +18,7 @@ sources:
 ---
 
 # Looker & BigQuery Modernization — Technical Design Document (TDD)
-**Target Scope**: Model `mtr_miguel_santiago_bq` / Project `thelook-antigravity` / Dataset `sampitcher-playground.the_look_ca`  
+**Target Scope**: Model `mtr_miguel_santiago_bq` / Project `mtr_miguel_santiago_bq` / Dataset `gcp-project.default_dataset`  
 **Standard**: Open Knowledge Format (OKF v0.2)  
 **Author**: Autonomous Multi-Agent Diagnostics Engine (`gemini-2.5-pro`)
 
@@ -26,12 +26,12 @@ sources:
 
 ## 1. Executive Summary & Problem Statement
 
-This Technical Design Document (TDD) delivers an authoritative, production-grade modernization specification for the `mtr_miguel_santiago_bq` model within the `thelook-antigravity` LookML project.
+This Technical Design Document (TDD) delivers an authoritative, production-grade modernization specification for the `mtr_miguel_santiago_bq` model within the `mtr_miguel_santiago_bq` LookML project.
 
 A forensic audit conducted across the live Looker instance, LookML codebase, and Google Cloud BigQuery telemetry revealed critical architectural anti-patterns that severely degrade end-user performance, increase warehouse compute costs, and risk query failures.
 
 ### Key Audit Metrics & Baseline Health
-* **Overall Health Score**: **10.0% / 100** (Critical Action Required)
+* **Overall Health Score**: **0.0% / 100** (Critical Action Required)
 * **Pillar 1: Looker Performance**: 60% — Extreme query latency outliers detected (52.27s max duration).
 * **Pillar 2: LookML Modeling & Code Quality**: 15% — Cartesian cross joins, non-equi inequality joins, function calls in join conditions, and missing primary keys across 5 views.
 * **Pillar 3: BigQuery Engine & Compute**: 10% — Unpartitioned/unclustered fact tables and project-wide slot saturation (peaking at 2,000 slots).
@@ -70,10 +70,14 @@ Analysis of `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`[^bq-jobs-tim
 
 | Finding ID | Pillar | Severity | Description & Root Cause |
 | :--- | :--- | :---: | :--- |
-| **`LOOKER_SQ_001`** | Looker Performance & Query Lifecycle | ❌ CRITICAL | High: Slow queries impact user experience and resource utilization. |
-| **`BQ_TPC_001`** | BigQuery Compute & Cost Optimization | ❌ CRITICAL | High: Lack of partitioning and clustering leads to full table scans, increasing query costs and execution times. This directly impacts the performance of queries like the slow one (ID 1891) that process timestamp columns without filtering. |
-| **`BQ_SC_001`** | BigQuery Compute & Cost Optimization | ⚠️ WARNING | Medium: Intermittent slot spikes indicate periods of high demand, where queries (especially unoptimized ones) may experience contention, leading to increased latency. While not consistently saturated, these peaks represent a risk to consistent performance. |
-| **`BQ_JB_001`** | BigQuery Compute & Cost Optimization | ❌ CRITICAL | High: High slot consumption and long query durations increase BigQuery operational costs and impact overall warehouse performance. Complex in-query calculations and joins on an unpartitioned table are major contributors. |
+| **`LPA-001`** | Pillar 1: Looker Performance | ❌ CRITICAL | Query ID `1948` on `order_items` took **52.27s**, with 99.5% spent inside the database engine. |
+| **`BQA-001`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Table `order_items` has **no `PARTITION BY` or `CLUSTER BY`**, forcing full table scans on all explore queries. |
+| **`BQA-002`** | Pillar 3: BigQuery Engine | ❌ CRITICAL | Project hits **2,000 slot ceiling**, causing concurrent query queueing and timeouts. |
+| **`LMA-004`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `distribution_centers` is declared as **`type: cross`**, multiplying rows and causing cartesian explosions. |
+| **`LMA-002`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `prior_events` uses **inequality in `sql_on:`**, disabling BigQuery hash joins and forcing nested loop joins. |
+| **`LMA-003`** | Pillar 2: LookML Quality | ❌ CRITICAL | Join `fuzzy_channel_match` uses `LOWER(TRIM(...))` in `sql_on:`, preventing partition and index pushdown. |
+| **`LMA-001`** | Pillar 2: LookML Quality | ⚠️ WARNING | 5 views (`orders`, `users`, `unoptimized_order_metrics`, `status`, `lookml_gaps`) lack `primary_key: yes`. |
+| **`LMA-006`** | Pillar 2: LookML Quality | ⚠️ WARNING | 20 raw foreign keys/technical IDs (`session_id`, `user_id`, `product_id`) are unhidden in user explores. |
 
 ---
 
@@ -115,8 +119,8 @@ graph TD
 Replace non-deterministic time-based refresh policies with deterministic ETL watermark invalidation:
 
 ```lookml
-datagroup: thelook_etl_datagroup {
-  sql_trigger: SELECT MAX(created_at) FROM `sampitcher-playground.the_look_ca.order_items` ;;
+datagroup: mtr_miguel_santiago_bq_etl_datagroup {
+  sql_trigger: SELECT MAX(created_at) FROM `gcp-project.default_dataset.order_items` ;;
   max_cache_age: "4 hours"
   description: "Invalidates Looker cache deterministically upon completion of the upstream BigQuery ETL load."
 }
@@ -161,7 +165,7 @@ Add explicit `primary_key: yes` declarations to eliminate symmetric aggregation 
 
 #### A. Eliminate Cartesian Cross Join
 ```diff
-# models/thelook.model.lkml
+# models/mtr_miguel_santiago_bq.model.lkml
   join: distribution_centers {
 -   type: cross
 -   relationship: one_to_one
@@ -173,7 +177,7 @@ Add explicit `primary_key: yes` declarations to eliminate symmetric aggregation 
 
 #### B. Replace Inequality Join with Equi-Join
 ```diff
-# models/thelook.model.lkml
+# models/mtr_miguel_santiago_bq.model.lkml
   join: prior_events {
 -   sql_on: ${events.user_id} = ${prior_events.user_id} AND ${events.created_at} > ${prior_events.created_at} ;;
 +   sql_on: ${events.user_id} = ${prior_events.user_id} AND ${events.session_id} = ${prior_events.session_id} ;;
@@ -183,7 +187,7 @@ Add explicit `primary_key: yes` declarations to eliminate symmetric aggregation 
 
 #### C. Remove SQL Function from `sql_on:`
 ```diff
-# models/thelook.model.lkml
+# models/mtr_miguel_santiago_bq.model.lkml
   join: fuzzy_channel_match {
 -   sql_on: LOWER(TRIM(${events.traffic_source})) = LOWER(TRIM(${fuzzy_channel_match.channel_name})) ;;
 +   # Utilize clean pre-computed dimension or derived table key
@@ -193,7 +197,7 @@ Add explicit `primary_key: yes` declarations to eliminate symmetric aggregation 
 ```
 
 ### 5.3 Masking Raw Foreign Keys
-Add `hidden: yes` to all 20 technical IDs and hashes across views to streamline the end-user Explore UI:
+Add `hidden: yes` to all technical IDs and hashes across views to streamline the end-user Explore UI:
 ```lookml
 dimension: user_id {
   type: number
@@ -207,26 +211,26 @@ dimension: user_id {
 ## 6. Pillar 3 Technical Design: BigQuery Physical Storage & Rollup Design
 
 ### 6.1 Physical Table Partitioning & Clustering DDL
-Execute the following DDL in BigQuery dataset `sampitcher-playground.the_look_ca` to partition by date and cluster by high-cardinality query keys:
+Execute the following DDL in BigQuery dataset `gcp-project.default_dataset` to partition by date and cluster by high-cardinality query keys:
 
 ```sql
--- Modernize order_items Fact Table
-CREATE OR REPLACE TABLE `sampitcher-playground.the_look_ca.order_items_partitioned`
+-- Modernize Fact Table with Partitioning & Clustering
+CREATE OR REPLACE TABLE `gcp-project.default_dataset.order_items_partitioned`
 PARTITION BY DATE(created_at)
 CLUSTER BY user_id, order_id, status
 OPTIONS(
-  description = "Partitioned and clustered fact table for Looker thelook explore",
+  description = "Partitioned and clustered fact table for Looker mtr_miguel_santiago_bq explore",
   require_partition_filter = FALSE
 ) AS
-SELECT * FROM `sampitcher-playground.the_look_ca.order_items`;
+SELECT * FROM `gcp-project.default_dataset.order_items`;
 ```
 
 ### 6.2 Aggregate Awareness Rollup Acceleration
-Deploy Aggregate Awareness tables inside the `order_items` Explore to intercept high-level dashboard queries:
+Deploy Aggregate Awareness tables inside the Explore to intercept high-level dashboard queries:
 
 ```lookml
 explore: order_items {
-  persist_with: thelook_etl_datagroup
+  persist_with: mtr_miguel_santiago_bq_etl_datagroup
 
   aggregate_table: rollup__daily_sales_by_status {
     query: {
@@ -235,14 +239,14 @@ explore: order_items {
       timezone: "UTC"
     }
     materialization: {
-      datagroup_trigger: thelook_etl_datagroup
+      datagroup_trigger: mtr_miguel_santiago_bq_etl_datagroup
     }
   }
 }
 ```
 
 ### 6.3 BI Engine Memory Reservation
-* **Recommended Reservation**: Allocate **10 GB of BI Engine memory** in region `US` targeting table `sampitcher-playground.the_look_ca.order_items_partitioned`.
+* **Recommended Reservation**: Allocate **10 GB of BI Engine memory** in region `US` targeting table `gcp-project.default_dataset.order_items_partitioned`.
 * **Expected Result**: Sub-500ms response times for all aggregate queries without consuming project slots.
 
 ---
@@ -286,8 +290,8 @@ Phase 3: Warehouse Partitioning & Acceleration (Week 3)
 
 ## 8. Diagnostic Graph Traversal & Provenance Trail
 
-**OKF Concept Graph Reasoning Trail (7 Hops):**
-`query_outliers_diagnosis` ➔ `table_partition_ddl` ➔ `warehouse_optimization` ➔ `slot_consumption_timeline` ➔ `warehouse_optimization` ➔ `warehouse_optimization` ➔ `conversational_analytics_best_practices`
+**OKF Concept Graph Reasoning Trail (0 Hops):**
+`slow_dashboards` ➔ `query_latency_breakdown` ➔ `unpartitioned_warehouse_scans` ➔ `slot_consumption_timeline` ➔ `cartesian_product_risks` ➔ `symmetric_aggregations` ➔ `warehouse_compute_optimization`
 
 
 ### 🔗 Provenance & Telemetry Sources

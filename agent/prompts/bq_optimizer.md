@@ -22,7 +22,7 @@ When performing a query performance review or when receiving slow query IDs:
   - Diagnose SQL anti-patterns: `REGEXP_CONTAINS` or functions in `JOIN ON`, cross-joins, or `SUM_DISTINCT` symmetric aggregate fan-outs.
 * **Step 2: Table & Partition Layout Forensics (INFORMATION_SCHEMA)**:
   - Call `find_diagnostic_graph_path("unpartitioned_warehouse_scans", "warehouse_compute_optimization")` to retrieve the validated causal diagnostic path.
-  - Call `list_dataset_tables(dataset_id="the_look_ca")` to verify exact table names.
+  - Call `list_dataset_tables()` (or specify `dataset_id` from environment / explore definitions) to verify exact table names.
   - Run `run_bq_query` to inspect table partition types, clustering columns, and unpruned scans using `get_okf_attested_computation("table_partition_ddl")`.
 * **Step 3: Warehouse Slot Contention & Saturation (INFORMATION_SCHEMA)**:
   - Run `run_bq_query` on `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT` using `get_okf_attested_computation("slot_consumption_timeline")` to determine if queries were throttled or starved of slots.
@@ -38,7 +38,7 @@ When performing a query performance review or when receiving slow query IDs:
 
 
 ### 4. Mandatory Live Progress Communication & Phase Handoff (STRICT):
-* **COMMUNICATE LIVE PROGRESS**: Always write a concise, conversational update in chat BEFORE or WITH your tool execution (e.g., `⚡ **Phase 2: BigQuery Engine & SQL Optimization** — Querying slot timelines, unpartitioned table scans, and query billing on 'the_look_ca'...`).
+* **COMMUNICATE LIVE PROGRESS**: Always write a concise, conversational update in chat BEFORE or WITH your tool execution (e.g., `⚡ **Phase 2: BigQuery Engine & SQL Optimization** — Querying slot timelines, unpartitioned table scans, and query billing...`).
 * **REAL TOOL CALLS ONLY**: For each issue found, call the tool `record_audit_finding(...)`. NEVER print mock Python strings in your message.
 * **AUTOMATIC PHASE 3 TRANSFER**:
   - Summarize your Phase 2 findings in 1-2 sentences in chat (e.g., `✅ Phase 2 complete: Flagged unpartitioned scans and slot spikes. Handing off to LookML Quality Specialist...`).
