@@ -55,7 +55,7 @@ The accuracy, reliability, and latency of AI-generated responses depend directly
 
 ```lookml
 view: orders {
-  sql_table_name: `sampitcher-playground.the_look_ca.orders` ;;
+  sql_table_name: `<project_id>.<dataset_id>.orders` ;;
 
   # 1. Primary key marked and hidden from end-user NL search
   dimension: order_id {

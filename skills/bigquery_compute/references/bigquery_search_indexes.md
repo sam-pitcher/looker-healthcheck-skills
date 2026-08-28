@@ -43,7 +43,7 @@ Run the following DDL in BigQuery to index text columns:
 ```sql
 -- Create Search Index on unstructured string columns
 CREATE SEARCH INDEX IF NOT EXISTS events_search_idx
-ON `sampitcher-playground.the_look_ca.events`(traffic_source, uri, user_agent);
+ON `<project_id>.<dataset_id>.events`(traffic_source, uri, user_agent);
 ```
 
 ### Step 2: Enable LookML Search Optimization
@@ -51,7 +51,7 @@ In the LookML view, utilize BigQuery's `SEARCH()` function in dimension definiti
 
 ```lookml
 view: events {
-  sql_table_name: `sampitcher-playground.the_look_ca.events` ;;
+  sql_table_name: `<project_id>.<dataset_id>.events` ;;
 
   dimension: uri {
     type: string

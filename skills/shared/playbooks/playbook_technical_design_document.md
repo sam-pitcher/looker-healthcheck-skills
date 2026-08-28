@@ -77,8 +77,8 @@ graph TD
 * **4.2 Caching Strategy & Datagroup Redesign**:
   - Replace non-deterministic UUID / timestamp triggers (`GENERATE_UUID()`) with ETL watermark triggers:
     ```lookml
-    datagroup: thelook_etl_datagroup {
-      sql_trigger: SELECT MAX(created_at) FROM `sampitcher-playground.the_look_ca.orders_table` ;;
+    datagroup: etl_watermark_datagroup {
+      sql_trigger: SELECT MAX(created_at) FROM `<project_id>.<dataset_id>.<fact_table>` ;;
       max_cache_age: "4 hours"
     }
     ```
@@ -105,10 +105,10 @@ graph TD
 * **6.1 Physical Table Partitioning & Clustering DDL**:
   - Exact BigQuery SQL DDL to recreate unpartitioned tables with date partitioning and high-cardinality clustering:
     ```sql
-    CREATE OR REPLACE TABLE `sampitcher-playground.the_look_ca.events_partitioned`
+    CREATE OR REPLACE TABLE `<project_id>.<dataset_id>.<table_name>_partitioned`
     PARTITION BY DATE(created_at)
-    CLUSTER BY user_id, browser, event_type AS
-    SELECT * FROM `sampitcher-playground.the_look_ca.events_table`;
+    CLUSTER BY user_id, status AS
+    SELECT * FROM `<project_id>.<dataset_id>.<table_name>`;
     ```
 * **6.2 Aggregate Awareness Rollup Design**:
   - Provide complete LookML `aggregate_table` specifications for high-frequency dashboard queries:

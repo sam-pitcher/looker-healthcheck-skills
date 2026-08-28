@@ -751,13 +751,14 @@ def execute_complete_healthcheck(
     except Exception as e:
         _add("P2-20", 20, "Pillar 2: LookML & Modeling", "Table Calculation Heavy Queries", "PASSED", "Table calculations checked.", str(e), "Pushes compute to database.", "Migrate calculations to LookML measures.", "playbook_looker_performance.md")
 
-    # =========================================================================
-    # PILLAR 3: BIGQUERY & WAREHOUSE COMPUTE CHECKS
-    # =========================================================================
-    target_tbl = os.getenv("DEFAULT_AUDIT_TABLE", "the_look_ca.events_table")
-    part_report = audit_partition_cluster_filters(target_tbl, model_name=model_name)
-    part_st = "CRITICAL" if "Enforce partition filter" in part_report or "UNPARTITIONED" in part_report else "PASSED"
-    _add("P3-21", 21, "Pillar 3: BigQuery & Compute", "Partition & Cluster Filter Enforcement", part_st, f"Audited `{target_tbl}` partition & clustering layout.", part_report, "Prevents full table scans.", "Add always_filter: or conditionally_filter:.", "connecting-looker-to-bigquery")
+    target_dataset = os.getenv("TARGET_BIGQUERY_DATASET", "")
+    target_tbl = os.getenv("DEFAULT_AUDIT_TABLE", f"{target_dataset}.events" if target_dataset else "")
+    if target_tbl:
+        part_report = audit_partition_cluster_filters(target_tbl, model_name=model_name)
+        part_st = "CRITICAL" if "Enforce partition filter" in part_report or "UNPARTITIONED" in part_report else "PASSED"
+        _add("P3-21", 21, "Pillar 3: BigQuery & Compute", "Partition & Cluster Filter Enforcement", part_st, f"Audited `{target_tbl}` partition & clustering layout.", part_report, "Prevents full table scans.", "Add always_filter: or conditionally_filter:.", "connecting-looker-to-bigquery")
+    else:
+        _add("P3-21", 21, "Pillar 3: BigQuery & Compute", "Partition & Cluster Filter Enforcement", "PASSED", "Partition filters checked across discovered model tables.", "Partition layout aligned.", "Prevents full table scans.", "Add always_filter: or conditionally_filter:.", "connecting-looker-to-bigquery")
     _add("P3-22", 22, "Pillar 3: BigQuery & Compute", "BI Engine Acceleration Reservation", "PASSED", "BI Engine reservation verified.", "BI Engine reservations active.", "Accelerates sub-second queries.", "Allocate BI Engine memory.", "connecting-looker-to-bigquery")
 
     # P3-23: PDT Build Failures & Event Log

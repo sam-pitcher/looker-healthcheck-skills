@@ -792,7 +792,7 @@ def save_technical_design_document(
 
     # Enforce OKF v0.2 YAML Frontmatter if not already present
     if not content_to_write.startswith("---"):
-        model_str = model_name or "thelook-antigravity"
+        model_str = model_name or os.getenv("TARGET_LOOKML_MODEL", "model_under_review")
         okf_frontmatter = (
             "---\n"
             "type: Technical Design Document\n"

@@ -112,14 +112,16 @@ def run_bq_query(sql_query: str, project_id: Optional[str] = None, location: Opt
 # PILLAR 3: BIGQUERY INTEGRATION & DATABASE OPTIMIZATION (Tasks 21 to 30)
 # ==============================================================================
 
-DEFAULT_DATASET = os.getenv("TARGET_BIGQUERY_DATASET") or os.getenv("BIGQUERY_DATASET", "the_look_ca")
+DEFAULT_DATASET = os.getenv("TARGET_BIGQUERY_DATASET") or os.getenv("BIGQUERY_DATASET", "")
 
 def _resolve_table_id(table_id: str, project_id: Optional[str] = None) -> str:
     cleaned = table_id.strip("`'\" \t\n")
     parts = cleaned.split(".")
     pid = project_id or GCP_PROJECT_ID
     if len(parts) == 1:
-        return f"{pid}.{DEFAULT_DATASET}.{parts[0]}" if pid else f"{DEFAULT_DATASET}.{parts[0]}"
+        if DEFAULT_DATASET:
+            return f"{pid}.{DEFAULT_DATASET}.{parts[0]}" if pid else f"{DEFAULT_DATASET}.{parts[0]}"
+        return f"{pid}.{parts[0]}" if pid else parts[0]
     elif len(parts) == 2:
         return f"{pid}.{cleaned}" if pid else cleaned
     return cleaned
