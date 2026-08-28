@@ -49,6 +49,10 @@ class LookerAdminClient:
             token_m = re.search(r"access_token:\s*([^\s\n]+)", content)
             refresh_m = re.search(r"refresh_token:\s*([^\s\n]+)", content)
             client_m = re.search(r"client_id:\s*([^\s\n]+)", content)
+            verify_ssl_m = re.search(r"verify_ssl:\s*([^\s\n]+)", content)
+
+            if verify_ssl_m and "LOOKER_VERIFY_SSL" not in os.environ:
+                self.verify_ssl = verify_ssl_m.group(1).strip("\"'").lower() in ("true", "1", "yes")
 
             if host_m and not self.base_url:
                 host = host_m.group(1).strip("\"'")
@@ -56,7 +60,7 @@ class LookerAdminClient:
                 proto = "https" if port in ("443", "19999") or self.verify_ssl else "http"
                 self.base_url = f"{proto}://{host}" if port in ("443", "80") else f"{proto}://{host}:{port}"
 
-            if client_m and not self.client_id:
+            if client_m and (not self.client_id or self.client_id == "com.looker.cli"):
                 self.client_id = client_m.group(1).strip("\"'")
 
             if refresh_m:
@@ -594,12 +598,7 @@ def execute_complete_healthcheck(
     and returns (report_markdown, structured_findings).
     """
     from datetime import datetime, timezone
-    from agent.tools.lookml_fs import (
-        run_lookml_validation, audit_primary_keys, audit_join_relationships,
-        run_henry_vacuum, audit_explore_field_exposure, audit_folder_structure,
-        audit_naming_conventions, audit_metadata_descriptions, audit_unused_joins,
-        audit_incremental_pdts, audit_oauth_connections, audit_join_key_syntax
-    )
+    from agent.tools.dynamic_cli import _run_cli
     from agent.tools.bq_client import (
         audit_partition_cluster_filters, audit_datagroup_sync,
         audit_query_costs_and_bytes_billed, audit_bq_slots

@@ -6,6 +6,8 @@ Implements Pillar 3 & BigQuery Performance Checks (Tasks 21, 25, 30).
 import os
 import re
 import json
+import subprocess
+import time
 from functools import lru_cache
 from typing import Dict, Any, Optional, List
 try:
@@ -14,15 +16,48 @@ try:
 except ImportError:
     pass
 
-GCP_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "")
-GCP_LOCATION = os.getenv("BIGQUERY_LOCATION", "US")
+RUNNER_PROJECT_ID = os.getenv("GOOGLE_CLOUD_PROJECT", "sampitcher-playground")
+TARGET_BQ_PROJECT_ID = os.getenv("TARGET_BIGQUERY_PROJECT") or os.getenv("BIGQUERY_PROJECT_ID") or RUNNER_PROJECT_ID
+TARGET_BQ_LOCATION = os.getenv("TARGET_BIGQUERY_LOCATION") or os.getenv("BIGQUERY_LOCATION", "US")
+TARGET_BQ_ACCOUNT = os.getenv("TARGET_BIGQUERY_ACCOUNT", "")
+GCP_PROJECT_ID = TARGET_BQ_PROJECT_ID
+GCP_LOCATION = TARGET_BQ_LOCATION
+
+_CACHED_BQ_CREDS: Dict[str, Any] = {}
+
+def _get_credentials_for_account(account_email: str):
+    """Dynamically obtains OAuth credentials for a specific gcloud account email."""
+    if not account_email:
+        return None
+    now = time.time()
+    if account_email in _CACHED_BQ_CREDS:
+        creds, acquired_at = _CACHED_BQ_CREDS[account_email]
+        if now - acquired_at < 3000:  # Valid for 50 minutes
+            return creds
+    try:
+        token = subprocess.check_output(
+            ["gcloud", "auth", "print-access-token", f"--account={account_email}"],
+            stderr=subprocess.DEVNULL,
+            timeout=10
+        ).decode("utf-8").strip()
+        if token:
+            from google.oauth2.credentials import Credentials
+            creds = Credentials(token)
+            _CACHED_BQ_CREDS[account_email] = (creds, now)
+            return creds
+    except Exception:
+        pass
+    return None
 
 @lru_cache(maxsize=16)
 def _get_bq_client(project_id: Optional[str] = None, location: Optional[str] = None):
     try:
         from google.cloud import bigquery
-        proj = project_id or GCP_PROJECT_ID or None
-        loc = location or GCP_LOCATION or None
+        proj = project_id or TARGET_BQ_PROJECT_ID or None
+        loc = location or TARGET_BQ_LOCATION or None
+        creds = _get_credentials_for_account(TARGET_BQ_ACCOUNT) if TARGET_BQ_ACCOUNT else None
+        if creds:
+            return bigquery.Client(project=proj, credentials=creds, location=loc)
         return bigquery.Client(project=proj, location=loc)
     except Exception:
         return None
@@ -77,7 +112,7 @@ def run_bq_query(sql_query: str, project_id: Optional[str] = None, location: Opt
 # PILLAR 3: BIGQUERY INTEGRATION & DATABASE OPTIMIZATION (Tasks 21 to 30)
 # ==============================================================================
 
-DEFAULT_DATASET = os.getenv("BIGQUERY_DATASET", "the_look_ca")
+DEFAULT_DATASET = os.getenv("TARGET_BIGQUERY_DATASET") or os.getenv("BIGQUERY_DATASET", "the_look_ca")
 
 def _resolve_table_id(table_id: str, project_id: Optional[str] = None) -> str:
     cleaned = table_id.strip("`'\" \t\n")
@@ -136,6 +171,7 @@ def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str]
     safe_hours = max(1, min(int(hours), 168))
     client = _get_bq_client(pid, target_loc)
     
+    schema_table = f"`{pid}.region-{reg}.INFORMATION_SCHEMA.JOBS_BY_PROJECT`" if pid else f"`region-{reg}.INFORMATION_SCHEMA.JOBS_BY_PROJECT`"
     query = f"""
     SELECT
       project_id,
@@ -145,7 +181,7 @@ def audit_datagroup_sync(project_id: Optional[str] = None, region: Optional[str]
       TIMESTAMP_DIFF(end_time, creation_time, SECOND) as duration_seconds,
       statement_type
     FROM
-      `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
+      {schema_table}
     WHERE
       creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_hours} HOUR)
       AND statement_type IN ('INSERT', 'MERGE', 'CREATE_TABLE_AS_SELECT')
@@ -181,6 +217,7 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
         if clean_model:
             filter_clause += f" AND (query LIKE '%{clean_model}%' OR query LIKE '%lookml_model: {clean_model}%')"
 
+    schema_table = f"`{pid}.region-{reg}.INFORMATION_SCHEMA.JOBS_BY_PROJECT`" if pid else f"`region-{reg}.INFORMATION_SCHEMA.JOBS_BY_PROJECT`"
     query = f"""
     SELECT
       TIMESTAMP_TRUNC(creation_time, HOUR) as hour_window,
@@ -189,7 +226,7 @@ def audit_query_costs_and_bytes_billed(project_id: Optional[str] = None, region:
       ROUND((SUM(total_bytes_billed) / POW(10, 12)) * 6.25, 4) as estimated_cost_usd,
       ROUND(SUM(total_slot_ms) / 1000, 2) as total_slot_seconds
     FROM
-      `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
+      {schema_table}
     WHERE
       creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_hours} HOUR)
       AND job_type = 'QUERY'
@@ -239,6 +276,7 @@ def get_looker_bigquery_job_correlations(
         if clean_model:
             filter_clause += f" AND (query LIKE '%{clean_model}%' OR query LIKE '%lookml_model: {clean_model}%')"
 
+    schema_table = f"`{pid}.region-{reg}.INFORMATION_SCHEMA.JOBS_BY_PROJECT`" if pid else f"`region-{reg}.INFORMATION_SCHEMA.JOBS_BY_PROJECT`"
     query = f"""
     SELECT
       project_id,
@@ -257,7 +295,7 @@ def get_looker_bigquery_job_correlations(
       ROUND(total_slot_ms / 1000, 2) AS total_slot_seconds,
       query
     FROM
-      `region-{reg}`.INFORMATION_SCHEMA.JOBS_BY_PROJECT
+      {schema_table}
     WHERE
       creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {safe_hours} HOUR)
       AND {filter_clause}
@@ -284,13 +322,14 @@ def audit_bq_slots(project_id: Optional[str] = None, region: Optional[str] = Non
     target_loc = "US" if reg.lower() == "us" else ("EU" if reg.lower() == "eu" else reg)
     client = _get_bq_client(pid, target_loc)
     
+    schema_table = f"`{pid}.region-{reg}.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`" if pid else f"`region-{reg}.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`"
     query = f"""
     SELECT
       TIMESTAMP_TRUNC(period_start, HOUR) as hour_window,
       ROUND(AVG(period_slot_ms) / 1000, 2) as avg_slots,
       ROUND(MAX(period_slot_ms) / 1000, 2) as peak_slots
     FROM
-      `region-{reg}`.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT
+      {schema_table}
     WHERE
       period_start >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL {hours} HOUR)
     GROUP BY 1
@@ -312,8 +351,9 @@ def list_dataset_tables(dataset_id: str, project_id: Optional[str] = None) -> st
     client = _get_bq_client(pid)
     if not client: return f"Dataset: {dataset_id}"
     try:
-        tables = [t.table_id for t in client.list_tables(dataset_id)]
-        return f"### Tables in `{dataset_id}`:\n```json\n{json.dumps(tables, indent=2)}\n```"
+        target_dataset = f"{pid}.{dataset_id}" if pid and "." not in dataset_id else dataset_id
+        tables = [t.table_id for t in client.list_tables(target_dataset)]
+        return f"### Tables in `{target_dataset}`:\n```json\n{json.dumps(tables, indent=2)}\n```"
     except Exception as e:
         return f"Error: {str(e)}"
 

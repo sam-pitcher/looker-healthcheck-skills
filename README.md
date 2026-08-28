@@ -234,8 +234,9 @@ The agent evaluates instances across an exhaustive 30-check diagnostic matrix sp
 
 ### 1. Prerequisites
 * **Python 3.10+** (or [`uv`](https://github.com/astral-sh/uv) package manager)
-* **Google Cloud SDK (`gcloud`)** authenticated with Vertex AI and BigQuery permissions
-* **Looker Instance** (Admin API access or User account for OAuth)
+* **Google Cloud SDK (`gcloud`)**
+* **Looker CLI (`looker-cli`)** or Python 3 browser access
+* Target Looker Instance (User account for OAuth)
 
 ---
 
@@ -260,76 +261,124 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Sync Vendor Skills (Manifest-Driven)
+### 3. Google Cloud Authentication (Vertex AI & BigQuery)
 
-Download the curated vendor skills into `skills/vendor/`:
+#### A. Standard Setup (Single Account)
+To authenticate your environment for Vertex AI Gemini model execution, Firestore telemetry storage, and BigQuery `INFORMATION_SCHEMA` queries, run:
 
 ```bash
-python3 scripts/sync_skills.py
+# Authenticate Application Default Credentials (ADC) for the Agent Runner:
+gcloud auth application-default login
 ```
+*This provides credentials for `GOOGLE_GENAI_USE_VERTEXAI=true`, Firestore (`looker-healthcheck-db`), and BigQuery SDK queries.*
+
+#### B. Dual-Identity Setup (Different GCP Accounts for Agent Runner vs. Target Warehouse)
+If your **Agent Runner Project** (e.g. `sampitcher-playground` via `admin@...`) is in a different account from your **Target Warehouse Project** (e.g. `looker-eng` via `sampitcher@google.com`):
+
+```bash
+# 1. Authenticate the Agent Runner identity with ADC:
+gcloud auth application-default login
+
+# 2. Authenticate your Target BigQuery identity in gcloud:
+gcloud auth login your-warehouse-email@google.com
+# (Or for Google internal accounts: gcert)
+
+# 3. Verify both accounts are registered:
+gcloud auth list
+```
+*When `TARGET_BIGQUERY_ACCOUNT=your-warehouse-email@google.com` is set in `.env`, the agent dynamically fetches isolated OAuth tokens for BigQuery while leaving Vertex AI and Firestore on the ADC runner account!*
 
 ---
 
-### 4. Configure Environment (`.env`)
+### 4. Looker Instance Authentication (Zero-Secret OAuth)
+
+The agent uses **Zero-Secret User OAuth** via `looker-cli` so you do not need to store static API client keys or secrets in your repository:
+
+```bash
+# Step 1: Set the target host in your Looker CLI profile
+looker-cli profile add default --host "your-instance.looker.app" --port 443
+
+# Step 2: Login via browser OAuth
+looker-cli session login --oauth --client-id com.looker.cli
+```
+
+*Alternative: If using dev/self-signed SSL certificates, run the Python OAuth helper:*
+```bash
+python3 scripts/oauth_login.py --host your-instance.looker.app
+```
+*The agent will automatically inherit your user OAuth token, host, and refresh tokens from `~/.config/looker-cli/config.yaml`!*
+
+---
+
+### 5. Configure Environment (`.env`)
 
 Copy the template configuration:
 ```bash
 cp .env.example .env
 ```
 
-Edit `.env` with your Google Cloud and Looker settings:
+Your `.env` cleanly separates your **Agent Runner Project** from the **Target Warehouse Project**:
+
 ```ini
-# Google Cloud & Vertex AI Configuration
+# ==============================================================================
+# 1. AGENT RUNNER INFRASTRUCTURE (Vertex AI LLM & Firestore Storage)
+# ==============================================================================
+# Your GCP Project used to run the agent LLM, Vertex AI, and Firestore
 GOOGLE_GENAI_USE_VERTEXAI=true
-GOOGLE_CLOUD_PROJECT=your-gcp-project-id
+GOOGLE_CLOUD_PROJECT=your-agent-runner-gcp-project
 GOOGLE_CLOUD_LOCATION=us-central1
 
 # Persistent Firestore Storage (Audit History & Trends)
 FIRESTORE_DATABASE=looker-healthcheck-db
 FIRESTORE_COLLECTION=looker_healthchecks
 
-# Looker Instance Configuration
-LOOKERSDK_BASE_URL=https://your-instance.looker.app
-LOOKER_VERIFY_SSL=true
+# ==============================================================================
+# 2. TARGET LOOKER INSTANCE (Zero-Secret OAuth with looker-cli)
+# ==============================================================================
+# Dynamically inherited from ~/.config/looker-cli/config.yaml
+LOOKER_CLI_PATH=~/.local/bin/looker-cli
+# LookML code is streamed live from Looker via looker-cli (Zero local files required)
 
-# Optional: Default target model & project
-LOOKER_DEFAULT_MODEL=thelook
-LOOKML_PROJECT_PATH=/path/to/your/local/lookml/repository
+# ==============================================================================
+# 3. TARGET BIGQUERY DATA WAREHOUSE (The Looker Instance's Data Project)
+# ==============================================================================
+# The GCP Project ID and Dataset where the client's BigQuery tables/views live
+TARGET_BIGQUERY_PROJECT=your-target-customer-warehouse-project
+TARGET_BIGQUERY_DATASET=the_look_ca
+TARGET_BIGQUERY_LOCATION=US
+
+# Optional: Separate Google Account email for BigQuery (for Dual-Identity setups)
+TARGET_BIGQUERY_ACCOUNT=your-name@google.com
 ```
 
 ---
 
-### 5. Looker Authentication
+### 6. BigQuery `INFORMATION_SCHEMA` Access & Dual-Identity Setup
 
-You can authenticate with Looker using either **Interactive User OAuth** (Zero-Secret) or **API3 Client Credentials**:
+When auditing Pillar 3 (BigQuery slot saturation, partition alignment, and query costs), the agent accesses the target warehouse using one of the following methods:
 
-#### Option A: Interactive User OAuth (Recommended for Developers)
-Authenticate directly through your browser without managing static API keys:
-```bash
-# Run the interactive OAuth login helper:
-python3 scripts/oauth_login.py
-
-# Or authenticate using Looker CLI:
-looker-cli profile add default --host "your-instance.looker.app" --port 443
-looker-cli session login --oauth --client-id com.looker.cli
-```
-*The agent will automatically inherit your user OAuth token from `.env` or `~/.config/looker-cli/config.yaml`!*
-
-#### Option B: API3 Client Credentials (For Headless CI/CD)
-Add your service account API credentials directly to `.env`:
-```ini
-LOOKERSDK_CLIENT_ID=your_api_client_id
-LOOKERSDK_CLIENT_SECRET=your_api_client_secret
-```
+1. **Dual-Identity Setup (Different GCP Accounts for Agent vs. Warehouse)**:
+   If your Agent runner identity (`GOOGLE_CLOUD_PROJECT`) is different from the Google account that has access to the target BigQuery project:
+   - Set `TARGET_BIGQUERY_ACCOUNT=your-name@google.com` in `.env`.
+   - The agent will automatically use the active `gcloud` token for that specific account to query `TARGET_BIGQUERY_PROJECT`'s `INFORMATION_SCHEMA` while executing the agent in your runner project.
+2. **Direct ADC Access (Same Identity)**:
+   Your active Google identity from `gcloud auth application-default login` has `roles/bigquery.resourceViewer` and `roles/bigquery.metadataViewer` on `TARGET_BIGQUERY_PROJECT`.
+3. **Service Account Impersonation (Cross-Project)**:
+   If the target warehouse is in a separate client GCP project, impersonate the client's Looker service account:
+   ```bash
+   gcloud auth application-default login --impersonate-service-account=looker-sa@target-project.iam.gserviceaccount.com
+   ```
+4. **Looker System Activity Fallback (Zero GCP Permissions on Target Project)**:
+   If direct BigQuery access is restricted, the agent queries Looker's internal `system__activity` models (`query_metrics`, `history`) through Looker's own OAuth connection, requiring zero direct GCP IAM permissions on the target warehouse.
 
 ---
 
-### 6. (Optional) Provision Firestore Database with Terraform
-If you do not already have a Firestore Native database:
+### 7. (Optional) Provision Firestore Database with Terraform
+If you do not already have a Firestore Native database in your runner project:
 ```bash
 cd terraform
 terraform init
-terraform apply -var="project_id=your-gcp-project-id"
+terraform apply -var="project_id=your-agent-runner-gcp-project"
 cd ..
 ```
 

@@ -65,26 +65,6 @@ from agent.tools.looker_api import (
     get_user_persona_and_error_rates
 )
 
-# Pillar 2 Tools (LookML Modeling & Quality)
-from agent.tools.lookml_fs import (
-    run_lookml_validation,
-    audit_primary_keys,
-    audit_join_relationships,
-    audit_caching_and_datagroups,
-    audit_explore_filters,
-    audit_lookml_dashboards,
-    run_henry_vacuum,
-    audit_explore_field_exposure,
-    audit_folder_structure,
-    audit_naming_conventions,
-    audit_metadata_descriptions,
-    audit_unused_joins,
-    discover_model_tables,
-    list_lookml_files,
-    read_lookml_file,
-    search_lookml_code
-)
-
 # Pillar 3 Tools (BigQuery Engine & Compute)
 from agent.tools.bq_client import (
     run_bq_query,
@@ -122,6 +102,10 @@ from agent.skills_registry import (
     skill_registry
 )
 
+# Model Configuration (Default to gemini-3.7-flash)
+AGENT_MODEL = os.getenv("AGENT_MODEL", "gemini-3.7-flash")
+AGENT_FLASH_MODEL = os.getenv("AGENT_FLASH_MODEL", "gemini-3.7-flash")
+
 # Sub-Agent System Instructions Loader (Runtime Prompts & Tool Bindings)
 PROMPTS_ROOT = Path(__file__).parent / "prompts"
 
@@ -133,12 +117,11 @@ def _load_agent_instruction(prompt_name: str) -> str:
     return f"Execute diagnostics and remediation for domain: {prompt_name}"
 
 # ==============================================================================
-# ==============================================================================
 # SUB-AGENT 1: Looker Performance & Query Lifecycle Auditor (Pillar 1)
 # ==============================================================================
 looker_perf_agent = Agent(
     name="LookerPerformanceAgent",
-    model="gemini-2.5-flash",
+    model=AGENT_FLASH_MODEL,
     description="Specialist in Looker Query Lifecycle Profiling, System Activity metrics, latency phase breakdown (Looker JVM overhead vs Database execution vs Connection queueing), slow query identification, dashboard tile density (>25 tiles), auto-refresh intervals, and schedule staggering.",
     instruction=_load_agent_instruction("content_auditor"),
     tools=[
@@ -173,36 +156,25 @@ looker_perf_agent = Agent(
 content_agent = looker_perf_agent
 
 # ==============================================================================
-# SUB-AGENT 2: LookML Modeling & Code Quality Specialist (Pillar 2)
+# SUB-AGENT 2: LookML Modeling & Code Quality Specialist (LookML Quality)
 # ==============================================================================
 lookml_agent = Agent(
     name="LookmlQualityAgent",
-    model="gemini-2.5-pro",
-    description="Audits LookML code hygiene, syntax validation, primary key integrity (preventing SUM_DISTINCT fanouts), join relationships, dead field pruning with Henry, raw key masking, and prescribes LookML code recommendations.",
+    model=AGENT_MODEL,
+    description="Playbook-grounded LookML architecture & modeling auditor. Discovers and inspects LookML files live via looker-cli primitives, reasons directly over syntax trees (AST), verifies primary key uniqueness and join cardinalities to eliminate symmetric aggregations, and prescribes exact LookML diffs.",
     instruction=_load_agent_instruction("lookml_quality"),
     tools=[
-        read_lookml_file,
-        list_lookml_files,
-        search_lookml_code,
-        run_lookml_validation,
-        audit_primary_keys,
-        audit_join_relationships,
-        run_henry_vacuum,
-        audit_explore_field_exposure,
-        run_inline_query,
-        get_query_sql,
-        get_looker_history_by_slug,
-        get_explore_definition,
+        # Pure Execution Primitives & Dynamic CLI Discovery
         looker_cli_discover,
         looker_cli_inspect_payload,
         looker_cli_execute,
-        list_projects,
-        list_models,
+        # Telemetry & Deliverable Publishing
         record_audit_finding,
         save_technical_design_document,
         compile_and_save_technical_design_document,
         get_audit_history,
         get_audit_document,
+        # OKF v0.2 Knowledge Playbooks & Semantic Concept Graph
         list_registered_skills,
         get_skill_content,
         get_okf_index,
@@ -219,7 +191,7 @@ lookml_agent = Agent(
 # ==============================================================================
 bq_agent = Agent(
     name="BqOptimizerAgent",
-    model="gemini-2.5-pro",
+    model=AGENT_MODEL,
     description="Diagnoses slow database queries, BigQuery SQL execution, AST anti-patterns (e.g. functions in JOIN ON clauses), BigQuery slot contention & timelines via INFORMATION_SCHEMA, unpartitioned warehouse scans, query cost outliers, and Aggregate Awareness rollups.",
     instruction=_load_agent_instruction("bq_optimizer"),
     tools=[
@@ -248,9 +220,10 @@ bq_agent = Agent(
     ]
 )
 
-# Multi-Agent Pipeline Chaining: LookerPerf -> BQOptimizer -> LookMLQuality
-looker_perf_agent.sub_agents = [bq_agent]
-bq_agent.sub_agents = [lookml_agent]
+# In Google ADK, root_agent owns all direct sub-agents in a clean hierarchical topology.
+looker_perf_agent.sub_agents = []
+bq_agent.sub_agents = []
+lookml_agent.sub_agents = []
 
 # ==============================================================================
 # MASTER ORCHESTRATOR: Root Supervisor Agent
@@ -372,7 +345,7 @@ ALL_30_TOOLS = ORCHESTRATOR_TOOLS
 
 root_agent = Agent(
     name="LookerBqOptimizationOrchestrator",
-    model="gemini-2.5-pro",
+    model=AGENT_MODEL,
     description="Master supervisor orchestrating LookerPerformanceAgent, LookmlQualityAgent, and BqOptimizerAgent for enterprise healthchecks, query lifecycle profiling, and LookML code optimization.",
     instruction=ROOT_INSTRUCTION.strip(),
     sub_agents=[looker_perf_agent, lookml_agent, bq_agent],

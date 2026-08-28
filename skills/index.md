@@ -1,23 +1,15 @@
 ---
 okf_version: "0.2"
+title: "Looker & BigQuery Healthcheck Knowledge Catalog"
+description: "Master OKF v0.2 Knowledge Catalog organized into core domain skillsets: Looker Performance, LookML Quality, BigQuery Compute, and Shared Delivery."
 ---
 
-# Looker & BigQuery Knowledge Catalog
+# Looker & BigQuery Knowledge Catalog (OKF v0.2)
 
-Welcome to the **Looker & BigQuery Healthcheck & Performance Optimization Knowledge Catalog**, structured in full compliance with the [Open Knowledge Format (OKF v0.2)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
+This catalog standardizes all diagnostic playbooks, reference architectures, and attested computations:
 
-## Custom Healthcheck Knowledge Bundle
-
-* [Healthcheck Master Skill](custom/healthcheck/SKILL.md) - Master skill for 3-Pillar 30-check Looker healthcheck audits.
-* [Playbooks](custom/healthcheck/playbooks/) - Step-by-step diagnostic and remediation playbooks.
-* [References](custom/healthcheck/references/) - Deep-dive architectural guides, benchmark tables, and System Activity query catalogs.
-* [Attested Computations](custom/healthcheck/computations/) - Sanctioned, verifiable queries and DDLs for telemetry extraction and compute optimization.
-
-## Custom Refactoring Knowledge Bundle
-
-* [Refactoring Master Skill](custom/refactoring/SKILL.md) - Automated LookML refactoring, Henry vacuuming, and CI/CD validation.
-* [Refactoring Recipes & References](custom/refactoring/references/) - Recipes for legacy runtime migration, Spectacles CI, and code housekeeping.
-
-## Upstream Vendor Knowledge Bundle
-
-* [Looker Vendor Skills](vendor/looker-skills/skills/) - Upstream Google Cloud Looker developer and performance engineering skills.
+## Domain Skill Catalogs
+* [Looker Performance & Query Lifecycle](looker_performance/index.md) - Instance telemetry, latency phase breakdown, dashboard tile bloat, and schedule concurrency.
+* [LookML Modeling & Code Quality](lookml_quality/index.md) - Semantic modeling, AST inspection, primary key integrity, join fanout elimination, and dead field vacuuming.
+* [BigQuery Engine & Compute Optimization](bigquery_compute/index.md) - BigQuery slot saturation curves, table partition/clustering DDL, and Aggregate Awareness rollups.
+* [Shared Healthcheck Delivery & CLI Skills](shared/index.md) - Master 4-stage healthcheck delivery protocol, TDD authoring, and Looker CLI discovery recipes.

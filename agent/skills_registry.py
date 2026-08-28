@@ -279,6 +279,10 @@ class LookerSkillRegistry:
         """Parses a markdown concept document into an OKF v0.2 structured dictionary."""
         try:
             raw_text = filepath.read_text(encoding="utf-8")
+            # Skip non-knowledge repository administration files
+            if filepath.name in ("CODE_OF_CONDUCT.md", "CHANGELOG.md", "CONTRIBUTING.md", "LICENSE.md") or ("vendor" in rel_path and filepath.name.lower() == "readme.md"):
+                return None
+
             fm, body = parse_yaml_frontmatter(raw_text)
             fm = fm or {}
 

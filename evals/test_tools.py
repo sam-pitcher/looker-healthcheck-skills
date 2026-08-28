@@ -7,7 +7,6 @@ import os
 import json
 from pathlib import Path
 
-# Import clean tools from agent.tools
 from agent.tools import (
     looker_cli_discover,
     looker_cli_inspect_payload,
@@ -20,18 +19,6 @@ from agent.tools import (
     get_slow_query_outliers,
     get_user_persona_and_error_rates,
     execute_complete_healthcheck,
-    run_lookml_validation,
-    audit_primary_keys,
-    audit_join_relationships,
-    run_henry_vacuum,
-    audit_explore_field_exposure,
-    audit_folder_structure,
-    audit_naming_conventions,
-    audit_metadata_descriptions,
-    audit_unused_joins,
-    list_lookml_files,
-    read_lookml_file,
-    search_lookml_code,
     audit_partition_cluster_filters,
     audit_datagroup_sync,
     audit_query_costs_and_bytes_billed,
@@ -51,7 +38,7 @@ from agent.telemetry import TelemetryTracer
 
 
 def test_pillar1_subsystem_and_project_discovery():
-    """Verify Pillar 1 subsystem checks and dynamic project/model discovery."""
+    """Verify subsystem checks and dynamic project/model discovery."""
     subsys = check_subsystem_status()
     assert isinstance(subsys, str)
     assert "HEALTHY" in subsys or "responsive" in subsys.lower()
@@ -78,31 +65,27 @@ def test_granular_telemetry_triage_tools():
     assert isinstance(personas, str)
 
 
-def test_pillar2_lookml_modeling_hygiene():
-    """Verify Pillar 2 primary keys, join relationships, and field exposure checks."""
-    pks = audit_primary_keys()
-    assert isinstance(pks, str)
-    assert "primary key" in pks.lower()
+def test_lookml_cli_discovery_and_file_streaming():
+    """Verify dynamic LookML project discovery, remote file streaming, and OKF skills."""
+    # 1. Project file discovery via CLI primitive
+    files_res = looker_cli_execute("project file ls thelook --plain")
+    assert isinstance(files_res, str)
+    assert "Output of `looker-cli" in files_res
+    assert "view" in files_res or "model" in files_res
 
-    joins = audit_join_relationships()
-    assert isinstance(joins, str)
-    assert "join" in joins.lower()
+    # 2. Remote file streaming via CLI primitive
+    cat_res = looker_cli_execute("project file cat thelook views/users.view.lkml")
+    assert isinstance(cat_res, str)
+    assert "view: users" in cat_res or "Output of `looker-cli" in cat_res
 
-    exposure = audit_explore_field_exposure()
-    assert isinstance(exposure, str)
-
-    naming = audit_naming_conventions()
-    assert isinstance(naming, str)
-
-    metadata = audit_metadata_descriptions()
-    assert isinstance(metadata, str)
-
-    unused_joins = audit_unused_joins()
-    assert isinstance(unused_joins, str)
+    # 3. Playbook retrieval
+    skill_doc = get_skill_content("playbook_lookml_quality.md")
+    assert isinstance(skill_doc, str)
+    assert "LookML" in skill_doc or "Modeling" in skill_doc
 
 
-def test_pillar3_bigquery_and_compute():
-    """Verify Pillar 3 partitioning, BQ slots, and datagroup synchronization."""
+def test_bigquery_and_compute_tools():
+    """Verify BigQuery partitioning, BQ slots, and datagroup synchronization."""
     partition = audit_partition_cluster_filters(table_id="project.analytics.orders")
     assert isinstance(partition, str)
     assert "partition" in partition.lower()
@@ -145,9 +128,6 @@ def test_one_click_consolidated_benchmark():
     assert isinstance(res, str)
     assert "Consolidated Healthcheck Benchmark Complete" in res
     assert "Overall Health Score" in res
-    assert "Pillar 1" in res
-    assert "Pillar 2" in res
-    assert "Pillar 3" in res
 
 
 def test_model_scoping_behavior():

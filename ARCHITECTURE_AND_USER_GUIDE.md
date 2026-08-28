@@ -200,11 +200,11 @@ BIGQUERY_DATASET=the_look_ca
 FIRESTORE_DATABASE=looker-healthcheck-db
 FIRESTORE_COLLECTION=looker_healthchecks
 
-# Looker Instance & Model Configuration
+# Looker Instance & Model Configuration (Zero local files required)
 LOOKERSDK_BASE_URL=https://your-instance.looker.app
 LOOKER_VERIFY_SSL=true
 LOOKER_DEFAULT_MODEL=thelook
-LOOKML_PROJECT_PATH=/path/to/your/local/lookml/repository
+# LookML code is streamed live from the Looker instance via looker-cli over OAuth
 ```
 
 ---

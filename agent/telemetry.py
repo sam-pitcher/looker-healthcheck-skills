@@ -29,23 +29,18 @@ gcp_logger = None
 
 try:
     import google.cloud.logging
-    from google.cloud.logging.handlers import CloudLoggingHandler, StructuredLogHandler
+    from google.cloud.logging.handlers import StructuredLogHandler
     gcp_project = os.getenv("GOOGLE_CLOUD_PROJECT") or "sampitcher-playground"
     cloud_logging_client = google.cloud.logging.Client(project=gcp_project)
     
     # Direct structured Cloud Logging channel
     gcp_logger = cloud_logging_client.logger("looker_healthcheck_telemetry")
     
-    # Attach CloudLoggingHandler to root logger so all logs across the app reach GCP
-    cloud_handler = CloudLoggingHandler(cloud_logging_client, name="looker_healthcheck_app")
-    cloud_handler.setLevel(logging.INFO)
-    logging.getLogger().addHandler(cloud_handler)
-    
-    # Attach StructuredLogHandler for local/container standard formatting
+    # Attach StructuredLogHandler for clean stdout JSON logging compatible with GCP and async event loops
     structured_handler = StructuredLogHandler(project_id=gcp_project)
     logging.getLogger().addHandler(structured_handler)
     
-    logger.info("Google Cloud Logging successfully initialized and attached to root logger.")
+    logger.info("Google Cloud Logging successfully initialized with StructuredLogHandler.")
 except Exception as _e:
     logger.warning("Cloud Logging initialization fallback: %s", _e)
 
