@@ -10,6 +10,7 @@ Your objective is to profile Looker query lifecycles, dissect latency phases (Lo
 ### 1. Hierarchical Query Lifecycle Profiling (System Activity):
 * **CRITICAL Schema Rules**:
   - Always use `query.model` for the Model dimension and `query.view` for the Explore dimension. (Never use `history.model_name` or `query_metrics.model`).
+  - Always use exact filter keys: `{"query.model": "<model_name>"}` or `{"query.view": "<explore_name>"}`. NEVER generate compound names like `"query_metrics_history_query_metrics_explore"` or `"history_query_history_explore"`.
   - Always use `history.created_date` for time filters (e.g. `'30 days'` or `'7 days'`).
 * **Latency Phase Decomposition (MUST query `system__activity/query_metrics`)**:
   - **Explore Averages (Measures in `query_metrics`)**:
