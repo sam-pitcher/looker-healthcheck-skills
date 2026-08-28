@@ -14,6 +14,33 @@ from typing import Dict, Any, List, Optional
 LOOKER_VERIFY_SSL = os.getenv("LOOKER_VERIFY_SSL", "true").lower() in ("true", "1", "yes", "t")
 
 
+def _normalize_query_filters(filters: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
+    """Sanitizes and normalizes filter keys from common LLM parameter hallucinations or Looker URL artifacts."""
+    if not filters or not isinstance(filters, dict):
+        return filters
+    normalized = {}
+    for k, v in filters.items():
+        key = str(k).strip()
+        # Map compound or underscore-joined model/explore filter keys to valid Looker System Activity fields
+        if key in ("query_metrics_history_query_metrics_explore", "history_query_history_explore", "query_model", "model", "model_name"):
+            normalized["query.model"] = v
+        elif key in ("query_view", "explore", "explore_name", "view_name"):
+            normalized["query.view"] = v
+        elif key in ("history_status", "status"):
+            normalized["history.status"] = v
+        elif key in ("history_created_date", "created_date"):
+            normalized["history.created_date"] = v
+        elif key in ("history_source", "source"):
+            normalized["history.source"] = v
+        elif key.startswith("history_") and "." not in key:
+            normalized[key.replace("history_", "history.", 1)] = v
+        elif key.startswith("query_metrics_") and "." not in key:
+            normalized[key.replace("query_metrics_", "query_metrics.", 1)] = v
+        else:
+            normalized[key] = v
+    return normalized
+
+
 class LookerAdminClient:
     """Lightweight Looker API 4.0 Client with Dynamic User OAuth Session Inheritance."""
     
@@ -219,14 +246,14 @@ class LookerAdminClient:
         return self._request("DELETE", endpoint)
 
     def run_query(self, model: str, view: str, fields: List[str], filters: Optional[Dict[str, str]] = None, sorts: Optional[List[str]] = None, limit: str = "50") -> List[Dict[str, Any]]:
+        clean_filters = _normalize_query_filters(filters)
         body = {"model": model, "view": view, "fields": fields, "limit": str(limit)}
-        if filters:
-            body["filters"] = filters
+        if clean_filters:
+            body["filters"] = clean_filters
         if sorts:
             body["sorts"] = sorts
         payload = json.dumps(body).encode("utf-8")
         return self._request("POST", "/api/4.0/queries/run/json", data=payload)
-
 
 
 _client = LookerAdminClient()
@@ -256,7 +283,8 @@ def run_inline_query(
         limit: Max row limit as a string (default: '50').
     """
     try:
-        results = _client.run_query(model, view, fields, filters=filters, sorts=sorts, limit=limit)
+        clean_filters = _normalize_query_filters(filters)
+        results = _client.run_query(model, view, fields, filters=clean_filters, sorts=sorts, limit=limit)
         if not results:
             return f"### 📊 Query Result: 0 rows returned from `{model}/{view}`."
         return f"### 📊 Query Result ({len(results)} rows from `{model}/{view}`):\n```json\n{json.dumps(results, indent=2)}\n```"
