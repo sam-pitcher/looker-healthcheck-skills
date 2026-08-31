@@ -16,8 +16,8 @@ sys.path.insert(0, str(ROOT_DIR))
 
 from evals.test_tools import (
     test_pillar1_subsystem_and_project_discovery,
-    test_pillar2_lookml_modeling_hygiene,
-    test_pillar3_bigquery_and_compute,
+    test_lookml_cli_discovery_and_file_streaming,
+    test_bigquery_and_compute_tools,
     test_dynamic_cli_discovery_and_guardrails,
     test_one_click_consolidated_benchmark,
     test_model_scoping_behavior,
@@ -55,8 +55,8 @@ def run_all_evaluations():
     test_suites = [
         ("Layer 1: Deterministic Tool & Healthcheck Audits", [
             ("Pillar 1: Subsystem & Project Discovery", test_pillar1_subsystem_and_project_discovery),
-            ("Pillar 2: LookML Modeling Hygiene", test_pillar2_lookml_modeling_hygiene),
-            ("Pillar 3: BigQuery & Compute Layout", test_pillar3_bigquery_and_compute),
+            ("Pillar 2: LookML CLI Discovery & Streaming", test_lookml_cli_discovery_and_file_streaming),
+            ("Pillar 3: BigQuery & Compute Layout", test_bigquery_and_compute_tools),
             ("Dynamic CLI Discovery & Guardrails", test_dynamic_cli_discovery_and_guardrails),
             ("One-Click Consolidated Benchmark", test_one_click_consolidated_benchmark),
             ("Dynamic Model Scoping Execution", test_model_scoping_behavior),
