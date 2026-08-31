@@ -69,19 +69,48 @@ def log_cloud_event(event_name: str, payload: Dict[str, Any], level: str = "INFO
         logger.info(json.dumps(record, default=str))
 
 
+import contextvars
+
+_CURRENT_SESSION_ID = contextvars.ContextVar("current_session_id", default="unknown")
+_TOOL_START_TIMES: Dict[str, float] = {}
+
 def _extract_session_id(ctx) -> str:
     if not ctx:
-        return "unknown"
+        return _CURRENT_SESSION_ID.get()
+    
+    # 1. Direct session attribute
     session = getattr(ctx, "session", None)
-    if session and hasattr(session, "id"):
-        return str(session.id)
-    return getattr(ctx, "session_id", "unknown")
+    if session:
+        if hasattr(session, "id") and session.id:
+            s_id = str(session.id)
+            _CURRENT_SESSION_ID.set(s_id)
+            return s_id
+        if hasattr(session, "session_id") and session.session_id:
+            s_id = str(session.session_id)
+            _CURRENT_SESSION_ID.set(s_id)
+            return s_id
+
+    # 2. session_id directly on context
+    if hasattr(ctx, "session_id") and ctx.session_id:
+        s_id = str(ctx.session_id)
+        _CURRENT_SESSION_ID.set(s_id)
+        return s_id
+
+    # 3. InvocationContext nested on tool_context
+    inv_ctx = getattr(ctx, "invocation_context", None) or getattr(ctx, "_invocation_context", None)
+    if inv_ctx:
+        res = _extract_session_id(inv_ctx)
+        if res != "unknown":
+            return res
+
+    return _CURRENT_SESSION_ID.get()
 
 
 class CloudLoggingPlugin(BasePlugin):
     """
     ADK Lifecycle Plugin that automatically intercepts and streams ALL conversation events,
     user prompts, agent reasoning, model responses, and tool executions to Google Cloud Logging.
+    Guarantees every telemetry record is enriched with session_id and execution metrics.
     """
     def __init__(self, name: str = "cloud_logging_plugin", project_id: Optional[str] = None):
         super().__init__(name=name)
@@ -151,11 +180,14 @@ class CloudLoggingPlugin(BasePlugin):
         """Logs tool execution start."""
         try:
             tool_name = getattr(tool, "name", str(tool))
+            session_id = _extract_session_id(tool_context)
+            _TOOL_START_TIMES[tool_name] = time.time()
             clean_args = {}
             if tool_args and isinstance(tool_args, dict):
                 for k, v in tool_args.items():
-                    clean_args[k] = v[:200] if isinstance(v, str) and len(v) > 200 else v
+                    clean_args[k] = v[:300] if isinstance(v, str) and len(v) > 300 else v
             log_cloud_event("tool_start", {
+                "session_id": session_id,
                 "tool_name": tool_name,
                 "tool_args": clean_args
             })
@@ -167,10 +199,15 @@ class CloudLoggingPlugin(BasePlugin):
         """Logs tool execution completion and result."""
         try:
             tool_name = getattr(tool, "name", str(tool))
+            session_id = _extract_session_id(tool_context)
+            start_t = _TOOL_START_TIMES.pop(tool_name, None)
+            duration_ms = round((time.time() - start_t) * 1000, 2) if start_t else 0.0
             result_str = str(result)
             preview = result_str[:500] if len(result_str) > 500 else result_str
             log_cloud_event("tool_completed", {
+                "session_id": session_id,
                 "tool_name": tool_name,
+                "duration_ms": duration_ms,
                 "result_preview": preview,
                 "result_length": len(result_str)
             })
@@ -182,8 +219,13 @@ class CloudLoggingPlugin(BasePlugin):
         """Logs tool failure to Cloud Logging."""
         try:
             tool_name = getattr(tool, "name", str(tool))
+            session_id = _extract_session_id(tool_context)
+            start_t = _TOOL_START_TIMES.pop(tool_name, None)
+            duration_ms = round((time.time() - start_t) * 1000, 2) if start_t else 0.0
             log_cloud_event("tool_error", {
+                "session_id": session_id,
                 "tool_name": tool_name,
+                "duration_ms": duration_ms,
                 "tool_args": tool_args,
                 "error": str(error)
             }, level="ERROR")
@@ -196,7 +238,7 @@ class CloudLoggingPlugin(BasePlugin):
         try:
             author = getattr(event, "author", "unknown")
             event_id = getattr(event, "id", "")
-            session_id = getattr(invocation_context, "session_id", "")
+            session_id = _extract_session_id(invocation_context)
             
             content_text = []
             func_calls = []
