@@ -119,17 +119,36 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Google Cloud Authentication
+### 3. Google Cloud Authentication (Cross-Project User OAuth)
 
-The agent supports **Cross-Project User OAuth (ADC)**. Your single identity (e.g. `your-email@google.com`) can run the agent in **Project A** while querying BigQuery tables in **Project B**:
+The agent uses **Application Default Credentials (ADC)** to seamlessly separate your **Agent Runtime Project (Project A)** from the **Target BigQuery Warehouse Project (Project B)** under your own user identity (`sampitcher@google.com`):
 
+```
+                        User OAuth ADC (`gcloud auth application-default login`)
+                                      Principal: sampitcher@google.com
+                                                     │
+                    ┌────────────────────────────────┴────────────────────────────────┐
+                    ▼                                                                 ▼
+  [ Project A: sampitcher-playground ]                                  [ Project B: looker-eng / target ]
+  • Agent Runtime & Vertex AI Gemini                                    • BigQuery Tool Queries (`bq_client`)
+  • Telemetry & Cloud Logging (`logName`)                               • Query Jobs (`INFORMATION_SCHEMA`, DDL)
+  • Quota & Model Invocation Billing                                    • Compute Slots & Warehouse Billing
+```
+
+#### Step 1: Authenticate ADC Once
 ```bash
-# Authenticate Application Default Credentials (ADC):
+# Log in once with your Google user identity:
 gcloud auth application-default login
 ```
 
-* **Agent Runtime (Project A)**: Uses Vertex AI Gemini models and Google Cloud Logging (`GOOGLE_CLOUD_PROJECT`).
-* **BigQuery Forensic Analysis (Project B)**: Queries `INFORMATION_SCHEMA` and table schemas in the target data warehouse (`TARGET_BIGQUERY_PROJECT`).
+#### Step 2: Prerequisite IAM Roles
+Ensure your user identity has access in both projects:
+* **Project A (`sampitcher-playground`)**: `roles/aiplatform.user` (to call Gemini models) and `roles/logging.logWriter` (for telemetry).
+* **Project B (`looker-eng` / target)**: `roles/bigquery.jobUser` (to create query jobs in Project B) and `roles/bigquery.dataViewer` (to inspect table schemas & metadata).
+
+#### How the Agent Resolves This at Runtime:
+* `GOOGLE_CLOUD_PROJECT=sampitcher-playground` tells Vertex AI and Cloud Logging to execute and bill in **Project A**.
+* `TARGET_BIGQUERY_PROJECT=looker-eng` tells the BigQuery tool client (`bigquery.Client(project="looker-eng")`) to create query jobs and bill warehouse compute directly in **Project B**.
 
 ---
 
