@@ -1,67 +1,78 @@
-# Looker & BigQuery Healthcheck Multi-Agent
+# 🚀 Looker & BigQuery Healthcheck Agent
 
-> **An enterprise-grade, autonomous Looker instance performance auditor, LookML quality advisor, and BigQuery compute optimizer built with the Google Agent Development Kit (ADK), Gemini 2.5 Pro/Flash, Looker 4.0 APIs, and Google PSO (Professional Services Organization) benchmarks.**
+> **An autonomous, multi-agent diagnostics engine that audits Looker instance performance, enforces LookML modeling quality, optimizes BigQuery warehouse compute, and compiles production-grade Technical Design Documents (TDD).**
+
+Built with the **Google Agent Development Kit (ADK)**, **Gemini 3.7 / 2.5**, **Looker API 4.0**, and grounded in **Google Cloud PSO benchmarks** and the **Open Knowledge Format (OKF v0.2)**.
 
 ---
 
 ## 📑 Table of Contents
-1. [Executive Overview](#1-executive-overview)
-2. [Multi-Agent Architecture & Topology](#2-multi-agent-architecture--topology)
-3. [Core Architectural Design Principles](#3-core-architectural-design-principles)
-4. [Directory Structure](#4-directory-structure)
-5. [The 30-Check Diagnostic Framework](#5-the-30-check-diagnostic-framework)
-6. [Prerequisites & Step-by-Step Setup Guide](#6-prerequisites--step-by-step-setup-guide)
-7. [How to Run the Agent](#7-how-to-run-the-agent)
-8. [Telemetry, Tracing & Persistence](#8-telemetry-tracing--persistence)
-9. [Evaluation & Test Suite](#9-evaluation--test-suite)
-10. [License](#10-license)
+1. [What It Does & How It Helps](#1-what-it-does--how-it-helps)
+2. [Architecture & OKF Standards](#2-architecture--okf-standards)
+3. [Setup & Authentication Guide](#3-setup--authentication-guide)
+4. [Running the Agent](#4-running-the-agent)
+5. [Telemetry, Observability & Google Cloud Logging](#5-telemetry-observability--google-cloud-logging)
+6. [Evaluation & Verification](#6-evaluation--verification)
 
 ---
 
-## 1. Executive Overview
+## 1. What It Does & How It Helps
 
-The **Looker & BigQuery Healthcheck Agent** is an autonomous AI assistant designed to systematically inspect, diagnose, and optimize Looker instances, LookML modeling repositories, and underlying BigQuery warehouses.
+The **Looker & BigQuery Healthcheck Agent** replaces tedious manual auditing with autonomous multi-agent inquests across your entire BI and data warehouse stack.
 
-### Key Capabilities:
-* **100% Model & Instance Agnostic**: Dynamically discovers models, explores, views, and projects at runtime without hardcoded instance assumptions.
-* **Adherence to Open Knowledge Format (OKF v0.2)**: Entire knowledge architecture adheres strictly to Google Cloud's [Open Knowledge Format](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing?e=a) with rich YAML frontmatter, Attested Computations, Trust Tiers, progressive disclosure `index.md` files, and chronological `log.md` files.
-* **Autonomous 3-Way Triage & 5-Vector Query Forensics**: Deconstructs query latency into Database Execution, Looker JVM Overhead, Connection Pool Contention, SQL/Join Inefficiencies, and Aggregate Awareness candidates (preserving legitimate unfiltered lifetime metrics).
-* **Read-Only LookML Advisory**: Inspects LookML files, AST models, and compile plans, and presents surgical code improvements as clear Markdown diffs without directly modifying the Git repository.
-* **Manifest-as-Code Skill Ingestion**: Tracks external Google Cloud skills via declarative `skills.yaml` with selective Git Sparse-Checkout to eliminate repository bloat and submodule friction.
-* **Dual-Layer Telemetry & State Persistence**: Generates publication-grade architecture specifications (`TECHNICAL_DESIGN_DOCUMENT.md`) and persists structured time-series audit telemetry to Google Cloud Firestore (`looker-healthcheck-db`).
+```
+                           THE 3 HEALTHCHECK PILLARS
+ ┌─────────────────────────┬─────────────────────────┬─────────────────────────┐
+ │ PILLAR 1: LOOKER PERF   │ PILLAR 2: LOOKML QUALITY│ PILLAR 3: BIGQUERY      │
+ ├─────────────────────────┼─────────────────────────┼─────────────────────────┤
+ │ • Query Phase Breakdown │ • Primary Key Integrity │ • Partition & Cluster   │
+ │ • JVM vs DB Overhead    │ • Explicit Joins        │ • Slot Contention Curve │
+ │ • Dashboard Tile Bloat  │ • Masked Foreign Keys   │ • Memory & Disk Spills  │
+ │ • Datagroup ETL Caching │ • Snake_case Naming     │ • Aggregate Awareness   │
+ └─────────────────────────┴─────────────────────────┴─────────────────────────┘
+```
+
+### How It Helps Your Team:
+* **Pinpoint Query Bottlenecks in Seconds**: Dissects `system__activity/query_metrics` into database runtime, connection queue wait times, and Looker JVM overhead.
+* **Eliminate Warehouse Slot Starvation & Costs**: Flags unpartitioned multi-gigabyte table scans and prescribes exact BigQuery SQL DDL to partition and cluster tables.
+* **Modernize LookML Semantics & Prevent Fanouts**: Identifies missing primary keys causing heavy `SUM(DISTINCT ...)` symmetric aggregate hashing, unmasked foreign keys, and missing field descriptions.
+* **Prepare Explores for Conversational Analytics & Gemini**: Audits field picker hygiene, suggestions caching, and metadata readiness for Natural Language search.
+* **Authoritative OKF v0.2 Technical Design Document (TDD)**: Compiles an executive scorecard, 30-check audit table, copy-paste LookML refactorings, and BigQuery DDL into a standardized Markdown report (`TECHNICAL_DESIGN_DOCUMENT.md`).
 
 ---
 
-## 2. Multi-Agent Architecture & Topology
+## 2. Architecture & OKF Standards
 
-To eliminate context window dilution ("context rot"), the system uses a hierarchical multi-agent structure orchestrated by a master coordinator and three specialized sub-agents:
+The system operates as a **Star Topology Multi-Agent Hierarchy** powered by Google ADK. A master supervisor orchestrates three domain-specific subagents:
 
 ```mermaid
 graph TD
-    USER(["Developer / Consultant"]) --> ROOT["LookerBqOptimizationOrchestrator<br/>(gemini-2.5-pro)"]
+    USER(["Data Engineer / GCP Admin"]) --> ROOT["LookerBqOptimizationOrchestrator<br/>(gemini-3.7-flash)"]
 
-    subgraph Multi_Agent_Layer["Modular Multi-Agent Layer"]
-        ROOT --> SUB1["ContentAuditorAgent<br/>(gemini-2.5-flash)<br/>Pillar 1: Instance & Content"]
-        ROOT --> SUB2["LookmlQualityAgent<br/>(gemini-2.5-pro)<br/>Pillar 2: LookML & Modeling"]
-        ROOT --> SUB3["BqOptimizerAgent<br/>(gemini-2.5-pro)<br/>Pillar 3: BigQuery & Compute"]
+    subgraph Multi_Agent_Layer["Specialized Multi-Agent Layer"]
+        ROOT --> SUB1["LookerPerformanceAgent<br/>Pillar 1: Performance & Caching"]
+        ROOT --> SUB2["LookmlQualityAgent<br/>Pillar 2: LookML & Modeling"]
+        ROOT --> SUB3["BqOptimizerAgent<br/>Pillar 3: BigQuery & Compute"]
     end
 
-    subgraph OKF_Knowledge_Bundle["Open Knowledge Format (OKF v0.2) Bundle (skills/)"]
-        SKILL1["skills/custom/healthcheck/<br/>• 6 Operational Playbooks (type: Playbook)<br/>• 13 Technical References (type: Reference)<br/>• 5 Attested Computations (type: Attested Computation)<br/>• Progressive index.md & log.md"]
-        SKILL2["skills/custom/refactoring/<br/>• LookML Refactoring & CI/CD Recipes"]
-        SKILL3["skills/vendor/looker-skills/<br/>• Upstream Google Cloud Looker Skills"]
+    subgraph OKF_Knowledge_Layer["Open Knowledge Format (OKF v0.2) Playbooks"]
+        SKILL1["skills/shared/playbooks/<br/>• playbook_healthcheck_scoring.md<br/>• playbook_technical_design_document.md"]
+        SKILL2["skills/looker_performance/playbooks/playbook_looker_performance.md"]
+        SKILL3["skills/lookml_quality/playbooks/playbook_lookml_quality.md"]
+        SKILL4["skills/bigquery_compute/playbooks/playbook_bigquery_compute.md"]
     end
 
-    subgraph Deterministic_Tools["Python ADK Toolset (agent/tools/)"]
-        TOOL1["looker_api.py & dynamic_cli.py<br/>• check_subsystem_status<br/>• run_inline_query<br/>• get_query_sql<br/>• get_explore_definition"]
-        TOOL2["lookml_fs.py<br/>• run_lookml_validation<br/>• audit_primary_keys<br/>• run_henry_vacuum<br/>• read_lookml_file & search_lookml_code"]
-        TOOL3["bq_client.py<br/>• audit_partition_cluster_filters<br/>• audit_bq_slots<br/>• audit_datagroup_sync<br/>• audit_query_costs_and_bytes_billed"]
-        TOOL4["storage.py & telemetry.py<br/>• save_audit_report (Firestore)<br/>• save_technical_design_document<br/>• TelemetryTracer (Spans & Latency)"]
+    subgraph Execution_Engine["Deterministic Python Tools (agent/tools/)"]
+        TOOL1["looker_api.py & dynamic_cli.py<br/>• Direct API 4.0 REST Client<br/>• looker-cli Subprocess Discovery"]
+        TOOL2["lookml_fs.py<br/>• LookML AST Parser & Validator"]
+        TOOL3["bq_client.py<br/>• INFORMATION_SCHEMA Forensics"]
+        TOOL4["storage.py & telemetry.py<br/>• Firestore & Cloud Logging"]
     end
 
-    SUB1 -.-> SKILL1
-    SUB2 -.-> SKILL2
-    SUB3 -.-> SKILL3
+    SUB1 -.-> SKILL2
+    SUB2 -.-> SKILL3
+    SUB3 -.-> SKILL4
+    ROOT -.-> SKILL1
 
     SUB1 --> TOOL1
     SUB2 --> TOOL2
@@ -72,188 +83,35 @@ graph TD
     SUB3 --> TOOL4
 ```
 
----
-
-## 3. Core Architectural Design Principles
-
-### A. Open Knowledge Format (OKF v0.2) Standard Adherence
-The knowledge architecture complies 100% with the [Open Knowledge Format (OKF v0.2)](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md):
-* **Concept Documents (§4)**: Every document contains parseable YAML frontmatter declaring non-empty `type:` (`Playbook`, `Reference`, `Skill`, `Attested Computation`, `Technical Design Document`), `status: stable`, `tags: [...]`, and provenance `sources: [...]`.
-* **Trust Tiers (§5.3)**: Automated trust classification calculates `unverified`, `machine-confirmed`, or `human-reviewed` tiers based on cryptographic verifiers and human-in-the-loop approvals.
-* **Progressive Disclosure (`index.md`) (§8 & §12)**: Directory-level indices provide high-level catalog summaries, with `okf_version: "0.2"` defined at the bundle root.
-* **Chronological Logs (`log.md`) (§9)**: Every directory level maintains a standardized ISO-8601 `## YYYY-MM-DD` update history log.
-* **Attested Computations (§10)**: Sanctioned queries (System Activity latency decomposition, BigQuery slot utilization timeline, bytes billed per model, table partition DDL) are encapsulated as executable contracts with typed `parameters:`, `runtime:`, `executor:`, and `attester:`.
-
-### B. Separation of Tools vs. Skills
-* **Deterministic Tools (`agent/tools/`)**: Pure Python functions that execute API calls, query BigQuery, parse LookML ASTs, or persist to Firestore. Tools contain zero hardcoded diagnostic rules.
-* **Progressive Skills (`skills/`)**: Tool-agnostic Markdown playbooks and decision recipes adhering to OKF v0.2. The agent loads only the relevant playbook into its prompt context dynamically via `get_skill_content("playbook_name")`.
-
-### C. Manifest-as-Code Skill Ingestion (`skills.yaml`)
-External vendor skills from Google Cloud and Looker Open Source are declared in `skills.yaml` and sparse-checked out on demand via `python3 scripts/sync_skills.py`:
-* **Zero Submodule Friction**: No `.gitmodules` or detached-`HEAD` states.
-* **Selective Ingestion**: Only the 10 relevant skills are extracted onto disk, completely pruning unneeded onboarding tutorials and sample dashboards.
-* **Gitignored Artifacts**: `skills/vendor/` is gitignored and treated as a build-time dependency directory.
-
-### D. 5-Vector Query Forensic Framework
-When diagnosing slow queries (even unfiltered queries), the agent evaluates all 5 root-cause vectors:
-1. **Lifecycle Latency Breakdown**: Deconstructs `system__activity/query_metrics` (DB execution vs. connection wait vs. streaming).
-2. **SQL & Join Analysis**: Automatically inspects physical SQL via `get_query_sql(query_id)` to catch redundant `LEFT JOIN`s or `SUM(DISTINCT ...)` symmetric aggregate fanouts.
-3. **Aggregate Awareness Acceleration**: For valid full-history metrics (e.g. lifetime user orders), prescribes LookML `aggregate_table:` rollups instead of breaking business metrics with date filters.
-4. **Warehouse Slot Contention**: Analyzes BigQuery slot saturation and execution stage shuffle spills via `INFORMATION_SCHEMA`.
-5. **Concurrent Job Bursts**: Detects multi-tile dashboard pileups and top-of-hour (`:00`) cron scheduling collisions.
-
-### E. Read-Only LookML Code Recommendations
-The agent acts as a read-only advisor for your LookML code repository. When it identifies missing primary keys, fanout joins, or unpruned fields, it provides line-by-line Markdown diffs and code snippets for human review.
+### Open Knowledge Format (OKF v0.2) Standard
+All diagnostic playbooks, references, and benchmarks adhere strictly to Google Cloud's **Open Knowledge Format (OKF v0.2)**:
+* **YAML Frontmatter**: Structured metadata with `type: Playbook`, `status: stable`, `tags`, and attested sources.
+* **30-Check Master Scoring Standard**: Governed by [`skills/shared/playbooks/playbook_healthcheck_scoring.md`](skills/shared/playbooks/playbook_healthcheck_scoring.md), rolling up checks into Pillar Scores (0–100) and an overall Instance Health Grade.
+* **Progressive Disclosure**: Subagents dynamically load only the relevant playbooks into their prompt context as needed via the OKF Skills Registry.
 
 ---
 
-## 4. Directory Structure
-
-```text
-looker-healthcheck-agent/
-├── .env                              # GCP Project ID, Looker API keys, Firestore config
-├── .env.example                      # Template configuration file
-├── skills.yaml                       # Declarative external skill dependencies manifest
-├── pyproject.toml / requirements.txt # Python package dependencies
-├── main.py                           # CLI & Interactive Web Hub entrypoint (:8080)
-├── TECHNICAL_DESIGN_DOCUMENT.md      # OKF v0.2 Publication-Grade Architecture Spec
-├── agent/                            # 🧠 Core Application & Multi-Agent Runtime
-│   ├── __init__.py                   # Package exports (root_agent, sub-agents, tools)
-│   ├── agent.py                      # Multi-Agent orchestration declarations & instructions
-│   ├── skills_registry.py            # OKF v0.2 Dynamic Knowledge Registry & Validator
-│   ├── telemetry.py                  # Execution tracer, latency tracking & Firestore recorder
-│   ├── prompts/                      # Sub-agent runtime system prompts
-│   │   ├── content_auditor.md        # Pillar 1 Auditor instructions
-│   │   ├── lookml_quality.md         # Pillar 2 Quality Specialist instructions
-│   │   └── bq_optimizer.md           # Pillar 3 BigQuery Optimizer instructions
-│   └── tools/                        # Deterministic ADK execution tools
-│       ├── __init__.py
-│       ├── looker_api.py             # Looker API 4.0 calls (Subsystems, connections, schedules, KPIs)
-│       ├── lookml_fs.py              # LookML AST parser, primary key, and dead field audits
-│       ├── bq_client.py              # BigQuery compute, partition pruning & slot queries
-│       ├── storage.py                # Dual-layer report & TDD persistence (Markdown & Firestore)
-│       └── dynamic_cli.py            # Looker CLI meta-tree discovery & payload inspector
-├── skills/                           # 📖 OKF v0.2 Knowledge Catalog (Bundle Root)
-│   ├── index.md                      # Bundle Root Index (okf_version: "0.2")
-│   ├── log.md                        # Bundle Update History Log
-│   ├── custom/                       # In-house Healthcheck & Refactoring domain knowledge
-│   │   ├── index.md & log.md         # Progressive disclosure index and update logs
-│   │   ├── healthcheck/
-│   │   │   ├── SKILL.md              # Looker healthcheck master entrypoint (type: Skill)
-│   │   │   ├── index.md & log.md     # Healthcheck scope index and update logs
-│   │   │   ├── playbooks/            # 🎯 Strategic & Domain Playbooks (type: Playbook)
-│   │   │   │   ├── index.md          # Playbooks directory index
-│   │   │   │   ├── playbook_healthcheck_delivery.md     # Master 4-Pillar Delivery Playbook
-│   │   │   │   ├── playbook_looker_performance.md       # 4-Step progressive isolation & triage
-│   │   │   │   ├── playbook_lookml_quality.md           # LookML style & modeling quality standards
-│   │   │   │   ├── playbook_content_governance.md       # 90-day 3-stage deprecation & Henry vacuum
-│   │   │   │   ├── playbook_transcriber_scoring.md      # Official 0–4 scoring rubric
-│   │   │   │   └── playbook_technical_design_document.md# TDD authoring standards
-│   │   │   ├── computations/         # ⚡ Attested Computations (type: Attested Computation)
-│   │   │   │   ├── index.md          # Computations directory index
-│   │   │   │   ├── query_latency_breakdown.md           # Looker query phase decomposition
-│   │   │   │   ├── slot_consumption_timeline.md         # BigQuery 24-hr slot utilization
-│   │   │   │   ├── bytes_billed_by_model.md             # BigQuery cost & data scan audit
-│   │   │   │   ├── pdt_failure_event_log.md             # Looker PDT build failure event log
-│   │   │   │   └── table_partition_ddl.md               # BigQuery fact table partitioning DDL
-│   │   │   └── references/           # 🔧 Technical Recipes & Telemetry Banks (type: Reference)
-│   │   │       ├── index.md          # References directory index
-│   │   │       ├── benchmarks.md                        # Google Cloud PSO 12-stage latency benchmarks
-│   │   │       ├── query_outliers_diagnosis.md          # 5-Vector slow query outlier isolation
-│   │   │       ├── warehouse_optimization.md            # BigQuery slot & stage optimization
-│   │   │       ├── history_query_analysis.md            # Persona & error rate profiling
-│   │   │       ├── large_dashboards_optimization.md     # >25 tile rule & auto-refresh
-│   │   │       ├── single_dashboard_optimization.md    # 10-point forensic single dashboard checklist
-│   │   │       ├── content_delivery_schedules.md        # Top-of-hour schedule stacking & zombie crons
-│   │   │       ├── merged_queries_remediation.md        # In-memory merged query elimination
-│   │   │       ├── aggregate_awareness_and_architecture.md # Aggregate tables & Hub-Spoke
-│   │   │       ├── development_workflows_and_ci.md      # LookML data tests & CI/CD pipelines
-│   │   │       ├── security_roles_and_access_control.md # GBAC & access grant security
-│   │   │       └── system_activity_queries.md           # System Activity JSON query bank
-│   │   └── refactoring/
-│   │       ├── SKILL.md              # LookML refactoring & migration skill
-│   │       ├── index.md & log.md     # Refactoring index and update logs
-│   │       └── references/           # Migration recipes and Henry guides
-│   └── vendor/                       # Upstream sparse-synced skills (gitignored)
-├── scripts/                          # 🛠️ Human & CI/CD Utility Tools (Offline only)
-│   ├── apply_okf_standard.py         # Open Knowledge Format (OKF v0.2) build standardizer
-│   ├── sync_skills.py                # Manifest-Driven sparse sync engine
-│   ├── oauth_login.py                # Interactive Looker user OAuth browser login
-│   └── inspect_session_traces.py     # Developer session trace log analyzer
-├── evals/                            # 🧪 Comprehensive 4-Layer Evaluation Suite
-│   ├── run_evals.py                  # Test suite runner (24 deterministic & OKF test cases)
-│   ├── test_tools.py                 # Tool verification unit tests
-│   ├── test_transcriber_scoring.py   # Transcriber 0-4 scoring rubric benchmarks
-│   ├── test_okf_conformance.py       # OKF v0.2 normative conformance test suite
-│   └── eval_agent_trajectories.py    # Multi-turn agent scenario simulations
-└── terraform/                        # Cloud Run & Firestore infrastructure as code
-```
-
----
-
-## 5. The 30-Check Diagnostic Framework
-
-The agent evaluates instances across an exhaustive 30-check diagnostic matrix spanning 3 core pillars:
-
-| Check ID | Pillar | Diagnostic Check | Recommended Skill / Playbook |
-| :--- | :--- | :--- | :--- |
-| **`P1-01`** | Pillar 1 | **Subsystem Status & Endpoint Health** | [`benchmarks.md`](skills/custom/healthcheck/references/benchmarks.md) |
-| **`P1-02`** | Pillar 1 | **Database Connections & Pool Limits** | [`playbook_looker_performance.md`](skills/custom/healthcheck/playbooks/playbook_looker_performance.md) |
-| **`P1-03`** | Pillar 1 | **Dashboard Query Density (>25 Tiles)** | [`large_dashboards_optimization.md`](skills/custom/healthcheck/references/large_dashboards_optimization.md) |
-| **`P1-04`** | Pillar 1 | **Auto-Refresh Rate Limits (<30m)** | [`large_dashboards_optimization.md`](skills/custom/healthcheck/references/large_dashboards_optimization.md) |
-| **`P1-05`** | Pillar 1 | **Schedule Time Spacing & Distribution** | [`content_delivery_schedules.md`](skills/custom/healthcheck/references/content_delivery_schedules.md) |
-| **`P1-06`** | Pillar 1 | **Query Concurrency Peaks & Queue Limits** | [`benchmarks.md`](skills/custom/healthcheck/references/benchmarks.md) |
-| **`P1-07`** | Pillar 1 | **Stale Content & Unused Folder Purge** | [`playbook_content_governance.md`](skills/custom/healthcheck/playbooks/playbook_content_governance.md) |
-| **`P1-08`** | Pillar 1 | **Frontend Filter Enforcement** | [`single_dashboard_optimization.md`](skills/custom/healthcheck/references/single_dashboard_optimization.md) |
-| **`P1-09`** | Pillar 1 | **Merged Queries In Production** | [`merged_queries_remediation.md`](skills/custom/healthcheck/references/merged_queries_remediation.md) |
-| **`P1-10`** | Pillar 1 | **Legacy Feature Deprecation Audit** | [`playbook_content_governance.md`](skills/custom/healthcheck/playbooks/playbook_content_governance.md) |
-| **`P2-11`** | Pillar 2 | **LookML Syntax & Compilation Health** | [`development_workflows_and_ci.md`](skills/custom/healthcheck/references/development_workflows_and_ci.md) |
-| **`P2-12`** | Pillar 2 | **Primary Key Integrity (`primary_key: yes`)** | [`playbook_lookml_quality.md`](skills/custom/healthcheck/playbooks/playbook_lookml_quality.md) |
-| **`P2-13`** | Pillar 2 | **Explicit Join Relationships (`relationship:`)** | [`playbook_lookml_quality.md`](skills/custom/healthcheck/playbooks/playbook_lookml_quality.md) |
-| **`P2-14`** | Pillar 2 | **Dead Field Detection (Henry Vacuum)** | [`playbook_content_governance.md`](skills/custom/healthcheck/playbooks/playbook_content_governance.md) |
-| **`P2-15`** | Pillar 2 | **Raw Foreign Key & Technical Field Exposure** | [`playbook_lookml_quality.md`](skills/custom/healthcheck/playbooks/playbook_lookml_quality.md) |
-| **`P2-16`** | Pillar 2 | **Folder Structure & File Hygiene** | [`aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md) |
-| **`P2-17`** | Pillar 2 | **Standard snake_case Naming Conventions** | [`playbook_lookml_quality.md`](skills/custom/healthcheck/playbooks/playbook_lookml_quality.md) |
-| **`P2-18`** | Pillar 2 | **User-Facing Metadata Descriptions** | [`playbook_lookml_quality.md`](skills/custom/healthcheck/playbooks/playbook_lookml_quality.md) |
-| **`P2-19`** | Pillar 2 | **Explore Join Bloat (>6 Joins)** | [`playbook_looker_performance.md`](skills/custom/healthcheck/playbooks/playbook_looker_performance.md) |
-| **`P2-20`** | Pillar 2 | **Client-Side Table Calculation Bloat** | [`playbook_looker_performance.md`](skills/custom/healthcheck/playbooks/playbook_looker_performance.md) |
-| **`P3-21`** | Pillar 3 | **Partition & Cluster Filter Alignment** | [`playbook_looker_performance.md`](skills/custom/healthcheck/playbooks/playbook_looker_performance.md) |
-| **`P3-22`** | Pillar 3 | **BigQuery BI Engine Acceleration** | [`aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md) |
-| **`P3-23`** | Pillar 3 | **PDT Build Failures & Monitoring** | [`playbook_looker_performance.md`](skills/custom/healthcheck/playbooks/playbook_looker_performance.md) |
-| **`P3-24`** | Pillar 3 | **Incremental PDT Strategy** | [`playbook_looker_performance.md`](skills/custom/healthcheck/playbooks/playbook_looker_performance.md) |
-| **`P3-25`** | Pillar 3 | **Datagroup Caching & ELT Sync** | [`benchmarks.md`](skills/custom/healthcheck/references/benchmarks.md) |
-| **`P3-26`** | Pillar 3 | **OAuth & User Attribute Cache Sharing** | [`security_roles_and_access_control.md`](skills/custom/healthcheck/references/security_roles_and_access_control.md) |
-| **`P3-27`** | Pillar 3 | **Aggregate Awareness Rollup Candidates** | [`aggregate_awareness_and_architecture.md`](skills/custom/healthcheck/references/aggregate_awareness_and_architecture.md) |
-| **`P3-28`** | Pillar 3 | **Join Key SQL Syntax (No CONCAT in `sql_on`)** | [`playbook_looker_performance.md`](skills/custom/healthcheck/playbooks/playbook_looker_performance.md) |
-| **`P3-29`** | Pillar 3 | **Table Denormalization & Query Runtime** | [`query_outliers_diagnosis.md`](skills/custom/healthcheck/references/query_outliers_diagnosis.md) |
-| **`P3-30`** | Pillar 3 | **BigQuery Query Cost & Bytes Billed** | [`warehouse_optimization.md`](skills/custom/healthcheck/references/warehouse_optimization.md) |
-
----
-
-## 6. Prerequisites & Step-by-Step Setup Guide
+## 3. Setup & Authentication Guide
 
 ### 1. Prerequisites
 * **Python 3.10+** (or [`uv`](https://github.com/astral-sh/uv) package manager)
 * **Google Cloud SDK (`gcloud`)**
-* **Looker CLI (`looker-cli`)** or Python 3 browser access
-* Target Looker Instance (User account for OAuth)
+* **Looker CLI (`looker-cli`)**
 
 ---
 
-### 2. Installation
-
-Clone the repository and install dependencies:
+### 2. Git Clone & Dependencies
 
 ```bash
 git clone https://github.com/sam-pitcher/looker-healthcheck-agent.git
 cd looker-healthcheck-agent
 
-# Using uv (Recommended):
+# Using uv (Fastest):
 uv venv
 source .venv/bin/activate
 uv pip install -r requirements.txt
 
-# Or using standard pip:
+# Or using standard python venv:
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -261,324 +119,170 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Google Cloud Authentication (Vertex AI & BigQuery)
+### 3. Google Cloud Authentication
 
-#### A. Standard Setup (Single Account)
-To authenticate your environment for Vertex AI Gemini model execution, Firestore telemetry storage, and BigQuery `INFORMATION_SCHEMA` queries, run:
-
-```bash
-# Authenticate Application Default Credentials (ADC) for the Agent Runner:
-gcloud auth application-default login
-```
-*This provides credentials for `GOOGLE_GENAI_USE_VERTEXAI=true`, Firestore (`looker-healthcheck-db`), and BigQuery SDK queries.*
-
-#### B. Dual-Identity Setup (Different GCP Accounts for Agent Runner vs. Target Warehouse)
-If your **Agent Runner Project** (e.g. `sampitcher-playground` via `admin@...`) is in a different account from your **Target Warehouse Project** (e.g. `looker-eng` via `sampitcher@google.com`):
+The agent supports **Cross-Project User OAuth (ADC)**. Your single identity (e.g. `your-email@google.com`) can run the agent in **Project A** while querying BigQuery tables in **Project B**:
 
 ```bash
-# 1. Authenticate the Agent Runner identity with ADC:
+# Authenticate Application Default Credentials (ADC):
 gcloud auth application-default login
-
-# 2. Authenticate your Target BigQuery identity in gcloud:
-gcloud auth login your-warehouse-email@google.com
-# (Or for Google internal accounts: gcert)
-
-# 3. Verify both accounts are registered:
-gcloud auth list
 ```
-*When `TARGET_BIGQUERY_ACCOUNT=your-warehouse-email@google.com` is set in `.env`, the agent dynamically fetches isolated OAuth tokens for BigQuery while leaving Vertex AI and Firestore on the ADC runner account!*
+
+* **Agent Runtime (Project A)**: Uses Vertex AI Gemini models and Google Cloud Logging (`GOOGLE_CLOUD_PROJECT`).
+* **BigQuery Forensic Analysis (Project B)**: Queries `INFORMATION_SCHEMA` and table schemas in the target data warehouse (`TARGET_BIGQUERY_PROJECT`).
 
 ---
 
 ### 4. Looker Instance Authentication (Zero-Secret OAuth)
 
-The agent uses **Zero-Secret User OAuth** via `looker-cli` so you do not need to store static API client keys or secrets in your repository:
+The agent connects to Looker via **User OAuth** through `looker-cli`. You do not need to store static client secrets:
 
 ```bash
-# Step 1: Set the target host in your Looker CLI profile
-looker-cli profile add default --host "your-instance.looker.app" --port 443
+# 1. Register your Looker instance host:
+looker-cli profile add default --host "yourcompany.looker.app" --port 443
 
-# Step 2: Login via browser OAuth
+# 2. Authenticate via browser OAuth:
 looker-cli session login --oauth --client-id com.looker.cli
 ```
 
-*Alternative: If using dev/self-signed SSL certificates, run the Python OAuth helper:*
-```bash
-python3 scripts/oauth_login.py --host your-instance.looker.app
-```
-*The agent will automatically inherit your user OAuth token, host, and refresh tokens from `~/.config/looker-cli/config.yaml`!*
+*The agent automatically inherits your active OAuth token, base URL, and refresh session from `~/.config/looker-cli/config.yaml`.*
 
 ---
 
-### 5. Configure Environment (`.env`)
+### 5. Environment Configuration (`.env`)
 
-Copy the template configuration:
+Copy `.env.example` to create your local `.env`:
+
 ```bash
 cp .env.example .env
 ```
 
-Your `.env` cleanly separates your **Agent Runner Project** from the **Target Warehouse Project**:
+Configure your target scopes:
 
 ```ini
 # ==============================================================================
-# 1. AGENT RUNNER INFRASTRUCTURE (Vertex AI LLM & Firestore Storage)
+# 1. AGENT RUNNER INFRASTRUCTURE (Vertex AI / Gemini & Logging)
 # ==============================================================================
-# Your GCP Project used to run the agent LLM, Vertex AI, and Firestore
 GOOGLE_GENAI_USE_VERTEXAI=true
-GOOGLE_CLOUD_PROJECT=your-agent-runner-gcp-project
+GOOGLE_CLOUD_PROJECT=your-agent-runner-project
 GOOGLE_CLOUD_LOCATION=us-central1
+AGENT_MODEL=gemini-3.7-flash
 
-# Persistent Firestore Storage (Audit History & Trends)
+# Firestore State & Audit Persistence
 FIRESTORE_DATABASE=looker-healthcheck-db
 FIRESTORE_COLLECTION=looker_healthchecks
 
 # ==============================================================================
-# 2. TARGET LOOKER INSTANCE (Zero-Secret OAuth with looker-cli)
+# 2. TARGET LOOKER INSTANCE
 # ==============================================================================
-# Dynamically inherited from ~/.config/looker-cli/config.yaml
-LOOKER_CLI_PATH=~/.local/bin/looker-cli
-# LookML code is streamed live from Looker via looker-cli (Zero local files required)
+# Dynamically loaded from ~/.config/looker-cli/config.yaml (or override manually):
+LOOKERSDK_BASE_URL=https://yourcompany.looker.app
 
 # ==============================================================================
-# 3. TARGET BIGQUERY DATA WAREHOUSE (The Looker Instance's Data Project)
+# 3. TARGET BIGQUERY DATA WAREHOUSE
 # ==============================================================================
-# The GCP Project ID and Dataset where the client's BigQuery tables/views live
-TARGET_BIGQUERY_PROJECT=your-target-customer-warehouse-project
-TARGET_BIGQUERY_DATASET=the_look_ca
+TARGET_BIGQUERY_PROJECT=your-target-bigquery-project
+TARGET_BIGQUERY_DATASET=your_default_dataset
 TARGET_BIGQUERY_LOCATION=US
-
-# Optional: Separate Google Account email for BigQuery (for Dual-Identity setups)
-TARGET_BIGQUERY_ACCOUNT=your-name@google.com
 ```
 
 ---
 
-### 6. BigQuery `INFORMATION_SCHEMA` Access & Dual-Identity Setup
+## 4. Running the Agent
 
-When auditing Pillar 3 (BigQuery slot saturation, partition alignment, and query costs), the agent accesses the target warehouse using one of the following methods:
+### Mode 1: Interactive Agent Web Chat (Recommended)
+Launch the official Google ADK chat UI:
 
-1. **Dual-Identity Setup (Different GCP Accounts for Agent vs. Warehouse)**:
-   If your Agent runner identity (`GOOGLE_CLOUD_PROJECT`) is different from the Google account that has access to the target BigQuery project:
-   - Set `TARGET_BIGQUERY_ACCOUNT=your-name@google.com` in `.env`.
-   - The agent will automatically use the active `gcloud` token for that specific account to query `TARGET_BIGQUERY_PROJECT`'s `INFORMATION_SCHEMA` while executing the agent in your runner project.
-2. **Direct ADC Access (Same Identity)**:
-   Your active Google identity from `gcloud auth application-default login` has `roles/bigquery.resourceViewer` and `roles/bigquery.metadataViewer` on `TARGET_BIGQUERY_PROJECT`.
-3. **Service Account Impersonation (Cross-Project)**:
-   If the target warehouse is in a separate client GCP project, impersonate the client's Looker service account:
-   ```bash
-   gcloud auth application-default login --impersonate-service-account=looker-sa@target-project.iam.gserviceaccount.com
-   ```
-4. **Looker System Activity Fallback (Zero GCP Permissions on Target Project)**:
-   If direct BigQuery access is restricted, the agent queries Looker's internal `system__activity` models (`query_metrics`, `history`) through Looker's own OAuth connection, requiring zero direct GCP IAM permissions on the target warehouse.
-
----
-
-### 7. (Optional) Provision Firestore Database with Terraform
-If you do not already have a Firestore Native database in your runner project:
-```bash
-cd terraform
-terraform init
-terraform apply -var="project_id=your-agent-runner-gcp-project"
-cd ..
-```
-
----
-
-## 7. How to Run the Agent
-
-### Mode 1: Google ADK Web UI (Interactive Agent Chat)
-Launch the official Agent Development Kit chat interface:
 ```bash
 uv run adk web
 ```
-Open **`http://localhost:8000`** in your browser to interact with the **Looker & BigQuery Optimization Orchestrator**.
 
-#### Example Prompts:
-* *"Run a performance review on the 'thelook' model."*
-* *"Audit the top slow queries in the flights explore and check their SQL compilation."*
-* *"Audit our LookML files for missing primary keys and unexplicit join relationships."*
-* *"Check BigQuery slot contention and top expensive queries from the past 24 hours."*
-* *"Show me the latest audit report from Firestore."*
-
----
-
-### Mode 2: Interactive Healthcheck Hub (`python main.py --web`)
-Launch the standalone healthcheck web UI:
-```bash
-python main.py --web
-```
-Open **`http://localhost:8080`** to:
-* Trigger one-click 30-check benchmark audits across any discovered model.
-* Browse historical audit archives stored in Firestore with visual scorecards.
+Open **`http://localhost:8000`** in your browser and interact naturally:
+* *"Run a complete 3-pillar healthcheck on the 'ecommerce' model."*
+* *"Profile query latency phases and identify the top slow queries from the last 7 days."*
+* *"Audit our LookML views for missing primary keys and unmasked foreign keys."*
+* *"Check BigQuery slot contention and table partitioning layout."*
+* *"Compile and save the Technical Design Document."*
 
 ---
 
-### Mode 3: Headless CLI & CI/CD Pipelines
-Execute automated audits directly from the command line:
+### Mode 2: Headless CLI & CI/CD Audits
+Execute automated batch audits directly from the command line:
+
 ```bash
-# Run audit across all discovered models:
+# Run audit across discovered models:
 python main.py
 
 # Run audit scoped to a specific model:
-python main.py --model=thelook
+python main.py --model=ecommerce
 ```
-* Generates [`TECHNICAL_DESIGN_DOCUMENT.md`](TECHNICAL_DESIGN_DOCUMENT.md).
-* Persists telemetry to Firestore.
-* Exits with code `0` on success or non-zero on critical diagnostic failures (ideal for CI/CD gates).
+* Compiles `TECHNICAL_DESIGN_DOCUMENT.md` at the repository root.
+* Persists structured audit metrics to Firestore (`looker_healthchecks`).
+* Returns exit code `0` on healthy status (ideal for CI/CD gates).
 
 ---
 
-### Mode 4: Programmatic Python API
-Embed the orchestrator into your own Python applications:
-```python
-from agent.agent import root_agent
+## 5. Telemetry, Observability & Google Cloud Logging
 
-response = root_agent.run("Run a 3-pillar healthcheck audit on the 'ecommerce' model.")
-print(response)
+Every agent turn, tool call, query latency, subagent transfer, and diagnostic error is streamed structured to **Google Cloud Logging** under the log channel:
+
 ```
-
----
-
-## 8. Telemetry, Observability & Google Cloud Logging
-
-The agent features a built-in enterprise observability engine ([`agent/telemetry.py`](agent/telemetry.py)) powered by the ADK `CloudLoggingPlugin`. Every conversation turn, user prompt, subagent handoff, tool execution latency, and diagnostic finding is streamed live to **Google Cloud Logging** and persisted to **Firestore**.
-
-### Structured Log Stream: `looker_healthcheck_telemetry`
-
-All structured telemetry is logged under the log channel:
-```
-projects/<YOUR_GOOGLE_CLOUD_PROJECT>/logs/looker_healthcheck_telemetry
+projects/<GOOGLE_CLOUD_PROJECT>/logs/looker_healthcheck_telemetry
 ```
 
 ---
 
-### Inspecting Traces in Google Cloud Logs Explorer
+### 🔍 Google Cloud Logs Explorer Queries
 
-Open [Google Cloud Logs Explorer](https://console.cloud.google.com/logs/query) and use the following queries to inspect live sessions:
+Copy and paste these queries into [Google Cloud Logs Explorer](https://console.cloud.google.com/logs/query):
 
-#### 1. Filter by Session ID (e.g. Session `7d15e056-f54e-4066-a426-8a1dbfa2f18d`):
+#### 1. Filter Trace by Session ID:
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-(jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d" OR jsonPayload.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d")
+(jsonPayload.data.session_id="YOUR_SESSION_ID" OR jsonPayload.session_id="YOUR_SESSION_ID")
 ```
 
-#### 2. Inspect Physical SQL Executed (BigQuery & Looker SQL Runner):
+#### 2. Inspect Generated SQL (Looker SQL Runner & BigQuery):
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
 (jsonPayload.tool_name="run_bq_query" OR jsonPayload.tool_name="get_query_sql" OR jsonPayload.data.tool_name="run_bq_query" OR jsonPayload.data.tool_name="get_query_sql")
 ```
-*💡 Displays the exact compiled SQL extracted for slow queries and the raw BigQuery queries run against `INFORMATION_SCHEMA`.*
 
-#### 3. Inspect Looker `run_inline_query` Function Calls & Results:
+#### 3. Inspect System Activity `run_inline_query` Calls:
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
 (jsonPayload.tool_name="run_inline_query" OR jsonPayload.data.tool_name="run_inline_query")
 ```
-*💡 Filter specifically for System Activity telemetry queries (e.g. query metrics, history, user errors):*
-```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-jsonPayload.tool_name="run_inline_query"
-jsonPayload.tool_args.model="system__activity"
-```
 
-#### 4. Inspect Live Looker CLI Commands & Remote LookML Ingestion:
+#### 4. Find All Tool Execution Errors & Warnings:
 ```sql
 logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-(jsonPayload.tool_name="looker_cli_execute" OR jsonPayload.data.tool_name="looker_cli_execute")
-```
-
-#### 5. Inspect User Prompts & Invocations:
-```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-jsonPayload.event="user_message"
-jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d"
-```
-
-#### 6. Inspect Tool Execution Latencies (Find Slow Queries & Audits):
-```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-(jsonPayload.event="tool_execution" OR jsonPayload.event="tool_completed")
-(jsonPayload.data.duration_ms > 1000 OR jsonPayload.duration_ms > 1000)
-```
-
-#### 7. Filter Diagnostic Errors & Subagent Warnings:
-```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-severity >= WARNING
+(jsonPayload.data.status="ERROR" OR jsonPayload.data.result_preview=~"Error" OR severity >= WARNING)
 ```
 
 ---
 
-### Streaming Logs via `gcloud` CLI
-
-You can stream real-time conversation traces for any session directly in your terminal:
+### 💻 Stream Live Telemetry in Terminal via `gcloud`
 
 ```bash
-# Stream all telemetry events for session 7d15e056-f54e-4066-a426-8a1dbfa2f18d:
-gcloud logging read \
-  'logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry" AND jsonPayload.data.session_id="7d15e056-f54e-4066-a426-8a1dbfa2f18d"' \
-  --project=sampitcher-playground \
-  --limit=25 \
-  --format="table(timestamp, jsonPayload.event, jsonPayload.data.agent_name, jsonPayload.data.tool_name, jsonPayload.data.duration_ms)"
+gcloud logging read   'logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"'   --project=sampitcher-playground   --limit=25   --format="table(timestamp, jsonPayload.event, jsonPayload.data.agent_name, jsonPayload.data.tool_name, jsonPayload.data.duration_ms)"
 ```
 
 ---
 
-### Structured JSON Telemetry Schema
+## 6. Evaluation & Verification
 
-Every log entry emitted by the agent conforms to standard structured JSON:
-
-```json
-{
-  "event": "tool_execution",
-  "timestamp": "2026-08-28T08:15:22.450123Z",
-  "data": {
-    "session_id": "7d15e056-f54e-4066-a426-8a1dbfa2f18d",
-    "agent_name": "LookmlQualityAgent",
-    "tool_name": "looker_cli_execute",
-    "duration_ms": 520,
-    "status": "SUCCESS",
-    "input_args": {
-      "command": "project file cat thelook views/users.view.lkml"
-    }
-  }
-}
-```
-
----
-
-### Dual-Layer Storage & Local Tracing:
-1. **Technical Design Document**: Every engagement compiles comprehensive root-cause diagnostics, LookML before/after diffs, and BigQuery DDL into `TECHNICAL_DESIGN_DOCUMENT.md` at the repository root.
-2. **Google Cloud Firestore Database**: Structured JSON audit documents are saved to the `looker_healthchecks` collection, tracking 30 diagnostic check results, pillar sub-scores (0–100), and timestamps for long-term health trajectory analytics.
-3. **ADK Web UI Trace Inspector**: In `http://localhost:8000`, click on session `7d15e056-f54e-4066-a426-8a1dbfa2f18d` in the sidebar and select the **Trace / Debug** tab to view step-by-step agent timings and token metrics.
-
----
-
-## 9. Evaluation & Test Suite
-
-The repository includes an automated 4-layer evaluation suite with 24 rigorous test cases spanning tools, Transcriber scoring rubrics, multi-agent trajectories, and Open Knowledge Format (OKF v0.2) conformance:
+Verify the entire multi-agent toolchain and OKF knowledge graph with the automated evaluation suite:
 
 ```bash
-# Run the complete 4-layer evaluation suite (100% Pass Benchmark):
-python3 -u evals/run_evals.py
-
-# Run dedicated Open Knowledge Format (OKF v0.2) Conformance suite:
-python3 evals/test_okf_conformance.py
-
-# Run Transcriber 0-4 scoring rubric benchmarks:
-python3 evals/test_transcriber_scoring.py
-
-# Run deterministic tool tests:
+# Run unit & deterministic tool verification:
 PYTHONPATH=. python3 evals/test_tools.py
-```
 
-### Evaluation Layers Breakdown:
-1. **Layer 1: Deterministic Tool & Healthcheck Audits**: Validates 30-check subsystem status, primary key checks, BigQuery slot queries, Looker CLI guardrails, and telemetry persistence.
-2. **Layer 2: Transcriber 0–4 Scoring Rubric**: Verifies scoring boundaries across Anti-Pattern (0.0) vs. Exceptional (4.0) fixtures across 4 core dimensions.
-3. **Layer 3: Agent Trajectory & Reasoning Scenarios**: Verifies multi-step tool use, persona profiling, slow query triage, and dynamic skill routing.
-4. **Layer 4: Open Knowledge Format (OKF v0.2) Conformance**: Validates YAML frontmatter on all concept files, Trust Tiers, staleness detection, Attested Computation contracts, directory indices (`index.md`), update logs (`log.md`), and TDD structure.
+# Run comprehensive 4-layer evaluation suite:
+python3 -u evals/run_evals.py
+```
 
 ---
 
-## 10. License
+## 📄 License
 Apache-2.0
