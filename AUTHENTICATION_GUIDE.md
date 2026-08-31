@@ -42,9 +42,9 @@ When the healthcheck agent runs, it interacts with **4 distinct systems**. Each 
 ## 2. Scenario 1: Dual-Identity Setup (Runner vs. Corporate Warehouse)
 
 ### The Problem This Solves:
-* You run the agent, Cloud Logging, and Firestore in your **Personal / Sandbox Project** (e.g. `sampitcher-playground` via `admin@sampitcher.altostrat.com`).
-* You need to audit BigQuery tables in a **Corporate / Internal Project** (e.g. `looker-eng` where only `sampitcher@google.com` has access).
-* **The Constraint**: `sampitcher@google.com` has zero permissions in `sampitcher-playground`, and `admin@sampitcher.altostrat.com` has zero permissions in `looker-eng`.
+* You run the agent, Cloud Logging, and Firestore in your **Personal / Sandbox Project** (e.g. `<YOUR_RUNNER_GCP_PROJECT>` via `admin@yourcompany.com`).
+* You need to audit BigQuery tables in a **Corporate / Internal Project** (e.g. `<YOUR_TARGET_BQ_PROJECT>` where only `user@yourcompany.com` has access).
+* **The Constraint**: `user@yourcompany.com` has zero permissions in `<YOUR_RUNNER_GCP_PROJECT>`, and `admin@yourcompany.com` has zero permissions in `<YOUR_TARGET_BQ_PROJECT>`.
 
 ```
                   ┌────────────────────────────────────────────────────────┐
@@ -53,8 +53,8 @@ When the healthcheck agent runs, it interacts with **4 distinct systems**. Each 
                                              │
              ┌───────────────────────────────┴───────────────────────────────┐
              ▼                                                               ▼
-  [ Project A: sampitcher-playground ]                            [ Project B: looker-eng ]
-  • Identity: admin@sampitcher.altostrat.com (ADC)                • Identity: sampitcher@google.com (gcloud)
+  [ Project A: <YOUR_RUNNER_GCP_PROJECT> ]                            [ Project B: <YOUR_TARGET_BQ_PROJECT> ]
+  • Identity: admin@yourcompany.com (ADC)                • Identity: user@yourcompany.com (gcloud)
   • Cloud Logging (`looker_healthcheck_telemetry`)                • BigQuery Forensic SQL (`INFORMATION_SCHEMA`)
   • Firestore DB (`looker-healthcheck-db`)                        • Compute Slot & Byte Billing
 ```
@@ -65,21 +65,21 @@ When the healthcheck agent runs, it interacts with **4 distinct systems**. Each 
 Log in with the account that has access to your playground/runner project:
 ```bash
 gcloud auth application-default login
-# Logs in as: admin@sampitcher.altostrat.com
+# Logs in as: admin@yourcompany.com
 ```
 
 #### Step 2: Authenticate Your Corporate BigQuery Account in `gcloud`
 Log in with your corporate account:
 ```bash
-gcloud auth login sampitcher@google.com
+gcloud auth login user@yourcompany.com
 ```
 
 Verify both accounts are visible:
 ```bash
 gcloud auth list
 # ACTIVE  ACCOUNT
-#         admin@sampitcher.altostrat.com
-# *       sampitcher@google.com
+#         admin@yourcompany.com
+# *       user@yourcompany.com
 ```
 
 #### Step 3: Authenticate Looker API
@@ -93,15 +93,15 @@ looker-cli session login --oauth --client-id com.looker.cli
 # --- 1. Agent Runner & Telemetry (Project A) ---
 GOOGLE_GENAI_USE_VERTEXAI=false
 GEMINI_API_KEY=AQ.Ab8...your_google_ai_studio_key...
-GOOGLE_CLOUD_PROJECT=sampitcher-playground
+GOOGLE_CLOUD_PROJECT=<YOUR_RUNNER_GCP_PROJECT>
 GOOGLE_CLOUD_LOCATION=us-central1
 
 FIRESTORE_DATABASE=looker-healthcheck-db
 FIRESTORE_COLLECTION=looker_healthchecks
 
 # --- 2. BigQuery Data Warehouse (Project B) ---
-TARGET_BIGQUERY_PROJECT=looker-eng
-TARGET_BIGQUERY_ACCOUNT=sampitcher@google.com
+TARGET_BIGQUERY_PROJECT=<YOUR_TARGET_BQ_PROJECT>
+TARGET_BIGQUERY_ACCOUNT=user@yourcompany.com
 TARGET_BIGQUERY_DATASET=faa
 TARGET_BIGQUERY_LOCATION=US
 
@@ -110,8 +110,8 @@ LOOKERSDK_BASE_URL=https://yourcompany.looker.app
 ```
 
 ### How the Agent Resolves This at Runtime:
-1. **Logging & Firestore**: Use the ambient ADC (`admin@sampitcher.altostrat.com`) to write logs to `sampitcher-playground`.
-2. **BigQuery Queries**: When `bq_client.py` runs, it sees `TARGET_BIGQUERY_ACCOUNT=sampitcher@google.com`. It runs `gcloud auth print-access-token --account=sampitcher@google.com` to fetch a fresh token for `sampitcher@google.com` and creates the BigQuery client targeting `looker-eng`.
+1. **Logging & Firestore**: Use the ambient ADC (`admin@yourcompany.com`) to write logs to `<YOUR_RUNNER_GCP_PROJECT>`.
+2. **BigQuery Queries**: When `bq_client.py` runs, it sees `TARGET_BIGQUERY_ACCOUNT=user@yourcompany.com`. It runs `gcloud auth print-access-token --account=user@yourcompany.com` to fetch a fresh token for `user@yourcompany.com` and creates the BigQuery client targeting `<YOUR_TARGET_BQ_PROJECT>`.
 3. **Gemini LLM**: `GOOGLE_GENAI_USE_VERTEXAI=false` + `GEMINI_API_KEY` calls Google AI Studio directly with zero GCP IAM needed.
 
 ---

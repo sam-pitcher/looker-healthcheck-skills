@@ -121,17 +121,17 @@ pip install -r requirements.txt
 
 ### 3. Google Cloud Authentication (Service Account Impersonation)
 
-The official, production-grade architecture uses a **Dedicated Service Account** with **Impersonation**. This allows your local user account to seamlessly execute Vertex AI models in **Project A (`sampitcher-playground`)** while running BigQuery audits in **Project B (`looker-eng`)** with zero downloaded keys:
+The official, production-grade architecture uses a **Dedicated Service Account** with **Impersonation**. This allows your local user account to seamlessly execute Vertex AI models in **Project A (`<YOUR_RUNNER_GCP_PROJECT>`)** while running BigQuery audits in **Project B (`<YOUR_TARGET_BQ_PROJECT>`)** with zero downloaded keys:
 
 ```
                     ┌────────────────────────────────────────────────────────┐
                     │                    SERVICE ACCOUNT                     │
-                    │   looker-healthcheck-sa@sampitcher-playground.iam...   │
+                    │   looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam...   │
                     └──────────────────────────┬─────────────────────────────┘
                                                │
              ┌─────────────────────────────────┴─────────────────────────────────┐
              ▼                                                                   ▼
-  [ Project A: sampitcher-playground ]                                  [ Project B: looker-eng ]
+  [ Project A: <YOUR_RUNNER_GCP_PROJECT> ]                                  [ Project B: <YOUR_TARGET_BQ_PROJECT> ]
   • Vertex AI / Gemini Models (`aiplatform.user`)                       • BigQuery Job Execution (`bigquery.jobUser`)
   • Cloud Logging (`logging.logWriter`)                                 • BigQuery Metadata (`bigquery.dataViewer`)
   • Firestore Storage (`datastore.user`)                                • Table DDL & `INFORMATION_SCHEMA`
@@ -140,48 +140,48 @@ The official, production-grade architecture uses a **Dedicated Service Account**
 #### Step 1: Create the Service Account (in Project A)
 ```bash
 gcloud iam service-accounts create looker-healthcheck-sa \
-  --project=sampitcher-playground \
+  --project=<YOUR_RUNNER_GCP_PROJECT> \
   --display-name="Looker Healthcheck Agent Service Account"
 ```
 
-#### Step 2: Grant Permissions in Project A (`sampitcher-playground`)
+#### Step 2: Grant Permissions in Project A (`<YOUR_RUNNER_GCP_PROJECT>`)
 ```bash
-gcloud projects add-iam-policy-binding sampitcher-playground \
-  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding <YOUR_RUNNER_GCP_PROJECT> \
+  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
   --role="roles/aiplatform.user"
 
-gcloud projects add-iam-policy-binding sampitcher-playground \
-  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding <YOUR_RUNNER_GCP_PROJECT> \
+  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
   --role="roles/logging.logWriter"
 
-gcloud projects add-iam-policy-binding sampitcher-playground \
-  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding <YOUR_RUNNER_GCP_PROJECT> \
+  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
   --role="roles/datastore.user"
 ```
 
-#### Step 3: Grant Permissions in Project B (`looker-eng`)
+#### Step 3: Grant Permissions in Project B (`<YOUR_TARGET_BQ_PROJECT>`)
 ```bash
-gcloud projects add-iam-policy-binding looker-eng \
-  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding <YOUR_TARGET_BQ_PROJECT> \
+  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
   --role="roles/bigquery.jobUser"
 
-gcloud projects add-iam-policy-binding looker-eng \
-  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+gcloud projects add-iam-policy-binding <YOUR_TARGET_BQ_PROJECT> \
+  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
   --role="roles/bigquery.dataViewer"
 ```
 
 #### Step 4: Allow Your User to Impersonate the Service Account
 ```bash
 gcloud iam service-accounts add-iam-policy-binding \
-  looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com \
-  --member="user:sampitcher@google.com" \
+  looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com \
+  --member="user:user@yourcompany.com" \
   --role="roles/iam.serviceAccountTokenCreator"
 ```
 
 #### Step 5: Log In Locally (1 Command)
 ```bash
 gcloud auth application-default login \
-  --impersonate-service-account=looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com
+  --impersonate-service-account=looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com
 ```
 
 *For alternative setups (Single-Project or AI Studio API Key), see **[`AUTHENTICATION_GUIDE.md`](AUTHENTICATION_GUIDE.md)**.*
@@ -279,10 +279,10 @@ python main.py --model=ecommerce
 
 ## 5. Telemetry, Observability & Google Cloud Logging
 
-Every agent turn, tool call, query latency, subagent transfer, and diagnostic error is streamed structured to **Google Cloud Logging** under the log channel:
+Every agent turn, tool call, query latency, subagent handoff, and diagnostic error is streamed structured to **Google Cloud Logging** under the log channel:
 
 ```
-projects/<GOOGLE_CLOUD_PROJECT>/logs/looker_healthcheck_telemetry
+projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry
 ```
 
 ---
@@ -291,28 +291,52 @@ projects/<GOOGLE_CLOUD_PROJECT>/logs/looker_healthcheck_telemetry
 
 Copy and paste these queries into [Google Cloud Logs Explorer](https://console.cloud.google.com/logs/query):
 
-#### 1. Filter Trace by Session ID:
+#### 1. Filter Complete Session Trace:
 ```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
 (jsonPayload.data.session_id="YOUR_SESSION_ID" OR jsonPayload.session_id="YOUR_SESSION_ID")
 ```
 
-#### 2. Inspect Generated SQL (Looker SQL Runner & BigQuery):
+#### 2. Filter Specific Tool Execution in a Session (e.g. `run_inline_query` or `looker_cli_execute`):
 ```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
-(jsonPayload.tool_name="run_bq_query" OR jsonPayload.tool_name="get_query_sql" OR jsonPayload.data.tool_name="run_bq_query" OR jsonPayload.data.tool_name="get_query_sql")
-```
-
-#### 3. Inspect System Activity `run_inline_query` Calls:
-```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
+(jsonPayload.data.session_id="YOUR_SESSION_ID" OR jsonPayload.session_id="YOUR_SESSION_ID")
 (jsonPayload.tool_name="run_inline_query" OR jsonPayload.data.tool_name="run_inline_query")
 ```
 
-#### 4. Find All Tool Execution Errors & Warnings:
+#### 3. Inspect Generated SQL (Looker SQL Runner & BigQuery Forensics):
 ```sql
-logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
+logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
+(jsonPayload.tool_name="run_bq_query" OR jsonPayload.tool_name="get_query_sql" OR jsonPayload.data.tool_name="run_bq_query" OR jsonPayload.data.tool_name="get_query_sql")
+```
+
+#### 4. Find All Diagnostic Errors, Tool Failures & Warnings:
+```sql
+logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
 (jsonPayload.data.status="ERROR" OR jsonPayload.data.result_preview=~"Error" OR severity >= WARNING)
+```
+
+---
+
+### 📦 Example Structured Telemetry Payload (JSON)
+
+Every tool execution logs rich metadata including execution timing, agent author, and parameters:
+
+```json
+{
+  "event": "tool_execution",
+  "timestamp": "2026-08-31T10:00:00.000Z",
+  "data": {
+    "session_id": "8f3b2c1a-4d5e-6f7a-8b9c-0d1e2f3a4b5c",
+    "agent_name": "LookmlQualityAgent",
+    "tool_name": "looker_cli_execute",
+    "status": "SUCCESS",
+    "duration_ms": 420,
+    "input_args": {
+      "command": "project file cat ecommerce views/order_items.view.lkml"
+    }
+  }
+}
 ```
 
 ---
@@ -320,7 +344,11 @@ logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"
 ### 💻 Stream Live Telemetry in Terminal via `gcloud`
 
 ```bash
-gcloud logging read   'logName="projects/sampitcher-playground/logs/looker_healthcheck_telemetry"'   --project=sampitcher-playground   --limit=25   --format="table(timestamp, jsonPayload.event, jsonPayload.data.agent_name, jsonPayload.data.tool_name, jsonPayload.data.duration_ms)"
+gcloud logging read \
+  'logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"' \
+  --project=<YOUR_RUNNER_GCP_PROJECT> \
+  --limit=25 \
+  --format="table(timestamp, jsonPayload.event, jsonPayload.data.agent_name, jsonPayload.data.tool_name, jsonPayload.data.duration_ms)"
 ```
 
 ---
