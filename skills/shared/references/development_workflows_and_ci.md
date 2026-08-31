@@ -124,5 +124,5 @@ jobs:
           LOOKERSDK_CLIENT_SECRET: ${{ secrets.LOOKERSDK_CLIENT_SECRET }}
         run: |
           pip install google-adk requests
-          python -c "from agent.tools.lookml_fs import run_lookml_validation; print(run_lookml_validation())"
+          python -c "from agent.tools.dynamic_cli import looker_cli_execute; print(run_lookml_validation())"
 ```

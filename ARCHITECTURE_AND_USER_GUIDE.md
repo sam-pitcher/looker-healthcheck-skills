@@ -1,7 +1,7 @@
 # Looker & BigQuery Healthcheck Agent: Architecture, Setup & Presentation Guide
 
 > **Enterprise Multi-Agent System for Looker Instance Auditing, LookML Code Quality, and BigQuery Compute Optimization**
-> *Built with Google Agent Development Kit (ADK), Gemini 2.5 Pro & Flash, Looker 4.0 APIs, and Google PSO Benchmarks.*
+> *Built with Google Agent Development Kit (ADK), Gemini 3.7 Pro & Flash, Looker 4.0 APIs, and Google PSO Benchmarks.*
 
 ---
 
@@ -21,7 +21,7 @@
 ## 1. Executive Summary & Value Proposition
 
 ### 🎙️ The 30-Second Elevator Pitch
-> *"The Looker & BigQuery Healthcheck Agent is an autonomous, enterprise-grade AI assistant built with Google’s Agent Development Kit (ADK) and Gemini 2.5. It evaluates Looker instances across **3 Pillars and 30 diagnostic checks**—diagnosing query latency, LookML modeling hygiene, and BigQuery warehouse compute saturation against Google Cloud PSO (Professional Services Organization) benchmarks. Rather than giving generic recommendations, it runs live forensics, tracks health trajectory over time in Google Cloud Firestore, and generates a publication-grade remediation specification in `TECHNICAL_DESIGN_DOCUMENT.md` with exact LookML diffs and BigQuery DDL."*
+> *"The Looker & BigQuery Healthcheck Agent is an autonomous, enterprise-grade AI assistant built with Google’s Agent Development Kit (ADK) and Gemini 3.7. It evaluates Looker instances across **3 Pillars and 30 diagnostic checks**—diagnosing query latency, LookML modeling hygiene, and BigQuery warehouse compute saturation against Google Cloud PSO (Professional Services Organization) benchmarks. Rather than giving generic recommendations, it runs live forensics, tracks health trajectory over time in Google Cloud Firestore, and generates a publication-grade remediation specification in `TECHNICAL_DESIGN_DOCUMENT.md` with exact LookML diffs and BigQuery DDL."*
 
 ### ⚠️ The Problem It Solves
 1. **The Modern Data Stack Trilemma**: When a dashboard takes 60+ seconds to load, teams point fingers. LookML developers blame BigQuery, DBAs blame Looker's SQL generation, and BI analysts blame network latency. The bottleneck is actually a composite of **Looker JVM overhead, connection pool limits, symmetric aggregate fanouts, volatile datagroups, and unpruned table scans**.
@@ -36,12 +36,12 @@ To eliminate context rot and enforce separation of concerns, the system is organ
 
 ```mermaid
 graph TD
-    USER(["Consultant / Developer / CI/CD Pipeline"]) --> ROOT["LookerBqOptimizationOrchestrator<br/>(Gemini 2.5 Pro)"]
+    USER(["Consultant / Developer / CI/CD Pipeline"]) --> ROOT["LookerBqOptimizationOrchestrator<br/>(Gemini 3.7 Pro)"]
 
     subgraph Multi_Agent_Layer["Modular Multi-Agent Layer (Google ADK)"]
-        ROOT --> P1["LookerPerformanceAgent<br/>(Gemini 2.5 Flash)<br/>Pillar 1: Instance & Content"]
-        ROOT --> P2["LookmlQualityAgent<br/>(Gemini 2.5 Pro)<br/>Pillar 2: LookML & Modeling"]
-        ROOT --> P3["BqOptimizerAgent<br/>(Gemini 2.5 Pro)<br/>Pillar 3: BigQuery & Compute"]
+        ROOT --> P1["LookerPerformanceAgent<br/>(Gemini 3.7 Flash)<br/>Pillar 1: Instance & Content"]
+        ROOT --> P2["LookmlQualityAgent<br/>(Gemini 3.7 Pro)<br/>Pillar 2: LookML & Modeling"]
+        ROOT --> P3["BqOptimizerAgent<br/>(Gemini 3.7 Pro)<br/>Pillar 3: BigQuery & Compute"]
     end
 
     subgraph Progressive_Knowledge["Progressive Knowledge Layer (skills/)"]
@@ -51,7 +51,7 @@ graph TD
 
     subgraph Deterministic_Tools["Deterministic Python ADK Tools (agent/tools/)"]
         T1["looker_api.py & dynamic_cli.py<br/>• System Activity queries<br/>• Lifecycle latency breakdown"]
-        T2["lookml_fs.py<br/>• LookML AST parser<br/>• Primary key & Henry vacuum"]
+        T2["dynamic_cli.py<br/>• LookML AST parser<br/>• Primary key & Henry vacuum"]
         T3["bq_client.py<br/>• INFORMATION_SCHEMA<br/>• Slot timeline & DDL"]
         T4["storage.py & telemetry.py<br/>• Firestore time-series<br/>• TDD generator"]
     end
@@ -73,10 +73,10 @@ graph TD
 
 | Agent Name | LLM Model | Core Responsibility |
 | :--- | :--- | :--- |
-| **`LookerBqOptimizationOrchestrator`** | `gemini-2.5-pro` | **Master Supervisor**: Ingests prompts, coordinates sub-agent transfers, manages model scoping (`thelook`), synthesizes ratings into scorecards, and compiles `TECHNICAL_DESIGN_DOCUMENT.md`. |
-| **`LookerPerformanceAgent`** | `gemini-2.5-flash` | **Pillar 1 Specialist**: Dissects query lifecycles (`system__activity/query_metrics`), calculates Looker JVM overhead % vs DB execution vs connection wait, flags dashboard tile density (>25 tiles), auto-refresh abuse (<30m), and schedule stacking. |
-| **`LookmlQualityAgent`** | `gemini-2.5-pro` | **Pillar 2 Specialist**: Parses LookML ASTs for missing `primary_key: yes` (preventing `SUM(DISTINCT ...)` symmetric aggregate hashing), enforces `relationship:` cardinality, identifies dead fields with Henry vacuum, and writes read-only code diffs. |
-| **`BqOptimizerAgent`** | `gemini-2.5-pro` | **Pillar 3 Specialist**: Audits BigQuery `INFORMATION_SCHEMA` for slot contention curves, unpartitioned/unclustered scans, ETL datagroup sync mismatches, query billing outliers, and designs Aggregate Awareness rollups. |
+| **`LookerBqOptimizationOrchestrator`** | `gemini-3.7-flash` | **Master Supervisor**: Ingests prompts, coordinates sub-agent transfers, manages model scoping (`thelook`), synthesizes ratings into scorecards, and compiles `TECHNICAL_DESIGN_DOCUMENT.md`. |
+| **`LookerPerformanceAgent`** | `gemini-3.7-flash` | **Pillar 1 Specialist**: Dissects query lifecycles (`system__activity/query_metrics`), calculates Looker JVM overhead % vs DB execution vs connection wait, flags dashboard tile density (>25 tiles), auto-refresh abuse (<30m), and schedule stacking. |
+| **`LookmlQualityAgent`** | `gemini-3.7-flash` | **Pillar 2 Specialist**: Parses LookML ASTs for missing `primary_key: yes` (preventing `SUM(DISTINCT ...)` symmetric aggregate hashing), enforces `relationship:` cardinality, identifies dead fields with Henry vacuum, and writes read-only code diffs. |
+| **`BqOptimizerAgent`** | `gemini-3.7-flash` | **Pillar 3 Specialist**: Audits BigQuery `INFORMATION_SCHEMA` for slot contention curves, unpartitioned/unclustered scans, ETL datagroup sync mismatches, query billing outliers, and designs Aggregate Awareness rollups. |
 
 ---
 
@@ -310,7 +310,7 @@ print(response)
 | Time | Stage | Action & Key Talking Points |
 | :--- | :--- | :--- |
 | **0:00 - 2:00** | **The Problem** | • Introduce the fragmentation of Looker/BigQuery performance investigations.<br/>• Highlight the finger-pointing dilemma: LookML vs BigQuery vs Looker JVM.<br/>• State the goal: Autonomous, standardized 30-check diagnostic audits based on Google Cloud PSO benchmarks. |
-| **2:00 - 4:00** | **The Multi-Agent Architecture** | • Present the Mermaid Architecture Diagram.<br/>• Explain the 3 Pillars: Looker Performance, LookML Quality, BigQuery Compute.<br/>• Emphasize model selection: `gemini-2.5-flash` for high-throughput telemetry, `gemini-2.5-pro` for deep code AST and SQL reasoning.<br/>• Highlight Manifest-as-Code (`skills.yaml`) and zero Git submodule bloat. |
+| **2:00 - 4:00** | **The Multi-Agent Architecture** | • Present the Mermaid Architecture Diagram.<br/>• Explain the 3 Pillars: Looker Performance, LookML Quality, BigQuery Compute.<br/>• Emphasize model selection: `gemini-3.7-flash` for high-throughput telemetry, `gemini-3.7-flash` for deep code AST and SQL reasoning.<br/>• Highlight Manifest-as-Code (`skills.yaml`) and zero Git submodule bloat. |
 | **4:00 - 8:00** | **Live Demo (ADK Web UI)** | • Switch to browser at `http://localhost:8000`.<br/>• Prompt: *"Run a full 3-pillar healthcheck on the 'thelook' model."*<br/>• Point out the live agent transfers: Orchestrator ➡️ LookerPerformanceAgent ➡️ BqOptimizerAgent ➡️ LookmlQualityAgent.<br/>• Highlight live telemetry: `query_metrics` latency decomposition, slot curves, and AST primary key checks. |
 | **8:00 - 10:00** | **The Deliverables** | • Show the live Executive Scorecard in the chat interface.<br/>• Open `TECHNICAL_DESIGN_DOCUMENT.md` to showcase the 7-section engineering spec, before/after LookML diffs, BigQuery DDL, and Mermaid target architecture.<br/>• Open `http://localhost:8080` to show Firestore historical audit persistence. |
 | **10:00 - 12:00** | **Business Impact & ROI** | • Summarize projected ROI: **~85% query latency reduction**, **~95% slot capacity freed**, **~83% faster dashboard UX**.<br/>• Open the floor to Audience Q&A. |
@@ -326,7 +326,7 @@ print(response)
 > **Answer**: The agent only queries Looker System Activity metadata and BigQuery `INFORMATION_SCHEMA` metadata—it never accesses or transfers row-level customer PII. Furthermore, it supports Zero-Secret PKCE OAuth, inheriting the user's active session without storing permanent API keys.
 
 ### Q3: Why use a Multi-Agent architecture with Google ADK instead of a single prompt?
-> **Answer**: A complete 30-check healthcheck requires dozens of tool executions, AST parses, SQL queries, and reference to 15+ Google Cloud playbooks. Splitting the problem across specialized sub-agents completely eliminates context window dilution ("context rot") and allows pairing fast models (`gemini-2.5-flash`) for telemetry with deep models (`gemini-2.5-pro`) for code analysis.
+> **Answer**: A complete 30-check healthcheck requires dozens of tool executions, AST parses, SQL queries, and reference to 15+ Google Cloud playbooks. Splitting the problem across specialized sub-agents completely eliminates context window dilution ("context rot") and allows pairing fast models (`gemini-3.7-flash`) for telemetry with deep models (`gemini-3.7-flash`) for code analysis.
 
 ### Q4: How is this updated when Looker or BigQuery releases new features?
 > **Answer**: Through **Manifest-as-Code** (`skills.yaml`). New best-practice playbooks from Google Cloud and Looker Open Source can be ingested in seconds using `python3 scripts/sync_skills.py`, without touching agent core code or managing Git submodules.
@@ -341,6 +341,6 @@ print(response)
 * 📦 Skill Dependencies Manifest: [skills.yaml](skills.yaml)
 * 🔧 Looker API & System Activity: [agent/tools/looker_api.py](agent/tools/looker_api.py)
 * ⚡ BigQuery Engine & Slots: [agent/tools/bq_client.py](agent/tools/bq_client.py)
-* 🔍 LookML AST & Code Hygiene: [agent/tools/lookml_fs.py](agent/tools/lookml_fs.py)
+* 🔍 LookML AST & Code Hygiene: [agent/tools/dynamic_cli.py](agent/tools/dynamic_cli.py)
 * 💾 Firestore & Report Storage: [agent/tools/storage.py](agent/tools/storage.py)
 * 🎯 Performance Playbook: [skills/custom/healthcheck/playbooks/playbook_looker_performance.md](skills/custom/healthcheck/playbooks/playbook_looker_performance.md)

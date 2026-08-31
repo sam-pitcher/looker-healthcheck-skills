@@ -2,7 +2,7 @@
 
 > **An autonomous, multi-agent diagnostics engine that audits Looker instance performance, enforces LookML modeling quality, optimizes BigQuery warehouse compute, and compiles production-grade Technical Design Documents (TDD).**
 
-Built with the **Google Agent Development Kit (ADK)**, **Gemini 3.7 / 2.5**, **Looker API 4.0**, and grounded in **Google Cloud PSO benchmarks** and the **Open Knowledge Format (OKF v0.2)**.
+Built with the **Google Agent Development Kit (ADK)**, **Gemini 3.7**, **Looker API 4.0**, and grounded in **Google Cloud PSO benchmarks** and the **Open Knowledge Format (OKF v0.2)**.
 
 ---
 
@@ -62,11 +62,10 @@ graph TD
         SKILL4["skills/bigquery_compute/playbooks/<br/>• scoring_bigquery_compute.md<br/>• playbook_bigquery_compute.md"]
     end
 
-    subgraph Execution_Engine["Deterministic Python Tools (agent/tools/)"]
-        TOOL1["looker_api.py & dynamic_cli.py<br/>• Direct API 4.0 REST Client<br/>• looker-cli Subprocess Discovery"]
-        TOOL2["lookml_fs.py<br/>• LookML AST Parser & Validator"]
-        TOOL3["bq_client.py<br/>• INFORMATION_SCHEMA Forensics"]
-        TOOL4["storage.py & telemetry.py<br/>• Firestore & Cloud Logging"]
+    subgraph Execution_Engine["Dynamic Tool Execution Primitives (agent/tools/)"]
+        TOOL1["looker-cli Dynamic Engine (dynamic_cli.py)<br/>• looker_cli_discover & inspect<br/>• looker_cli_execute (LookML & Queries)"]
+        TOOL2["BigQuery Engine (bq_client.py)<br/>• run_bq_query (INFORMATION_SCHEMA)<br/>• Partitioning & Slot Metrics"]
+        TOOL3["Storage & Telemetry (storage.py & telemetry.py)<br/>• Firestore State Persistence<br/>• Google Cloud Logging Stream"]
     end
 
     SUB1 -.-> SKILL2
@@ -75,12 +74,12 @@ graph TD
     ROOT -.-> SKILL1
 
     SUB1 --> TOOL1
-    SUB2 --> TOOL2
+    SUB2 --> TOOL1
+    SUB3 --> TOOL2
+    ROOT --> TOOL3
+    SUB1 --> TOOL3
+    SUB2 --> TOOL3
     SUB3 --> TOOL3
-    ROOT --> TOOL4
-    SUB1 --> TOOL4
-    SUB2 --> TOOL4
-    SUB3 --> TOOL4
 ```
 
 ### Open Knowledge Format (OKF v0.2) Standard

@@ -24,7 +24,7 @@
 ## 1. Executive Summary & High-Level Narrative
 
 ### 🎙️ The Core Elevator Pitch
-> *"When business dashboards take 60+ seconds to load, modern data teams face a trilemma: LookML developers blame BigQuery, DBAs blame Looker's SQL generation, and BI analysts blame network latency. The **Looker & BigQuery Healthcheck Agent** is an enterprise multi-agent system built on the **Google Agent Development Kit (ADK)** and **Gemini 2.5**. It runs an automated 30-check forensic audit across 3 pillars in under 2 minutes. Grounded in Google Cloud's **Open Knowledge Format (OKF v0.2)**, it dissects query lifecycles, parses LookML syntax trees, inspects BigQuery slot saturation, streams audit history to Firestore, and delivers a publication-grade technical specification with exact before/after code diffs and BigQuery DDL."*
+> *"When business dashboards take 60+ seconds to load, modern data teams face a trilemma: LookML developers blame BigQuery, DBAs blame Looker's SQL generation, and BI analysts blame network latency. The **Looker & BigQuery Healthcheck Agent** is an enterprise multi-agent system built on the **Google Agent Development Kit (ADK)** and **Gemini 3.7**. It runs an automated 30-check forensic audit across 3 pillars in under 2 minutes. Grounded in Google Cloud's **Open Knowledge Format (OKF v0.2)**, it dissects query lifecycles, parses LookML syntax trees, inspects BigQuery slot saturation, streams audit history to Firestore, and delivers a publication-grade technical specification with exact before/after code diffs and BigQuery DDL."*
 
 ### Key Architectural Differentiators at a Glance
 * **Hierarchical ADK Multi-Agent Topology**: Eliminates LLM "context window rot" by decoupling orchestration from specialized domain inspection.
@@ -40,12 +40,12 @@
 
 ```mermaid
 graph TD
-    USER(["User / Consultant / CI-CD Pipeline"]) --> ROOT["LookerBqOptimizationOrchestrator<br/>(Gemini 2.5 Pro)"]
+    USER(["User / Consultant / CI-CD Pipeline"]) --> ROOT["LookerBqOptimizationOrchestrator<br/>(Gemini 3.7 Pro)"]
 
     subgraph Multi_Agent_Layer["Modular Multi-Agent Layer (Google ADK)"]
-        ROOT --> P1["LookerPerformanceAgent<br/>(Gemini 2.5 Flash)<br/>Pillar 1: Instance & Content"]
-        ROOT --> P2["LookmlQualityAgent<br/>(Gemini 2.5 Pro)<br/>Pillar 2: LookML & Modeling"]
-        ROOT --> P3["BqOptimizerAgent<br/>(Gemini 2.5 Pro)<br/>Pillar 3: BigQuery & Compute"]
+        ROOT --> P1["LookerPerformanceAgent<br/>(Gemini 3.7 Flash)<br/>Pillar 1: Instance & Content"]
+        ROOT --> P2["LookmlQualityAgent<br/>(Gemini 3.7 Pro)<br/>Pillar 2: LookML & Modeling"]
+        ROOT --> P3["BqOptimizerAgent<br/>(Gemini 3.7 Pro)<br/>Pillar 3: BigQuery & Compute"]
     end
 
     subgraph OKF_Knowledge_Layer["OKF v0.2 Knowledge Catalog (skills/)"]
@@ -56,7 +56,7 @@ graph TD
 
     subgraph Deterministic_Tools["Deterministic Toolset (agent/tools/)"]
         T1["looker_api.py & dynamic_cli.py<br/>• System Activity Metrics<br/>• Inline Query Forensics"]
-        T2["lookml_fs.py<br/>• AST Parser & Henry Vacuum<br/>• Primary Key & Join Audits"]
+        T2["dynamic_cli.py<br/>• AST Parser & Henry Vacuum<br/>• Primary Key & Join Audits"]
         T3["bq_client.py<br/>• INFORMATION_SCHEMA Queries<br/>• Slot Timelines & Cost Estimation"]
         T4["storage.py & telemetry.py<br/>• Firestore Time-Series Persistence<br/>• TDD Generator & Cloud Logging"]
     end
@@ -360,7 +360,7 @@ Use the following 10-slide blueprint to deliver an impactful 20-to-30 minute pre
 * **Slide Title**: Autonomous Looker & BigQuery Optimization: The Enterprise Multi-Agent System
 * **Visual Elements**: Split screen: Chaos on the left (Slow dashboard, alert badges) vs. Structured Multi-Agent Hierarchy on the right.
 * **Key Bullet Points**:
-  * Built on Google Agent Development Kit (ADK) and Gemini 2.5 Pro/Flash.
+  * Built on Google Agent Development Kit (ADK) and Gemini 3.7 Pro/Flash.
   * 30-Check Diagnostic Matrix across Instance, LookML, and BigQuery.
   * 100% Compliant with Google Cloud Open Knowledge Format (OKF v0.2).
   * Automated generation of publication-grade Technical Design Documents.
@@ -386,12 +386,12 @@ Use the following 10-slide blueprint to deliver an impactful 20-to-30 minute pre
 * **Slide Title**: Multi-Agent Topology: Separation of Concerns
 * **Visual Elements**: Architecture diagram showing Orchestrator delegating to `LookerPerformanceAgent`, `LookmlQualityAgent`, and `BqOptimizerAgent`.
 * **Key Bullet Points**:
-  * **Master Orchestrator (`gemini-2.5-pro`)**: Zero-config model scoping, sub-agent sequencing, final synthesis.
-  * **Pillar 1 (`gemini-2.5-flash`)**: Query lifecycle phase breakdown, tile density, schedule staggering.
-  * **Pillar 2 (`gemini-2.5-pro`)**: LookML AST parser, primary keys, join relationships, Henry dead field pruning.
-  * **Pillar 3 (`gemini-2.5-pro`)**: BigQuery `INFORMATION_SCHEMA` slot curves, partition DDL, datagroup ETL sync.
+  * **Master Orchestrator (`gemini-3.7-flash`)**: Zero-config model scoping, sub-agent sequencing, final synthesis.
+  * **Pillar 1 (`gemini-3.7-flash`)**: Query lifecycle phase breakdown, tile density, schedule staggering.
+  * **Pillar 2 (`gemini-3.7-flash`)**: LookML AST parser, primary keys, join relationships, Henry dead field pruning.
+  * **Pillar 3 (`gemini-3.7-flash`)**: BigQuery `INFORMATION_SCHEMA` slot curves, partition DDL, datagroup ETL sync.
 * **🎙️ Speaker Notes**:
-  > *"Here is how our system works. We use the Google Agent Development Kit to orchestrate a hierarchy of specialized agents. Notice the model tiers: Pillar 1 uses Gemini 2.5 Flash for high-speed API telemetry ingestion. Pillars 2 and 3 use Gemini 2.5 Pro for deep AST parsing, complex SQL join analysis, and BigQuery optimization. Each sub-agent owns its domain tools, preventing context window dilution and ensuring deep forensic accuracy."*
+  > *"Here is how our system works. We use the Google Agent Development Kit to orchestrate a hierarchy of specialized agents. Notice the model tiers: Pillar 1 uses Gemini 3.7 Flash for high-speed API telemetry ingestion. Pillars 2 and 3 use Gemini 3.7 Pro for deep AST parsing, complex SQL join analysis, and BigQuery optimization. Each sub-agent owns its domain tools, preventing context window dilution and ensuring deep forensic accuracy."*
 
 ---
 

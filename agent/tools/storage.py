@@ -421,7 +421,7 @@ def compile_and_save_technical_design_document(
         f'description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for {model_str}."',
         "status: stable",
         "tags: [looker, bigquery, healthcheck, modernization, tdd, performance]",
-        f"generated: {{ by: looker_healthcheck_agent/gemini-2.5-pro, at: \"{now_iso}\" }}",
+        f"generated: {{ by: looker_healthcheck_agent/gemini-3.7-flash, at: \"{now_iso}\" }}",
         f"verified: {{ by: \"human:sampitcher\", at: \"{now_iso}\" }}",
         "sources:",
         "  - id: system-activity-query-metrics",
@@ -437,7 +437,7 @@ def compile_and_save_technical_design_document(
         f"# Looker & BigQuery Modernization — Technical Design Document (TDD)",
         f"**Target Scope**: Model `{model_str}` / Project `{project_str}` / Dataset `{dataset_fqn}`  ",
         f"**Standard**: Open Knowledge Format (OKF v0.2)  ",
-        f"**Author**: Autonomous Multi-Agent Diagnostics Engine (`gemini-2.5-pro`)",
+        f"**Author**: Autonomous Multi-Agent Diagnostics Engine (`gemini-3.7-flash`)",
         "",
         "---",
         "",
@@ -800,7 +800,7 @@ def save_technical_design_document(
             f'description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for {model_str}."\n'
             "status: stable\n"
             "tags: [looker, bigquery, healthcheck, modernization, tdd, performance]\n"
-            f"generated: {{ by: looker_healthcheck_agent/gemini-2.5-pro, at: \"{now}\" }}\n"
+            f"generated: {{ by: looker_healthcheck_agent/gemini-3.7-flash, at: \"{now}\" }}\n"
             f"verified: {{ by: \"human:sampitcher\", at: \"{now}\" }}\n"
             "sources:\n"
             '  - id: system-activity-query-metrics\n'

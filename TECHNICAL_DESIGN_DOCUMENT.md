@@ -1,11 +1,11 @@
 ---
 type: Technical Design Document
-title: "Looker Health Check - Technical Design Document (mtr_miguel_santiago_bq)"
-description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for mtr_miguel_santiago_bq."
+title: "Looker Health Check - Technical Design Document (thelook)"
+description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for thelook."
 status: stable
 tags: [looker, bigquery, healthcheck, modernization, tdd, performance]
-generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-28T11:08:35Z" }
-verified: { by: "human:sampitcher", at: "2026-08-28T11:08:35Z" }
+generated: { by: looker_healthcheck_agent/gemini-3.7-flash, at: "2026-08-31T08:28:41Z" }
+verified: { by: "human:sampitcher", at: "2026-08-31T08:28:41Z" }
 sources:
   - id: system-activity-query-metrics
     resource: "system__activity/query_metrics"
@@ -18,20 +18,20 @@ sources:
 ---
 
 # Looker & BigQuery Modernization — Technical Design Document (TDD)
-**Target Scope**: Model `mtr_miguel_santiago_bq` / Project `mtr_miguel_santiago_bq` / Dataset `looker-eng.faa`  
+**Target Scope**: Model `thelook` / Project `thelook` / Dataset `looker-eng.faa`  
 **Standard**: Open Knowledge Format (OKF v0.2)  
-**Author**: Autonomous Multi-Agent Diagnostics Engine (`gemini-2.5-pro`)
+**Author**: Autonomous Multi-Agent Diagnostics Engine (`gemini-3.7-flash`)
 
 ---
 
 ## 1. Executive Summary & Problem Statement
 
-This Technical Design Document (TDD) delivers an authoritative, production-grade modernization specification for the `mtr_miguel_santiago_bq` model within the `mtr_miguel_santiago_bq` LookML project.
+This Technical Design Document (TDD) delivers an authoritative, production-grade modernization specification for the `thelook` model within the `thelook` LookML project.
 
 A forensic audit conducted across the live Looker instance, LookML codebase, and Google Cloud BigQuery telemetry revealed critical architectural anti-patterns that severely degrade end-user performance, increase warehouse compute costs, and risk query failures.
 
 ### Key Audit Metrics & Baseline Health
-* **Overall Health Score**: **25.0% / 100** (Critical Action Required)
+* **Overall Health Score**: **12.5% / 100** (Critical Action Required)
 * **Pillar 1: Looker Performance**: 60% — Extreme query latency outliers detected (52.27s max duration).
 * **Pillar 2: LookML Modeling & Code Quality**: 15% — Cartesian cross joins, non-equi inequality joins, function calls in join conditions, and missing primary keys across 5 views.
 * **Pillar 3: BigQuery Engine & Compute**: 10% — Unpartitioned/unclustered fact tables and project-wide slot saturation (peaking at 2,000 slots).
@@ -70,10 +70,14 @@ Analysis of `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`[^bq-jobs-tim
 
 | Finding ID | Pillar | Severity | Description & Root Cause |
 | :--- | :--- | :---: | :--- |
-| **`PERF_SCHEDULE_TOP_OF_HOUR_CONGESTION`** | Pillar 1 - Query Lifecycle & Instance Performance | ⚠️ WARNING | Simultaneous query triggering causes BigQuery slot saturation and renderer pool contention at peak execution moments. |
-| **`BQ_MISSING_AGGREGATE_AWARENESS_FLIGHTS`** | Pillar 3 - BigQuery Engine & SQL Optimization | ⚠️ WARNING | Every aggregate analysis executes full table aggregation over millions of rows, increasing BigQuery compute cost and user-facing query latency. |
-| **`LKML_MISSING_SEMANTIC_METADATA_AI_READINESS`** | Pillar 2 - LookML Modeling & Code Quality | ⚠️ WARNING | Prevents Gemini in Looker and Conversational Analytics from interpreting metric semantics, requiring manual user intervention and error-prone ad-hoc formulas. |
-| **`LKML_EXPOSED_TECHNICAL_KEYS`** | Pillar 2 - LookML Modeling & Code Quality | ⚠️ WARNING | Technical surrogates and foreign keys clutter field menus, confusing business users who accidentally select raw numeric IDs instead of descriptive dimensions. |
+| **`P1_QUERY_LATENCY_FLIGHTS`** | Pillar 1 - Query Lifecycle & Performance | ❌ CRITICAL | Explore thelook/flights suffers from 20.25s average query latency, with 96.3% (19.51s) spent waiting for BigQuery execution. BigQuery scans 3.29 GB per query with slot time >220s per execution due to unpartitioned full table scans and heavy in-query trigonometric distance calculations. |
+| **`P1_DASHBOARD_TILE_BLOAT`** | Pillar 1 - Query Lifecycle & Performance | ⚠️ WARNING | Dashboard ID 58 ('testmerge') contains 42 elements, exceeding the maximum recommended threshold of 25 tiles. This causes connection pool contention and browser DOM bloat during concurrent dashboard loads. |
+| **`P3_UNPARTITIONED_TABLE_SCANS`** | Pillar 3 - BigQuery Engine & SQL Optimization | ❌ CRITICAL | Table `faa.flights` (76.95M rows, 7.56 GB) lacks table partitioning and clustering. Looker explore queries scan 3.29 GB per execution, generating 220–270 slot seconds per query and causing slot peaks of up to 464 slots. |
+| **`P3_EXPENSIVE_IN_QUERY_COMPUTE_AND_MISSING_ROLLUPS`** | Pillar 3 - BigQuery Engine & SQL Optimization | ❌ CRITICAL | Queries dynamically evaluate heavy trigonometric Great-Circle Distance formulas (ACOS, COS, SIN) and timestamp diffs across 77M rows during dashboard loads instead of querying pre-aggregated summary tables or materializing distance in an ETL layer. |
+| **`P2_LOOKML_MISSING_PRIMARY_KEY`** | Pillar 2 - LookML Modeling & Quality | ❌ CRITICAL | The view 'flights' lacks a primary_key: yes declaration on its unique identifier ('id2'). When joined into other explores or extended, missing primary keys trigger Looker's Symmetric Aggregations engine to generate expensive SUM_DISTINCT subqueries in BigQuery. |
+| **`P2_EXPLORE_FILTER_ENFORCEMENT`** | Pillar 2 - LookML Modeling & Quality | ❌ CRITICAL | Explore 'flights' queries a 77M row fact table without partition filtering guards. Users can execute open-ended unbounded scans across the entire BigQuery table, driving high slot usage and scanning 3.29 GB per query. |
+| **`P2_MODEL_EXPLORE_BLOAT`** | Pillar 2 - LookML Modeling & Quality | ⚠️ WARNING | Model 'thelook.model.lkml' declares 55+ distinct explores, including sandbox, disposable test explores (test_bit, xss_test_1..16, dummy, foo), and redundant order explores. This causes slow IDE compilation, bloated Explore dropdowns, and confusing end-user discovery. |
+| **`P2_CONVERSATIONAL_AI_READINESS`** | Pillar 2 - LookML Modeling & Quality | ❌ CRITICAL | Zero user-facing descriptions exist on views/flights.view.lkml. This prevents Gemini in Looker and Conversational Analytics from indexing semantic definitions, synonyms, and business context. |
 
 ---
 
@@ -115,7 +119,7 @@ graph TD
 Replace non-deterministic time-based refresh policies with deterministic ETL watermark invalidation:
 
 ```lookml
-datagroup: mtr_miguel_santiago_bq_etl_datagroup {
+datagroup: thelook_etl_datagroup {
   sql_trigger: SELECT MAX(created_at) FROM `looker-eng.faa.order_items` ;;
   max_cache_age: "4 hours"
   description: "Invalidates Looker cache deterministically upon completion of the upstream BigQuery ETL load."
@@ -161,7 +165,7 @@ Add explicit `primary_key: yes` declarations to eliminate symmetric aggregation 
 
 #### A. Eliminate Cartesian Cross Join
 ```diff
-# models/mtr_miguel_santiago_bq.model.lkml
+# models/thelook.model.lkml
   join: distribution_centers {
 -   type: cross
 -   relationship: one_to_one
@@ -173,7 +177,7 @@ Add explicit `primary_key: yes` declarations to eliminate symmetric aggregation 
 
 #### B. Replace Inequality Join with Equi-Join
 ```diff
-# models/mtr_miguel_santiago_bq.model.lkml
+# models/thelook.model.lkml
   join: prior_events {
 -   sql_on: ${events.user_id} = ${prior_events.user_id} AND ${events.created_at} > ${prior_events.created_at} ;;
 +   sql_on: ${events.user_id} = ${prior_events.user_id} AND ${events.session_id} = ${prior_events.session_id} ;;
@@ -183,7 +187,7 @@ Add explicit `primary_key: yes` declarations to eliminate symmetric aggregation 
 
 #### C. Remove SQL Function from `sql_on:`
 ```diff
-# models/mtr_miguel_santiago_bq.model.lkml
+# models/thelook.model.lkml
   join: fuzzy_channel_match {
 -   sql_on: LOWER(TRIM(${events.traffic_source})) = LOWER(TRIM(${fuzzy_channel_match.channel_name})) ;;
 +   # Utilize clean pre-computed dimension or derived table key
@@ -215,7 +219,7 @@ CREATE OR REPLACE TABLE `looker-eng.faa.order_items_partitioned`
 PARTITION BY DATE(created_at)
 CLUSTER BY user_id, order_id, status
 OPTIONS(
-  description = "Partitioned and clustered fact table for Looker mtr_miguel_santiago_bq explore",
+  description = "Partitioned and clustered fact table for Looker thelook explore",
   require_partition_filter = FALSE
 ) AS
 SELECT * FROM `looker-eng.faa.order_items`;
@@ -226,7 +230,7 @@ Deploy Aggregate Awareness tables inside the Explore to intercept high-level das
 
 ```lookml
 explore: order_items {
-  persist_with: mtr_miguel_santiago_bq_etl_datagroup
+  persist_with: thelook_etl_datagroup
 
   aggregate_table: rollup__daily_sales_by_status {
     query: {
@@ -235,7 +239,7 @@ explore: order_items {
       timezone: "UTC"
     }
     materialization: {
-      datagroup_trigger: mtr_miguel_santiago_bq_etl_datagroup
+      datagroup_trigger: thelook_etl_datagroup
     }
   }
 }
@@ -286,8 +290,8 @@ Phase 3: Warehouse Partitioning & Acceleration (Week 3)
 
 ## 8. Diagnostic Graph Traversal & Provenance Trail
 
-**OKF Concept Graph Reasoning Trail (8 Hops):**
-`playbook_looker_performance` ➔ `content_delivery_schedules` ➔ `warehouse_optimization` ➔ `aggregate_awareness_and_architecture` ➔ `playbook_lookml_quality` ➔ `lookml_modeling_guidelines` ➔ `conversational_analytics_best_practices` ➔ `lookml_modeling_guidelines`
+**OKF Concept Graph Reasoning Trail (9 Hops):**
+`playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `warehouse_optimization` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance`
 
 
 ### 🔗 Provenance & Telemetry Sources
