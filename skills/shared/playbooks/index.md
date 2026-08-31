@@ -8,6 +8,6 @@ description: "Master 4-stage healthcheck program and Technical Design Document a
 
 Master 4-stage healthcheck program and Technical Design Document authoring standards.
 
-* [Playbook Master Healthcheck Scoring](playbook_healthcheck_scoring.md)
+* [Master Healthcheck Scoring Standard](scoring_master_rubric.md)
 * [Playbook Healthcheck Delivery](playbook_healthcheck_delivery.md)
 * [Playbook Technical Design Document](playbook_technical_design_document.md)

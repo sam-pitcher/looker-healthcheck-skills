@@ -4,8 +4,8 @@ title: "Looker Health Check - Technical Design Document (mtr_miguel_santiago_bq)
 description: "Comprehensive Looker & BigQuery performance remediation and modernization specification for mtr_miguel_santiago_bq."
 status: stable
 tags: [looker, bigquery, healthcheck, modernization, tdd, performance]
-generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-28T06:50:56Z" }
-verified: { by: "human:sampitcher", at: "2026-08-28T06:50:56Z" }
+generated: { by: looker_healthcheck_agent/gemini-2.5-pro, at: "2026-08-28T11:08:35Z" }
+verified: { by: "human:sampitcher", at: "2026-08-28T11:08:35Z" }
 sources:
   - id: system-activity-query-metrics
     resource: "system__activity/query_metrics"
@@ -31,7 +31,7 @@ This Technical Design Document (TDD) delivers an authoritative, production-grade
 A forensic audit conducted across the live Looker instance, LookML codebase, and Google Cloud BigQuery telemetry revealed critical architectural anti-patterns that severely degrade end-user performance, increase warehouse compute costs, and risk query failures.
 
 ### Key Audit Metrics & Baseline Health
-* **Overall Health Score**: **35.0% / 100** (Critical Action Required)
+* **Overall Health Score**: **25.0% / 100** (Critical Action Required)
 * **Pillar 1: Looker Performance**: 60% — Extreme query latency outliers detected (52.27s max duration).
 * **Pillar 2: LookML Modeling & Code Quality**: 15% — Cartesian cross joins, non-equi inequality joins, function calls in join conditions, and missing primary keys across 5 views.
 * **Pillar 3: BigQuery Engine & Compute**: 10% — Unpartitioned/unclustered fact tables and project-wide slot saturation (peaking at 2,000 slots).
@@ -70,16 +70,10 @@ Analysis of `region-us.INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`[^bq-jobs-tim
 
 | Finding ID | Pillar | Severity | Description & Root Cause |
 | :--- | :--- | :---: | :--- |
-| **`PERF-01-FILTER-GOVERNANCE`** | Looker Performance & Query Lifecycle | ⚠️ WARNING | Queries against large fact tables scan entire history without partition pruning, causing elevated execution latency (up to 11.9s) and unnecessary slot/byte consumption. |
-| **`PERF-02-SLOW-QUERY-OUTLIER`** | Looker Performance & Query Lifecycle | ⚠️ WARNING | Queries grouped by 8 high-cardinality timestamp/ID dimensions without aggregate tables result in repetitive heavy compute on raw BigQuery tables. |
-| **`PERF-03-AGG-AWARENESS-GAP`** | Looker Performance & Query Lifecycle | ⚠️ WARNING | Every dashboard tile and user exploration hits physical BigQuery storage rather than leveraging Looker pre-aggregated summary tables. |
-| **`BQ-01-UNPARTITIONED-STORAGE`** | BigQuery Engine & SQL Optimization | ❌ CRITICAL | Unpartitioned and unclustered physical storage forces BigQuery to read the entire 3.01-5.31 GB table on every query, driving up on-demand billing costs and execution latency. |
-| **`BQ-02-SLOT-DURATION-OVERHEAD`** | BigQuery Engine & SQL Optimization | ⚠️ WARNING | High slot-second consumption (400k-534k ms total_slot_ms per query) causes slot contention in multi-tenant BigQuery reservations and extends dashboard tile load times. |
-| **`BQ-03-DATAGROUP-ETL-SYNC`** | BigQuery Engine & SQL Optimization | ⚠️ WARNING | Absence of `sql_trigger_value` or datagroup definition results in default 1-hour/12-hour Looker query cache policies, leading to stale data or unnecessary warehouse query re-runs. |
-| **`LKML-01-PRIMARY-KEY-MISSING`** | LookML Modeling & Code Quality | ❌ CRITICAL | Without primary_key: yes on flights.id2 and carriers.code, Looker cannot properly calculate symmetric aggregations (SUM_DISTINCT / AVERAGE_DISTINCT) if joined, risking duplicated measure values or severe BigQuery aggregate penalty overhead. |
-| **`LKML-02-ISOLATED-EXPLORES-NO-JOINS`** | LookML Modeling & Code Quality | ⚠️ WARNING | Users cannot easily analyze flight origins, destinations, or carrier details in a single curated explore, forcing users into fragmented queries or custom SQL derivations. |
-| **`LKML-03-EXPLORE-CLUTTER-SELF-SERVICE`** | LookML Modeling & Code Quality | ⚠️ WARNING | End users are exposed to 5+ uncurated, auto-generated system explores in the Looker explore navigation menu, polluting the interface and harming data discovery. |
-| **`LKML-04-AI-READINESS-METADATA`** | LookML Modeling & Code Quality | ❌ CRITICAL | Conversational Analytics / Gemini in Looker and self-service business users lack semantic context, definitions, and synonym matching to reliably query datasets. |
+| **`PERF_SCHEDULE_TOP_OF_HOUR_CONGESTION`** | Pillar 1 - Query Lifecycle & Instance Performance | ⚠️ WARNING | Simultaneous query triggering causes BigQuery slot saturation and renderer pool contention at peak execution moments. |
+| **`BQ_MISSING_AGGREGATE_AWARENESS_FLIGHTS`** | Pillar 3 - BigQuery Engine & SQL Optimization | ⚠️ WARNING | Every aggregate analysis executes full table aggregation over millions of rows, increasing BigQuery compute cost and user-facing query latency. |
+| **`LKML_MISSING_SEMANTIC_METADATA_AI_READINESS`** | Pillar 2 - LookML Modeling & Code Quality | ⚠️ WARNING | Prevents Gemini in Looker and Conversational Analytics from interpreting metric semantics, requiring manual user intervention and error-prone ad-hoc formulas. |
+| **`LKML_EXPOSED_TECHNICAL_KEYS`** | Pillar 2 - LookML Modeling & Code Quality | ⚠️ WARNING | Technical surrogates and foreign keys clutter field menus, confusing business users who accidentally select raw numeric IDs instead of descriptive dimensions. |
 
 ---
 
@@ -292,8 +286,8 @@ Phase 3: Warehouse Partitioning & Acceleration (Week 3)
 
 ## 8. Diagnostic Graph Traversal & Provenance Trail
 
-**OKF Concept Graph Reasoning Trail (10 Hops):**
-`playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance` ➔ `playbook_looker_performance`
+**OKF Concept Graph Reasoning Trail (8 Hops):**
+`playbook_looker_performance` ➔ `content_delivery_schedules` ➔ `warehouse_optimization` ➔ `aggregate_awareness_and_architecture` ➔ `playbook_lookml_quality` ➔ `lookml_modeling_guidelines` ➔ `conversational_analytics_best_practices` ➔ `lookml_modeling_guidelines`
 
 
 ### 🔗 Provenance & Telemetry Sources

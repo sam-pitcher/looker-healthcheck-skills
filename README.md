@@ -56,10 +56,10 @@ graph TD
     end
 
     subgraph OKF_Knowledge_Layer["Open Knowledge Format (OKF v0.2) Playbooks"]
-        SKILL1["skills/shared/playbooks/<br/>• playbook_healthcheck_scoring.md<br/>• playbook_technical_design_document.md"]
-        SKILL2["skills/looker_performance/playbooks/playbook_looker_performance.md"]
-        SKILL3["skills/lookml_quality/playbooks/playbook_lookml_quality.md"]
-        SKILL4["skills/bigquery_compute/playbooks/playbook_bigquery_compute.md"]
+        SKILL1["skills/shared/playbooks/<br/>• scoring_master_rubric.md<br/>• playbook_technical_design_document.md"]
+        SKILL2["skills/looker_performance/playbooks/<br/>• scoring_looker_performance.md<br/>• playbook_looker_performance.md"]
+        SKILL3["skills/lookml_quality/playbooks/<br/>• scoring_lookml_quality.md<br/>• playbook_lookml_quality.md"]
+        SKILL4["skills/bigquery_compute/playbooks/<br/>• scoring_bigquery_compute.md<br/>• playbook_bigquery_compute.md"]
     end
 
     subgraph Execution_Engine["Deterministic Python Tools (agent/tools/)"]
@@ -86,7 +86,7 @@ graph TD
 ### Open Knowledge Format (OKF v0.2) Standard
 All diagnostic playbooks, references, and benchmarks adhere strictly to Google Cloud's **Open Knowledge Format (OKF v0.2)**:
 * **YAML Frontmatter**: Structured metadata with `type: Playbook`, `status: stable`, `tags`, and attested sources.
-* **30-Check Master Scoring Standard**: Governed by [`skills/shared/playbooks/playbook_healthcheck_scoring.md`](skills/shared/playbooks/playbook_healthcheck_scoring.md), rolling up checks into Pillar Scores (0–100) and an overall Instance Health Grade.
+* **30-Check Master Scoring Standard**: Governed by [`skills/shared/playbooks/scoring_master_rubric.md`](skills/shared/playbooks/scoring_master_rubric.md), with dedicated scoring playbooks in every domain folder ([`scoring_looker_performance.md`](skills/looker_performance/playbooks/scoring_looker_performance.md), [`scoring_lookml_quality.md`](skills/lookml_quality/playbooks/scoring_lookml_quality.md), [`scoring_bigquery_compute.md`](skills/bigquery_compute/playbooks/scoring_bigquery_compute.md)).
 * **Progressive Disclosure**: Subagents dynamically load only the relevant playbooks into their prompt context as needed via the OKF Skills Registry.
 
 ---
