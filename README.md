@@ -119,36 +119,72 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Google Cloud Authentication & Identity Scenarios
+### 3. Google Cloud Authentication (Service Account Impersonation)
 
-For an exhaustive, step-by-step walkthrough of all single-project, dual-identity, and CI/CD scenarios, see **[`AUTHENTICATION_GUIDE.md`](AUTHENTICATION_GUIDE.md)**.
+The official, production-grade architecture uses a **Dedicated Service Account** with **Impersonation**. This allows your local user account to seamlessly execute Vertex AI models in **Project A (`sampitcher-playground`)** while running BigQuery audits in **Project B (`looker-eng`)** with zero downloaded keys:
 
 ```
-                        User OAuth ADC (`gcloud auth application-default login`)
-                                      Principal: sampitcher@google.com
-                                                     │
-                    ┌────────────────────────────────┴────────────────────────────────┐
-                    ▼                                                                 ▼
-  [ Project A: sampitcher-playground ]                                  [ Project B: looker-eng / target ]
-  • Agent Runtime & Vertex AI Gemini                                    • BigQuery Tool Queries (`bq_client`)
-  • Telemetry & Cloud Logging (`logName`)                               • Query Jobs (`INFORMATION_SCHEMA`, DDL)
-  • Quota & Model Invocation Billing                                    • Compute Slots & Warehouse Billing
+                    ┌────────────────────────────────────────────────────────┐
+                    │                    SERVICE ACCOUNT                     │
+                    │   looker-healthcheck-sa@sampitcher-playground.iam...   │
+                    └──────────────────────────┬─────────────────────────────┘
+                                               │
+             ┌─────────────────────────────────┴─────────────────────────────────┐
+             ▼                                                                   ▼
+  [ Project A: sampitcher-playground ]                                  [ Project B: looker-eng ]
+  • Vertex AI / Gemini Models (`aiplatform.user`)                       • BigQuery Job Execution (`bigquery.jobUser`)
+  • Cloud Logging (`logging.logWriter`)                                 • BigQuery Metadata (`bigquery.dataViewer`)
+  • Firestore Storage (`datastore.user`)                                • Table DDL & `INFORMATION_SCHEMA`
 ```
 
-#### Step 1: Authenticate ADC Once
+#### Step 1: Create the Service Account (in Project A)
 ```bash
-# Log in once with your Google user identity:
-gcloud auth application-default login
+gcloud iam service-accounts create looker-healthcheck-sa \
+  --project=sampitcher-playground \
+  --display-name="Looker Healthcheck Agent Service Account"
 ```
 
-#### Step 2: Prerequisite IAM Roles
-Ensure your user identity has access in both projects:
-* **Project A (`sampitcher-playground`)**: `roles/aiplatform.user` (to call Gemini models) and `roles/logging.logWriter` (for telemetry).
-* **Project B (`looker-eng` / target)**: `roles/bigquery.jobUser` (to create query jobs in Project B) and `roles/bigquery.dataViewer` (to inspect table schemas & metadata).
+#### Step 2: Grant Permissions in Project A (`sampitcher-playground`)
+```bash
+gcloud projects add-iam-policy-binding sampitcher-playground \
+  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+  --role="roles/aiplatform.user"
 
-#### How the Agent Resolves This at Runtime:
-* `GOOGLE_CLOUD_PROJECT=sampitcher-playground` tells Vertex AI and Cloud Logging to execute and bill in **Project A**.
-* `TARGET_BIGQUERY_PROJECT=looker-eng` tells the BigQuery tool client (`bigquery.Client(project="looker-eng")`) to create query jobs and bill warehouse compute directly in **Project B**.
+gcloud projects add-iam-policy-binding sampitcher-playground \
+  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+  --role="roles/logging.logWriter"
+
+gcloud projects add-iam-policy-binding sampitcher-playground \
+  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+  --role="roles/datastore.user"
+```
+
+#### Step 3: Grant Permissions in Project B (`looker-eng`)
+```bash
+gcloud projects add-iam-policy-binding looker-eng \
+  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+  --role="roles/bigquery.jobUser"
+
+gcloud projects add-iam-policy-binding looker-eng \
+  --member="serviceAccount:looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com" \
+  --role="roles/bigquery.dataViewer"
+```
+
+#### Step 4: Allow Your User to Impersonate the Service Account
+```bash
+gcloud iam service-accounts add-iam-policy-binding \
+  looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com \
+  --member="user:sampitcher@google.com" \
+  --role="roles/iam.serviceAccountTokenCreator"
+```
+
+#### Step 5: Log In Locally (1 Command)
+```bash
+gcloud auth application-default login \
+  --impersonate-service-account=looker-healthcheck-sa@sampitcher-playground.iam.gserviceaccount.com
+```
+
+*For alternative setups (Single-Project or AI Studio API Key), see **[`AUTHENTICATION_GUIDE.md`](AUTHENTICATION_GUIDE.md)**.*
 
 ---
 
