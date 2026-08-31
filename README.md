@@ -119,9 +119,9 @@ pip install -r requirements.txt
 
 ---
 
-### 3. Google Cloud Authentication (Cross-Project User OAuth)
+### 3. Google Cloud Authentication & Identity Scenarios
 
-The agent uses **Application Default Credentials (ADC)** to seamlessly separate your **Agent Runtime Project (Project A)** from the **Target BigQuery Warehouse Project (Project B)** under your own user identity (`sampitcher@google.com`):
+For an exhaustive, step-by-step walkthrough of all single-project, dual-identity, and CI/CD scenarios, see **[`AUTHENTICATION_GUIDE.md`](AUTHENTICATION_GUIDE.md)**.
 
 ```
                         User OAuth ADC (`gcloud auth application-default login`)
