@@ -248,13 +248,43 @@ Whether running inside a coding agent (Gemini Jetski, Claude Code, Cursor), a mu
  └────────────────────────────────────────────────────────────────────────┘
 ```
 
+### 💬 Initial Prompt Templates: Copy & Paste into Your AI Harness
+
+Depending on your objective, copy and paste one of the following prompts into your AI coding assistant (Gemini Jetski, Claude Code, Cursor, Codex):
+
+#### Option 1: Full End-to-End 3-Pillar Healthcheck (Recommended)
+```text
+Run a full 3-pillar healthcheck on our Looker model '<MODEL_NAME>' in project '<LOOKER_PROJECT>', connected to BigQuery dataset '<BIGQUERY_DATASET>' in project '<GCP_PROJECT>'.
+
+Please execute the healthcheck protocol:
+1. Dissect Looker query latency phases (JVM compile % vs DB execution vs connection wait).
+2. Query BigQuery INFORMATION_SCHEMA for slot saturation curves (>200 slots) and memory/disk spills.
+3. Audit LookML view files for primary_key: yes integrity to eliminate SUM(DISTINCT) symmetric aggregates, check explicit join relationships, and mask technical foreign keys.
+4. Triangulate BigQuery bottlenecks back to LookML modeling flaws.
+5. Compile an authoritative Technical Design Document (TECHNICAL_DESIGN_DOCUMENT.md) in the workspace with an objective 0–100% health score and prioritized P0/P1/P2 remediation roadmap.
+```
+
+#### Option 2: Instance-Wide Slow Query & Outlier Discovery (If you don't know which model is slow)
+```text
+Run a Looker performance healthcheck. Query Looker System Activity to identify our 10 slowest explores and dashboards (>10s latency), diagnose query concurrency bottlenecks, analyze dashboard tile density (>25 tiles), and recommend caching and schedule staggering fixes.
+```
+
+#### Option 3: Semantic LookML Modeling Audit Only
+```text
+Audit the LookML code quality for project '<LOOKER_PROJECT>'. Validate compiler syntax, check all joined views for primary_key: yes to eliminate symmetric aggregate hashing, verify explicit relationship: parameters, mask technical foreign keys (hidden: yes), and flag unused dead fields.
+```
+
+#### Option 4: BigQuery Warehouse Compute & Cost Optimization Only
+```text
+Run a BigQuery compute diagnostic on project '<GCP_PROJECT>'. Query INFORMATION_SCHEMA.JOBS_TIMELINE for peak slot contention, identify unpartitioned full table scans, detect memory/disk shuffle spills, and output recommended PARTITION BY and CLUSTER BY DDL statements.
+```
+
+---
+
 ### The 5-Step Execution Lifecycle
 
 #### 1. Discovery & Registration
-The harness scans `skills/` (or parses [`manifest.yaml`](manifest.yaml)). It reads each skill's standardized YAML frontmatter (`name` and `description`). When a user asks:
-> *"Audit the query performance and LookML quality of the 'ecommerce' model in dataset 'prod_analytics'"*
-
-The harness matches this intent to `skills/looker-bq-healthcheck/SKILL.md` and loads it into working memory.
+The harness scans `skills/` (or parses [`manifest.yaml`](manifest.yaml)). It reads each skill's standardized YAML frontmatter (`name` and `description`). When the prompt matches any of the above patterns, the harness activates `skills/looker-bq-healthcheck/SKILL.md` (or `skills/bq-jobs-diagnostics/SKILL.md`) and loads it into working memory.
 
 #### 2. Progressive Knowledge Ingestion (`bundle/`)
 To prevent context window bloat and hallucination, the harness **does not load the entire repository at once**. Instead, [`SKILL.md`](skills/looker-bq-healthcheck/SKILL.md) instructs the harness to fetch specific, authoritative OKF documents on-demand using its native file-reading tools:
