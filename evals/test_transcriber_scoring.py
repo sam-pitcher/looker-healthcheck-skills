@@ -103,38 +103,45 @@ def evaluate_transcriber_score(project_path: Path) -> Dict[str, Any]:
     }
 
 
-def test_score_0_antipattern_eval():
-    """Verify that the anti-pattern fixture accurately scores <= 1.0 (Unsatisfactory)."""
-    bad_dir = FIXTURES_DIR / "score_0_antipattern"
-    assert bad_dir.exists(), "Anti-pattern fixture directory missing."
-    
-    result = evaluate_transcriber_score(bad_dir)
-    print(f"\n[Score 0 Anti-Pattern Fixture Evaluation] Overall Score: {result['overall']} / 4.0")
-    print(f"  D1 (LookML Quality): {result['d1_lookml_quality']} / 4.0")
-    print(f"  D2 (User Experience): {result['d2_user_experience']} / 4.0")
-    print(f"  D3 (Architecture): {result['d3_architecture']} / 4.0")
-    print(f"  D4 (Governance/Tests): {result['d4_governance_testing']} / 4.0")
+import unittest
 
-    # Anti-pattern project must fail Transcriber benchmark (< 1.5)
-    assert result["overall"] <= 1.5
-    assert result["d4_governance_testing"] == 0.0  # No data tests
+
+class TestTranscriberScoring(unittest.TestCase):
+    def test_score_0_antipattern_eval(self):
+        """Verify that the anti-pattern fixture accurately scores <= 1.0 (Unsatisfactory)."""
+        bad_dir = FIXTURES_DIR / "score_0_antipattern"
+        self.assertTrue(bad_dir.exists(), "Anti-pattern fixture directory missing.")
+        
+        result = evaluate_transcriber_score(bad_dir)
+        # Anti-pattern project must fail Transcriber benchmark (< 1.5)
+        self.assertLessEqual(result["overall"], 1.5)
+        self.assertEqual(result["d4_governance_testing"], 0.0)
+
+    def test_score_4_exceptional_eval(self):
+        """Verify that the enterprise fixture accurately scores >= 3.5 (Exceptional)."""
+        good_dir = FIXTURES_DIR / "score_4_exceptional"
+        self.assertTrue(good_dir.exists(), "Exceptional fixture directory missing.")
+
+        result = evaluate_transcriber_score(good_dir)
+        # Exceptional project must exceed expectations (>= 3.5)
+        self.assertGreaterEqual(result["overall"], 3.5)
+        self.assertGreaterEqual(result["d1_lookml_quality"], 3.5)
+        self.assertGreaterEqual(result["d2_user_experience"], 3.5)
+        self.assertGreaterEqual(result["d3_architecture"], 3.5)
+        self.assertEqual(result["d4_governance_testing"], 4.0)
+
+
+# Keep top-level functions for backwards compatibility
+def test_score_0_antipattern_eval():
+    t = TestTranscriberScoring()
+    t.test_score_0_antipattern_eval()
 
 
 def test_score_4_exceptional_eval():
-    """Verify that the enterprise fixture accurately scores >= 3.5 (Exceptional)."""
-    good_dir = FIXTURES_DIR / "score_4_exceptional"
-    assert good_dir.exists(), "Exceptional fixture directory missing."
+    t = TestTranscriberScoring()
+    t.test_score_4_exceptional_eval()
 
-    result = evaluate_transcriber_score(good_dir)
-    print(f"\n[Score 4 Exceptional Fixture Evaluation] Overall Score: {result['overall']} / 4.0")
-    print(f"  D1 (LookML Quality): {result['d1_lookml_quality']} / 4.0")
-    print(f"  D2 (User Experience): {result['d2_user_experience']} / 4.0")
-    print(f"  D3 (Architecture): {result['d3_architecture']} / 4.0")
-    print(f"  D4 (Governance/Tests): {result['d4_governance_testing']} / 4.0")
 
-    # Exceptional project must exceed expectations (>= 3.5)
-    assert result["overall"] >= 3.5
-    assert result["d1_lookml_quality"] >= 3.5
-    assert result["d2_user_experience"] >= 3.5
-    assert result["d3_architecture"] >= 3.5
-    assert result["d4_governance_testing"] == 4.0
+if __name__ == "__main__":
+    unittest.main()
+

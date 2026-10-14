@@ -1,370 +1,346 @@
-# 🚀 Looker & BigQuery Healthcheck Agent
+# 🚀 Looker & BigQuery Healthcheck: Skills & OKF Catalog
 
-> **An autonomous, multi-agent diagnostics engine that audits Looker instance performance, enforces LookML modeling quality, optimizes BigQuery warehouse compute, and compiles production-grade Technical Design Documents (TDD).**
+> **A repository of platform-agnostic Agent Skills and Open Knowledge Format (OKF v0.2) diagnostic bundles that empowers any AI agent harness to audit Looker instance performance, enforce LookML modeling quality, optimize BigQuery warehouse compute, and compile publication-grade Technical Design Documents (TDD).**
 
-Built with the **Google Agent Development Kit (ADK)**, **Gemini 3.7**, **Looker API 4.0**, and grounded in **Google Cloud PSO benchmarks** and the **Open Knowledge Format (OKF v0.2)**.
+Structured following the [Looker Skills Standard](https://github.com/looker-open-source/looker-skills) for procedural capabilities and the [Dataplex OKF v0.2 Specification](https://www.mindstudio.ai/blog/how-to-build-okf-knowledge-bundle-share-ai-agents) for normative knowledge. Grounded in **Google Cloud Professional Services (PSO) performance benchmarks**.
 
 ---
 
 ## 📑 Table of Contents
-1. [What It Does & How It Helps](#1-what-it-does--how-it-helps)
-2. [Architecture & OKF Standards](#2-architecture--okf-standards)
-3. [Setup & Authentication Guide](#3-setup--authentication-guide)
-4. [Running the Agent](#4-running-the-agent)
-5. [Telemetry, Observability & Google Cloud Logging](#5-telemetry-observability--google-cloud-logging)
-6. [Evaluation & Verification](#6-evaluation--verification)
+1. [What It Does & The 3 Healthcheck Pillars](#1-what-it-does--the-3-healthcheck-pillars)
+2. [Architecture & Standards: How the Repository Is Structured](#2-architecture--standards-how-the-repository-is-structured)
+3. [The Catalog: Skills & Bundles](#3-the-catalog-skills--bundles)
+4. [Tooling & Access Primitives](#4-tooling--access-primitives)
+5. [How an AI Agent Harness Executes a Healthcheck](#5-how-an-ai-agent-harness-executes-a-healthcheck)
+6. [OKF Bundle Packaging & Export](#6-okf-bundle-packaging--export)
+7. [Conformance Testing & Evaluation](#7-conformance-testing--evaluation)
 
 ---
 
-## 1. What It Does & How It Helps
+## 1. What It Does & The 3 Healthcheck Pillars
 
-The **Looker & BigQuery Healthcheck Agent** replaces tedious manual auditing with autonomous multi-agent inquests across your entire BI and data warehouse stack.
+This repository replaces opaque manual audits and fragmented scripts with an autonomous, cross-layer diagnostic engine. It enables any AI harness (Gemini Jetski, Claude Code, Cursor, Codex, LangGraph) to correlate telemetry across **Looker System Activity**, **LookML AST code semantics**, and **BigQuery INFORMATION_SCHEMA**:
 
 ```
-                           THE 3 HEALTHCHECK PILLARS
+                           THE 3-PILLAR TRIANGULATION
  ┌─────────────────────────┬─────────────────────────┬─────────────────────────┐
  │ PILLAR 1: LOOKER PERF   │ PILLAR 2: LOOKML QUALITY│ PILLAR 3: BIGQUERY      │
  ├─────────────────────────┼─────────────────────────┼─────────────────────────┤
- │ • Query Phase Breakdown │ • Primary Key Integrity │ • Partition & Cluster   │
- │ • JVM vs DB Overhead    │ • Explicit Joins        │ • Slot Contention Curve │
+ │ • Latency Phase Split   │ • Primary Key Integrity │ • Partition & Cluster   │
+ │ • Looker JVM vs DB %    │ • Explicit Joins        │ • Slot Contention Curve │
  │ • Dashboard Tile Bloat  │ • Masked Foreign Keys   │ • Memory & Disk Spills  │
- │ • Datagroup ETL Caching │ • Snake_case Naming     │ • Aggregate Awareness   │
+ │ • Datagroup ETL Caching │ • Dead Field Pruning    │ • Aggregate Awareness   │
  └─────────────────────────┴─────────────────────────┴─────────────────────────┘
 ```
 
-### How It Helps Your Team:
-* **Pinpoint Query Bottlenecks in Seconds**: Dissects `system__activity/query_metrics` into database runtime, connection queue wait times, and Looker JVM overhead.
-* **Eliminate Warehouse Slot Starvation & Costs**: Flags unpartitioned multi-gigabyte table scans and prescribes exact BigQuery SQL DDL to partition and cluster tables.
-* **Modernize LookML Semantics & Prevent Fanouts**: Identifies missing primary keys causing heavy `SUM(DISTINCT ...)` symmetric aggregate hashing, unmasked foreign keys, and missing field descriptions.
-* **Prepare Explores for Conversational Analytics & Gemini**: Audits field picker hygiene, suggestions caching, and metadata readiness for Natural Language search.
-* **Authoritative OKF v0.2 Technical Design Document (TDD)**: Compiles an executive scorecard, 30-check audit table, copy-paste LookML refactorings, and BigQuery DDL into a standardized Markdown report (`TECHNICAL_DESIGN_DOCUMENT.md`).
+### Comprehensive Healthcheck Coverage
+
+| Pillar | Scope & Focus Area | Key Healthcheck Dimensions Audited |
+| :--- | :--- | :--- |
+| **Pillar 1: Looker Performance** | Instance & Content Governance *(System Activity)* | • **3-Way Latency Triage**: Looker JVM Init/Compile % vs. DB execution average vs. Connection queue wait.<br>• **Dashboard Content Hygiene**: Tile density (>25 tiles), auto-refresh loops, merged query misuse.<br>• **Caching & Delivery**: Datagroup ETL alignment, PDT build triggers, schedule staggering. |
+| **Pillar 2: LookML Quality** | Semantic Modeling & AST Hygiene *(looker-skills Reviewer)* | • **Primary Key Integrity**: Mandatory `primary_key: yes` on joined views to eliminate `SUM(DISTINCT ...)` symmetric aggregate hashing.<br>• **Explicit Joins**: Unambiguous `relationship: many_to_one/one_to_many`, clean column-to-column equality joins in `sql_on`.<br>• **Field Privacy & Governance**: Mask technical keys (`hidden: yes`), prune dead fields with Henry vacuum, conversational descriptions for Gemini. |
+| **Pillar 3: BigQuery Engine** | Warehouse Compute & Storage *(INFORMATION_SCHEMA)* | • **Slot Contention Curves**: Peak slot saturation (>200 slots), queued query units in `JOBS_TIMELINE`.<br>• **Table Physical Layout**: Partitioning (`PARTITION BY DATE(...)`) and clustering (`CLUSTER BY ...`) DDL to minimize scanned bytes.<br>• **Execution Diagnostics**: Memory shuffle spills and disk spill forensics on slow queries.<br>• **Acceleration**: Aggregate Awareness LookML rollups and BI Engine readiness. |
+
+### Key Deliverable
+The healthcheck compiles findings into an authoritative, publication-grade **Technical Design Document (TDD)** adhering to OKF v0.2 (specification detailed in [`bundle/shared/playbooks/playbook_technical_design_document.md`](bundle/shared/playbooks/playbook_technical_design_document.md)):
+1. Executive Summary & Problem Statement
+2. Baseline Architecture & Forensic Telemetry
+3. Pillar 1: Looker Performance & Query Lifecycle Diagnostics
+4. Pillar 2: LookML Semantic Modeling & AST Diagnostics
+5. Pillar 3: BigQuery Engine & Compute Diagnostics
+6. Prioritized Remediation Roadmap (P0 / P1 / P2)
+7. Production Code Verification & Validation Plan
 
 ---
 
-## 2. Architecture & OKF Standards
+## 2. Architecture & Standards: How the Repository Is Structured
 
-The system operates as a **Star Topology Multi-Agent Hierarchy** powered by Google ADK. A master supervisor orchestrates three domain-specific subagents:
+This repository is built upon two complementary, open industry standards:
+1. **Agent Skills Standard** (from [`looker-open-source/looker-skills`](https://github.com/looker-open-source/looker-skills) and Google/Anthropic ecosystems): Standardizes procedural capabilities into portable, self-documenting directory packages (`SKILL.md` + helper scripts).
+2. **Open Knowledge Format (OKF v0.2)** (from Google Cloud Dataplex / Knowledge Catalog): Standardizes normative domain knowledge into structured, trust-verified, versioned markdown bundles.
 
-```mermaid
-graph TD
-    USER(["Data Engineer / GCP Admin"]) --> ROOT["LookerBqOptimizationOrchestrator<br/>(gemini-3.7-flash)"]
-
-    subgraph Multi_Agent_Layer["Specialized Multi-Agent Layer"]
-        ROOT --> SUB1["LookerPerformanceAgent<br/>Pillar 1: Performance & Caching"]
-        ROOT --> SUB2["LookmlQualityAgent<br/>Pillar 2: LookML & Modeling"]
-        ROOT --> SUB3["BqOptimizerAgent<br/>Pillar 3: BigQuery & Compute"]
-    end
-
-    subgraph OKF_Knowledge_Layer["Open Knowledge Format (OKF v0.2) Playbooks"]
-        SKILL1["skills/shared/playbooks/<br/>• scoring_master_rubric.md<br/>• playbook_technical_design_document.md"]
-        SKILL2["skills/looker_performance/playbooks/<br/>• scoring_looker_performance.md<br/>• playbook_looker_performance.md"]
-        SKILL3["skills/lookml_quality/playbooks/<br/>• scoring_lookml_quality.md<br/>• playbook_lookml_quality.md"]
-        SKILL4["skills/bigquery_compute/playbooks/<br/>• scoring_bigquery_compute.md<br/>• playbook_bigquery_compute.md"]
-    end
-
-    subgraph Execution_Engine["Dynamic Tool Execution Primitives (agent/tools/)"]
-        TOOL1["looker-cli Dynamic Engine (dynamic_cli.py)<br/>• looker_cli_discover & inspect<br/>• looker_cli_execute (LookML & Queries)"]
-        TOOL2["BigQuery Engine (bq_client.py)<br/>• run_bq_query (INFORMATION_SCHEMA)<br/>• Partitioning & Slot Metrics"]
-        TOOL3["Storage & Telemetry (storage.py & telemetry.py)<br/>• Firestore State Persistence<br/>• Google Cloud Logging Stream"]
-    end
-
-    SUB1 -.-> SKILL2
-    SUB2 -.-> SKILL3
-    SUB3 -.-> SKILL4
-    ROOT -.-> SKILL1
-
-    SUB1 --> TOOL1
-    SUB2 --> TOOL1
-    SUB3 --> TOOL2
-    ROOT --> TOOL3
-    SUB1 --> TOOL3
-    SUB2 --> TOOL3
-    SUB3 --> TOOL3
+```
+                       ┌────────────────────────────┐
+                       │     AI AGENT HARNESS       │
+                       │ (Jetski, Claude, Cursor)   │
+                       └─────────────┬──────────────┘
+                                     │
+          ┌──────────────────────────┴──────────────────────────┐
+          ▼                                                     ▼
+   PROCEDURAL SKILLS                                     OKF v0.2 KNOWLEDGE
+   Directory: `skills/`                                  Directory: `bundle/`
+   "HOW to do the work"                                  "WHAT facts govern the work"
+   • Execution workflows & triggers                      • Domain facts, boundaries & logs
+   • Safe CLI wrappers & scripts                         • 30-Check Master Rubric & SLAs
+   • Live LookML streaming API                           • Attested SQL computations & DDL
 ```
 
-### Open Knowledge Format (OKF v0.2) Standard
-All diagnostic playbooks, references, and benchmarks adhere strictly to Google Cloud's **Open Knowledge Format (OKF v0.2)**:
-* **YAML Frontmatter**: Structured metadata with `type: Playbook`, `status: stable`, `tags`, and attested sources.
-* **30-Check Master Scoring Standard**: Governed by [`skills/shared/playbooks/scoring_master_rubric.md`](skills/shared/playbooks/scoring_master_rubric.md), with dedicated scoring playbooks in every domain folder ([`scoring_looker_performance.md`](skills/looker_performance/playbooks/scoring_looker_performance.md), [`scoring_lookml_quality.md`](skills/lookml_quality/playbooks/scoring_lookml_quality.md), [`scoring_bigquery_compute.md`](skills/bigquery_compute/playbooks/scoring_bigquery_compute.md)).
-* **Progressive Disclosure**: Subagents dynamically load only the relevant playbooks into their prompt context as needed via the OKF Skills Registry.
+---
+
+### The 5 Core Artifact Types: Why They Are Separated
+
+To prevent hallucinations, context window bloat, and monolithic script sprawl, knowledge and execution are strictly partitioned into five distinct artifact types:
+
+| Artifact Type | Location | What It Is | Role for the AI Harness | Real Example in this Repo |
+| :--- | :--- | :--- | :--- | :--- |
+| **`SKILL`** | `skills/<name>/SKILL.md` | **Executable Procedure ("The Runbook")** | Guides the agent on **HOW** to interact with tools, execute scripts, and sequence its investigation. Contains triggers, step-by-step vectors, and CLI commands. | [`skills/looker-bq-healthcheck/SKILL.md`](skills/looker-bq-healthcheck/SKILL.md) |
+| **`OKF BUNDLE`** | `bundle/<domain>/` | **Domain Container ("The Knowledge Base")** | High-level subject domain grouping rules, logs, and computations under a unified trust boundary. Declares ownership, versioning, and update logs (`log.md`). | [`bundle/looker_performance/`](bundle/looker_performance/) |
+| **`PLAYBOOK`** | `bundle/**/playbooks/` | **Standard & Rubric ("The Grading Spec")** | Authoritative guidelines, scoring rubrics, and deliverable blueprints. Tells the agent **WHAT GOOD VS. BAD LOOKS LIKE** without hardcoding procedural commands. | [`bundle/shared/playbooks/playbook_technical_design_document.md`](bundle/shared/playbooks/playbook_technical_design_document.md) |
+| **`COMPUTATION`** | `bundle/**/computations/` | **Attested Formula ("The Certified Query")** | Pre-tested, reproducible analytical equations and parameterized SQL queries. Annotated with OKF frontmatter (`type: Attested Computation`, `runtime: sql-bigquery`). Guarantees the agent executes mathematically sound formulas instead of guessing SQL. | [`bundle/bigquery_compute/computations/slot_consumption_timeline.md`](bundle/bigquery_compute/computations/slot_consumption_timeline.md) |
+| **`REFERENCE`** | `bundle/**/references/` | **Benchmark & SLA ("The Manual")** | Static architectural reference guides, Google Cloud PSO latency SLAs (<3s interactive), CI/CD workflows, and access control policies. | [`bundle/looker_performance/references/benchmarks.md`](bundle/looker_performance/references/benchmarks.md) |
+
+#### Why this separation is critical for AI Agent Harnesses:
+* **Token Efficiency (Progressive Disclosure)**: An agent never ingests the whole repo into context. It loads only the `SKILL.md` orchestrator, which tells it to read specific `playbooks/` or `computations/` only when it reaches that specific phase.
+* **Deterministic Accuracy**: Complex BigQuery telemetry queries (`INFORMATION_SCHEMA.JOBS_TIMELINE`) are pre-validated in `computations/`, eliminating syntax hallucination.
+* **Maintainability**: When Google Cloud updates performance benchmarks or LookML best practices, only the markdown `references/` or `playbooks/` change—zero changes are needed to the procedural skills or python harnesses.
 
 ---
 
-## 3. Setup & Authentication Guide
+### Annotated Repository File Tree
 
-### 1. Prerequisites
-* **Python 3.10+** (or [`uv`](https://github.com/astral-sh/uv) package manager)
-* **Google Cloud SDK (`gcloud`)**
-* **Looker CLI (`looker-cli`)**
+```
+looker-healthcheck/
+├── manifest.yaml                    # Master Catalog Manifest (OKF v0.2 + upstream dependencies)
+├── README.md                        # Master architectural & user guide
+├── requirements.txt                 # Lightweight packaging dependencies (pyyaml)
+│
+├── skills/                          # PROCEDURAL AGENT SKILLS (Agent Skills Standard)
+│   ├── looker-bq-healthcheck/       # Master 3-pillar healthcheck orchestrator & TDD compiler
+│   │   ├── SKILL.md                 # 5-vector execution workflow & upstream delegation rules
+│   │   └── scripts/                 # Safe CLI execution tools
+│   │       ├── safe_looker.sh       # Read-only guardrail (blocks rm, delete, drop, truncate)
+│   │       ├── stream_lookml.sh     # Live LookML streaming API without git cloning
+│   │       └── validate_lookml.sh   # Direct project compilation validator
+│   └── bq-jobs-diagnostics/         # Pillar 3: BigQuery compute diagnostics skill
+│       ├── SKILL.md                 # Slot curves, memory/disk spills, partition/cluster auditing
+│       └── scripts/
+│           └── run_bq_query.sh      # PrettyJSON bq query runner
+│
+├── bundle/                          # NORMATIVE KNOWLEDGE CATALOG (OKF v0.2 Specification)
+│   ├── index.md                     # Root catalog index declaring okf_version: "0.2"
+│   ├── log.md                       # Master chronological audit log
+│   │
+│   ├── looker_performance/          # PILLAR 1: Looker query lifecycle & instance performance
+│   │   ├── index.md, log.md         # Domain index & change audit log
+│   │   ├── playbooks/               # Performance playbooks & content governance SOPs
+│   │   ├── computations/            # Attested query latency breakdown formulas
+│   │   └── references/              # Google Cloud PSO benchmarks (<3s SLAs) & query outliers
+│   │
+│   ├── lookml_quality/              # PILLAR 2: LookML semantic modeling & AST quality
+│   │   ├── index.md, log.md         # Domain index & change audit log
+│   │   ├── playbooks/               # 30-Check Master LookML Audit Rubric & Transcriber 0-4 scoring
+│   │   ├── computations/            # PDT failure event logs & AST risk calculators
+│   │   └── references/              # Henry vacuum guides, Spectacles CI, legacy runtime recipes
+│   │
+│   ├── bigquery_compute/            # PILLAR 3: BigQuery engine & warehouse optimization
+│   │   ├── index.md, log.md         # Domain index & change audit log
+│   │   ├── playbooks/               # Partitioning/clustering guides, BI Engine acceleration
+│   │   ├── computations/            # Attested SQL queries (slot contention, bytes billed)
+│   │   └── references/              # Pipeline architecture, warehouse optimization
+│   │
+│   └── shared/                      # Cross-cutting deliverables & enterprise standards
+│       ├── index.md, log.md         # Shared index & change audit log
+│       ├── playbooks/               # 7-Section Technical Design Document (TDD) playbook
+│       └── references/              # Security roles, development workflows, and CI/CD
+│
+├── scripts/                         # STANDALONE UTILITIES
+│   ├── export_okf_bundle.py         # Packages bundles into checksummed .tar.gz archives
+│   └── sync_skills.py               # Sparse-checkout sync for upstream looker-skills
+│
+└── evals/                           # ZERO-DEPENDENCY 3-LAYER TEST SUITE (15/15 PASSING)
+    ├── run_evals.py                 # Unified test runner (<50ms execution)
+    ├── test_transcriber_scoring.py  # Layer 1: Transcriber 0-4 rubric benchmarks
+    ├── test_okf_conformance.py      # Layer 2: OKF v0.2 spec verification
+    └── test_skills_conformance.py   # Layer 3: Agent Skills standard & manifest verification
+```
 
 ---
 
-### 2. Git Clone & Dependencies
+## 3. The Catalog: Skills & Bundles
+
+All skills and knowledge bundles are declared in [`manifest.yaml`](manifest.yaml):
+
+| Bundle ID | Domain | Primary Skill | Path in `bundle/` | Description |
+| :--- | :--- | :--- | :--- | :--- |
+| **`looker-healthcheck`** | Master Suite | [`skills/looker-bq-healthcheck/SKILL.md`](skills/looker-bq-healthcheck/SKILL.md) | `bundle/` | Master orchestrator triangulating query latency, LookML AST flaws, and BigQuery slot contention. Compiles `TECHNICAL_DESIGN_DOCUMENT.md`. |
+| **`looker-performance`** | Pillar 1 | [`skills/looker-bq-healthcheck/SKILL.md`](skills/looker-bq-healthcheck/SKILL.md) | `bundle/looker_performance/` | Query lifecycle latency phase breakdown (Looker JVM overhead % vs DB execution vs queue wait), dashboard tile bloat, and schedule concurrency. Delegates to upstream `looker-performance-optimizer`. |
+| **`lookml-quality`** | Pillar 2 | [`skills/looker-bq-healthcheck/SKILL.md`](skills/looker-bq-healthcheck/SKILL.md) | `bundle/lookml_quality/` | Semantic modeling audit: `primary_key: yes` integrity (eliminating `SUM(DISTINCT ...)` symmetric aggregate hashing), explicit joins, unmasked keys, and dead fields. Delegates to upstream `lookml-reviewer`. |
+| **`bigquery-compute`** | Pillar 3 | [`skills/bq-jobs-diagnostics/SKILL.md`](skills/bq-jobs-diagnostics/SKILL.md) | `bundle/bigquery_compute/` | Slot contention timelines (`INFORMATION_SCHEMA.JOBS_TIMELINE_BY_PROJECT`), table partitioning & clustering DDL, memory/disk spills, and Aggregate Awareness. |
+
+> **Upstream Vendor Dependency**: For generic Looker CLI operations, authentication, LookML code review, and standard LookML guidelines, this repository integrates with the official [**`looker-open-source/looker-skills`**](https://github.com/looker-open-source/looker-skills) catalog (`using-looker-cli`, `authenticating-looker-cli`, `looker-performance-optimizer`, `lookml-reviewer`, `lookml-modeling-guidelines`).
+
+---
+
+## 4. Tooling & Access Primitives
+
+Any agent harness interacts with the external systems using two standard, ubiquitous command-line tools:
+
+### 1. Looker CLI (`looker-cli`)
+* **Zero-Secret PKCE OAuth**: No long-lived API secrets in environment variables.
+* **Authenticate**:
+  ```bash
+  looker-cli session login --oauth --client-id com.looker.cli
+  ```
+* **Discovery & Schema**:
+  ```bash
+  looker-cli meta search <keyword>
+  ```
+  ```bash
+  looker-cli <command> --template
+  ```
+* **Read-Only Safety Guardrail**:
+  All read actions can be routed through the safety wrapper to block destructive verbs (`rm`, `delete`, `drop`, `truncate`):
+  ```bash
+  bash skills/looker-bq-healthcheck/scripts/safe_looker.sh <command>
+  ```
+* **Parallel LookML Streamer**:
+  Fetch and cache model and view files live without cloning git repos:
+  ```bash
+  bash skills/looker-bq-healthcheck/scripts/stream_lookml.sh <project_id> /tmp/lookml
+  ```
+* **LookML Validator**:
+  Validate project compilation and syntax directly:
+  ```bash
+  bash skills/looker-bq-healthcheck/scripts/validate_lookml.sh <project_id>
+  ```
+
+### 2. BigQuery CLI (`bq`)
+* **Identity**: Uses standard Google Cloud credentials (`gcloud auth login` or ADC).
+* **Forensic Queries**:
+  ```bash
+  bq query --use_legacy_sql=false --format=prettyjson "<SQL>"
+  ```
+* **Helper Wrapper**:
+  ```bash
+  bash skills/bq-jobs-diagnostics/scripts/run_bq_query.sh "<SQL>"
+  ```
+
+---
+
+## 5. How an AI Agent Harness Executes a Healthcheck
+
+Whether running inside a coding agent (Gemini Jetski, Claude Code, Cursor), a multi-agent framework (LangGraph, AutoGen, CrewAI), or an autonomous loop, the harness interfaces with this repository through a **5-step execution lifecycle**:
+
+```
+                       ┌────────────────────────────┐
+                       │        USER PROMPT         │
+                       │ "Run healthcheck on model" │
+                       └─────────────┬──────────────┘
+                                     │
+                                     ▼
+ ┌────────────────────────────────────────────────────────────────────────┐
+ │                           AGENT HARNESS                                │
+ │                                                                        │
+ │  1. DISCOVERY & ACTIVATION                                             │
+ │     Scans skills/ -> selects skills/looker-bq-healthcheck/SKILL.md     │
+ │                                                                        │
+ │  2. PROGRESSIVE DISCLOSURE                                             │
+ │     Reads SKILL.md -> loads targeted playbooks from bundle/ on demand  │
+ │                                                                        │
+ │  3. SAFE ENVIRONMENT & TOOL EXECUTION                                  │
+ │     Runs looker-cli (via safe_looker.sh) & bq (via run_bq_query.sh)    │
+ │                                                                        │
+ │  4. CROSS-LAYER TRIANGULATION                                          │
+ │     Correlates BQ slot spikes with LookML AST flaws & JVM overhead     │
+ │                                                                        │
+ │  5. SYNTHESIS & SCORING                                                │
+ │     Outputs TECHNICAL_DESIGN_DOCUMENT.md with 0–100% health score      │
+ └────────────────────────────────────────────────────────────────────────┘
+```
+
+### The 5-Step Execution Lifecycle
+
+#### 1. Discovery & Registration
+The harness scans `skills/` (or parses [`manifest.yaml`](manifest.yaml)). It reads each skill's standardized YAML frontmatter (`name` and `description`). When a user asks:
+> *"Audit the query performance and LookML quality of the 'ecommerce' model in dataset 'prod_analytics'"*
+
+The harness matches this intent to `skills/looker-bq-healthcheck/SKILL.md` and loads it into working memory.
+
+#### 2. Progressive Knowledge Ingestion (`bundle/`)
+To prevent context window bloat and hallucination, the harness **does not load the entire repository at once**. Instead, [`SKILL.md`](skills/looker-bq-healthcheck/SKILL.md) instructs the harness to fetch specific, authoritative OKF documents on-demand using its native file-reading tools:
+* **Benchmarking & SLAs**: Reads [`bundle/looker_performance/references/benchmarks.md`](bundle/looker_performance/references/benchmarks.md) to evaluate query latency phases against Google Cloud PSO standards (<3s interactive SLA).
+* **Attested SQL Queries**: Reads [`bundle/bigquery_compute/computations/slot_consumption_timeline.md`](bundle/bigquery_compute/computations/slot_consumption_timeline.md) to retrieve pre-validated BigQuery `INFORMATION_SCHEMA` queries.
+* **Semantic Modeling Rules**: Reads [`bundle/lookml_quality/playbooks/playbook_lookml_quality.md`](bundle/lookml_quality/playbooks/playbook_lookml_quality.md) to execute the 30-check LookML audit rubric.
+
+#### 3. Tool & CLI Execution
+The harness uses its shell or terminal execution tool to run diagnostic commands via zero-secret, read-only wrappers:
+* **Looker Telemetry**: Dissects latency phases via `looker-cli` routed through the safety guardrail:
+  ```bash
+  bash skills/looker-bq-healthcheck/scripts/safe_looker.sh query_metrics run ...
+  ```
+* **LookML Code Streaming**: Streams live model/view files directly to local disk without cloning Git repos:
+  ```bash
+  bash skills/looker-bq-healthcheck/scripts/stream_lookml.sh <project_id> /tmp/lookml
+  ```
+* **BigQuery Warehouse Telemetry**: Extracts job timelines, slot curves, and memory spills in JSON:
+  ```bash
+  bash skills/bq-jobs-diagnostics/scripts/run_bq_query.sh "<SQL>"
+  ```
+
+#### 4. Cross-Layer Triangulation
+The harness synthesizes telemetry across layers to uncover root causes:
+* **Looker Symptom**: Looker JVM spend is only 8%, but queries take 22s in database execution.
+* **LookML Cause**: Explore joins lack `primary_key: yes`, forcing Looker to inject CPU-intensive symmetric aggregate hashing (`SUM(DISTINCT ...)`).
+* **BigQuery Impact**: `INFORMATION_SCHEMA.JOBS_TIMELINE` reveals 300+ peak slot spikes and memory spills to disk on those exact query hashes.
+
+#### 5. Deliverable Synthesis & Scoring
+The harness references [`bundle/shared/playbooks/playbook_technical_design_document.md`](bundle/shared/playbooks/playbook_technical_design_document.md) and [`bundle/shared/playbooks/scoring_master_rubric.md`](bundle/shared/playbooks/scoring_master_rubric.md) to compile:
+1. An executive 0–100% healthcheck score across all 3 pillars.
+2. An authoritative, publication-grade `TECHNICAL_DESIGN_DOCUMENT.md` in the workspace detailing current state telemetry, target state architecture, concrete LookML/DDL remediation code, and a prioritized P0/P1/P2 roadmap.
+
+---
+
+### Supported Harness Archetypes
+
+| Harness Archetype | Examples | How It Operates |
+| :--- | :--- | :--- |
+| **CLI / Coding Assistants** | Claude Code, Gemini Jetski, Cursor, Codex | Loads `skills/looker-bq-healthcheck/SKILL.md` directly, executes scripts in terminal, inspects `bundle/` markdown on-demand, writes TDD to workspace. |
+| **Multi-Agent Orchestrators** | LangGraph, AutoGen, CrewAI | Orchestrator agent runs `looker-bq-healthcheck`, delegating tasks to sub-agents for `bq-jobs-diagnostics` and upstream `lookml-reviewer` concurrently. |
+| **Knowledge / RAG Platforms** | Dataplex, MindStudio, NotebookLM | Ingests the standalone `.tar.gz` archives built with `python3 scripts/export_okf_bundle.py --bundle all`. |
+
+---
+
+## 6. OKF Bundle Packaging & Export
+
+Export all or individual knowledge bundles into portable, checksum-verified `.tar.gz` distribution archives:
 
 ```bash
-git clone https://github.com/sam-pitcher/looker-healthcheck-agent.git
-cd looker-healthcheck-agent
+# Export all 4 bundles to dist/
+python3 scripts/export_okf_bundle.py --bundle all
 
-# Using uv (Fastest):
-uv venv
-source .venv/bin/activate
-uv pip install -r requirements.txt
-
-# Or using standard python venv:
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
+# Export an individual bundle
+python3 scripts/export_okf_bundle.py --bundle lookml-quality
 ```
+
+Each exported archive includes full content, bundle metadata, and SHA256 checksums in `bundle.json`.
 
 ---
 
-### 3. Google Cloud Authentication (Service Account Impersonation)
+## 7. Conformance Testing & Evaluation
 
-The official, production-grade architecture uses a **Dedicated Service Account** with **Impersonation**. This allows your local user account to seamlessly execute Vertex AI models in **Project A (`<YOUR_RUNNER_GCP_PROJECT>`)** while running BigQuery audits in **Project B (`<YOUR_TARGET_BQ_PROJECT>`)** with zero downloaded keys:
-
-```
-                    ┌────────────────────────────────────────────────────────┐
-                    │                    SERVICE ACCOUNT                     │
-                    │   looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam...   │
-                    └──────────────────────────┬─────────────────────────────┘
-                                               │
-             ┌─────────────────────────────────┴─────────────────────────────────┐
-             ▼                                                                   ▼
-  [ Project A: <YOUR_RUNNER_GCP_PROJECT> ]                                  [ Project B: <YOUR_TARGET_BQ_PROJECT> ]
-  • Vertex AI / Gemini Models (`aiplatform.user`)                       • BigQuery Job Execution (`bigquery.jobUser`)
-  • Cloud Logging (`logging.logWriter`)                                 • BigQuery Metadata (`bigquery.dataViewer`)
-  • Firestore Storage (`datastore.user`)                                • Table DDL & `INFORMATION_SCHEMA`
-```
-
-#### Step 1: Create the Service Account (in Project A)
-```bash
-gcloud iam service-accounts create looker-healthcheck-sa \
-  --project=<YOUR_RUNNER_GCP_PROJECT> \
-  --display-name="Looker Healthcheck Agent Service Account"
-```
-
-#### Step 2: Grant Permissions in Project A (`<YOUR_RUNNER_GCP_PROJECT>`)
-```bash
-gcloud projects add-iam-policy-binding <YOUR_RUNNER_GCP_PROJECT> \
-  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
-  --role="roles/aiplatform.user"
-
-gcloud projects add-iam-policy-binding <YOUR_RUNNER_GCP_PROJECT> \
-  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
-  --role="roles/logging.logWriter"
-
-gcloud projects add-iam-policy-binding <YOUR_RUNNER_GCP_PROJECT> \
-  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
-  --role="roles/datastore.user"
-```
-
-#### Step 3: Grant Permissions in Project B (`<YOUR_TARGET_BQ_PROJECT>`)
-```bash
-gcloud projects add-iam-policy-binding <YOUR_TARGET_BQ_PROJECT> \
-  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
-  --role="roles/bigquery.jobUser"
-
-gcloud projects add-iam-policy-binding <YOUR_TARGET_BQ_PROJECT> \
-  --member="serviceAccount:looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com" \
-  --role="roles/bigquery.dataViewer"
-```
-
-#### Step 4: Allow Your User to Impersonate the Service Account
-```bash
-gcloud iam service-accounts add-iam-policy-binding \
-  looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com \
-  --member="user:user@yourcompany.com" \
-  --role="roles/iam.serviceAccountTokenCreator"
-```
-
-#### Step 5: Log In Locally (1 Command)
-```bash
-gcloud auth application-default login \
-  --impersonate-service-account=looker-healthcheck-sa@<YOUR_RUNNER_GCP_PROJECT>.iam.gserviceaccount.com
-```
-
-*For alternative setups (Single-Project or AI Studio API Key), see **[`AUTHENTICATION_GUIDE.md`](AUTHENTICATION_GUIDE.md)**.*
-
----
-
-### 4. Looker Instance Authentication (Zero-Secret OAuth)
-
-The agent connects to Looker via **User OAuth** through `looker-cli`. You do not need to store static client secrets:
+The repository includes a comprehensive 3-layer test suite with zero external framework dependencies:
 
 ```bash
-# 1. Register your Looker instance host:
-looker-cli profile add default --host "yourcompany.looker.app" --port 443
-
-# 2. Authenticate via browser OAuth:
-looker-cli session login --oauth --client-id com.looker.cli
+python3 evals/run_evals.py
 ```
 
-*The agent automatically inherits your active OAuth token, base URL, and refresh session from `~/.config/looker-cli/config.yaml`.*
-
----
-
-### 5. Environment Configuration (`.env`)
-
-Copy `.env.example` to create your local `.env`:
-
-```bash
-cp .env.example .env
-```
-
-Configure your target scopes:
-
-```ini
-# ==============================================================================
-# 1. AGENT RUNNER INFRASTRUCTURE (Vertex AI / Gemini & Logging)
-# ==============================================================================
-GOOGLE_GENAI_USE_VERTEXAI=true
-GOOGLE_CLOUD_PROJECT=your-agent-runner-project
-GOOGLE_CLOUD_LOCATION=us-central1
-AGENT_MODEL=gemini-3.7-flash
-
-# Firestore State & Audit Persistence
-FIRESTORE_DATABASE=looker-healthcheck-db
-FIRESTORE_COLLECTION=looker_healthchecks
-
-# ==============================================================================
-# 2. TARGET LOOKER INSTANCE
-# ==============================================================================
-# Dynamically loaded from ~/.config/looker-cli/config.yaml (or override manually):
-LOOKERSDK_BASE_URL=https://yourcompany.looker.app
-
-# ==============================================================================
-# 3. TARGET BIGQUERY DATA WAREHOUSE
-# ==============================================================================
-TARGET_BIGQUERY_PROJECT=your-target-bigquery-project
-TARGET_BIGQUERY_DATASET=your_default_dataset
-TARGET_BIGQUERY_LOCATION=US
-```
-
----
-
-## 4. Running the Agent
-
-### Mode 1: Interactive Agent Web Chat (Recommended)
-Launch the official Google ADK chat UI:
-
-```bash
-uv run adk web
-```
-
-Open **`http://localhost:8000`** in your browser and interact naturally:
-* *"Run a complete 3-pillar healthcheck on the 'ecommerce' model."*
-* *"Profile query latency phases and identify the top slow queries from the last 7 days."*
-* *"Audit our LookML views for missing primary keys and unmasked foreign keys."*
-* *"Check BigQuery slot contention and table partitioning layout."*
-* *"Compile and save the Technical Design Document."*
-
----
-
-### Mode 2: Headless CLI & CI/CD Audits
-Execute automated batch audits directly from the command line:
-
-```bash
-# Run audit across discovered models:
-python main.py
-
-# Run audit scoped to a specific model:
-python main.py --model=ecommerce
-```
-* Compiles `TECHNICAL_DESIGN_DOCUMENT.md` at the repository root.
-* Persists structured audit metrics to Firestore (`looker_healthchecks`).
-* Returns exit code `0` on healthy status (ideal for CI/CD gates).
-
----
-
-## 5. Telemetry, Observability & Google Cloud Logging
-
-Every agent turn, tool call, query latency, subagent handoff, and diagnostic error is streamed structured to **Google Cloud Logging** under the log channel:
-
-```
-projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry
-```
-
----
-
-### 🔍 Google Cloud Logs Explorer Queries
-
-Copy and paste these queries into [Google Cloud Logs Explorer](https://console.cloud.google.com/logs/query):
-
-#### 1. Filter Complete Session Trace:
-```sql
-logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
-(jsonPayload.data.session_id="YOUR_SESSION_ID" OR jsonPayload.session_id="YOUR_SESSION_ID")
-```
-
-#### 2. Filter Specific Tool Execution in a Session (e.g. `run_inline_query` or `looker_cli_execute`):
-```sql
-logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
-(jsonPayload.data.session_id="YOUR_SESSION_ID" OR jsonPayload.session_id="YOUR_SESSION_ID")
-(jsonPayload.tool_name="run_inline_query" OR jsonPayload.data.tool_name="run_inline_query")
-```
-
-#### 3. Inspect Generated SQL (Looker SQL Runner & BigQuery Forensics):
-```sql
-logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
-(jsonPayload.tool_name="run_bq_query" OR jsonPayload.tool_name="get_query_sql" OR jsonPayload.data.tool_name="run_bq_query" OR jsonPayload.data.tool_name="get_query_sql")
-```
-
-#### 4. Find All Diagnostic Errors, Tool Failures & Warnings:
-```sql
-logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"
-(jsonPayload.data.status="ERROR" OR jsonPayload.data.result_preview=~"Error" OR severity >= WARNING)
-```
-
----
-
-### 📦 Example Structured Telemetry Payload (JSON)
-
-Every tool execution logs rich metadata including execution timing, agent author, and parameters:
-
-```json
-{
-  "event": "tool_execution",
-  "timestamp": "2026-08-31T10:00:00.000Z",
-  "data": {
-    "session_id": "8f3b2c1a-4d5e-6f7a-8b9c-0d1e2f3a4b5c",
-    "agent_name": "LookmlQualityAgent",
-    "tool_name": "looker_cli_execute",
-    "status": "SUCCESS",
-    "duration_ms": 420,
-    "input_args": {
-      "command": "project file cat ecommerce views/order_items.view.lkml"
-    }
-  }
-}
-```
-
----
-
-### 💻 Stream Live Telemetry in Terminal via `gcloud`
-
-```bash
-gcloud logging read \
-  'logName="projects/<YOUR_RUNNER_GCP_PROJECT>/logs/looker_healthcheck_telemetry"' \
-  --project=<YOUR_RUNNER_GCP_PROJECT> \
-  --limit=25 \
-  --format="table(timestamp, jsonPayload.event, jsonPayload.data.agent_name, jsonPayload.data.tool_name, jsonPayload.data.duration_ms)"
-```
-
----
-
-## 6. Evaluation & Verification
-
-Verify the entire multi-agent toolchain and OKF knowledge graph with the automated evaluation suite:
-
-```bash
-# Run unit & deterministic tool verification:
-PYTHONPATH=. python3 evals/test_tools.py
-
-# Run comprehensive 4-layer evaluation suite:
-python3 -u evals/run_evals.py
-```
+### Evaluation Matrix (15 Tests, 100% Passing in <50ms)
+* **Layer 1: Transcriber 0–4 Scoring Rubric Benchmarks** (`evals/test_transcriber_scoring.py`)
+  * Validates anti-pattern fixtures score $\le 1.5$ (Unsatisfactory).
+  * Validates exceptional enterprise fixtures score $\ge 3.5$ (Exceptional).
+* **Layer 2: OKF v0.2 Knowledge Catalog Conformance** (`evals/test_okf_conformance.py`)
+  * Validates normative bundle tree structure and core domains.
+  * Enforces root index `okf_version: "0.2"` and non-root indexes without frontmatter.
+  * Validates chronological logs (`log.md`), trust tier classification, and staleness engine.
+  * Validates attested computation schemas and concept metadata.
+* **Layer 3: Agent Skills Standard & Manifest Conformance** (`evals/test_skills_conformance.py`)
+  * Validates `manifest.yaml` bundle definitions and dependencies.
+  * Validates YAML frontmatter (`name`, `description`), sections, and markdown headers in all `SKILL.md` files.
+  * Validates bash scripts and shebangs.
+  * Validates bundle packaging and checksum integrity.
 
 ---
 
 ## 📄 License
 Apache-2.0
+

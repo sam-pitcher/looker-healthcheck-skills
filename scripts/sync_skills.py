@@ -19,8 +19,10 @@ from pathlib import Path
 from typing import Dict, Any, List
 
 ROOT_DIR = Path(__file__).resolve().parent.parent
-MANIFEST_PATH = ROOT_DIR / "skills.yaml"
+MANIFEST_PATH = ROOT_DIR / "manifest.yaml"
 VENDOR_DIR = ROOT_DIR / "skills" / "vendor"
+
+
 
 def _parse_simple_yaml(text: str) -> Dict[str, Any]:
     """Lightweight fallback YAML parser for skills.yaml if PyYAML is unavailable."""
@@ -147,10 +149,10 @@ def main():
     args = parser.parse_args()
     
     manifest = load_manifest()
-    vendor_skills = manifest.get("vendor_skills", [])
+    vendor_skills = manifest.get("upstream_repositories", []) or manifest.get("vendor_skills", [])
     
     if not vendor_skills:
-        print("ℹ️ No vendor skills declared in skills.yaml.")
+        print("ℹ️ No upstream vendor repositories declared in manifest.yaml.")
         return
         
     print(f"🚀 Starting Manifest-Driven Skill Synchronization ({len(vendor_skills)} declared)...\n")

@@ -16,3 +16,5 @@ venv/
 *.tfstate.*
 reports/
 skills/vendor/
+dist/
+bundles/

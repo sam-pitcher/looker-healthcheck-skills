@@ -1,4 +1,0 @@
-project_id            = "sampitcher-playground"
-region                = "us-central1"
-firestore_location_id = "us-central1"
-database_id           = "looker-healthcheck-db"
