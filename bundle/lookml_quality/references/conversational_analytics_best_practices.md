@@ -11,7 +11,7 @@ sources:
     resource: https://docs.cloud.google.com/looker/docs/conversational-analytics-looker-best-practices
     title: Best Practices for Configuring Conversational Analytics in Looker
   - id: lookml-modeling-guidelines
-    resource: .agents/skills/lookml-modeling-guidelines/SKILL.md
+    resource: https://github.com/looker-open-source/looker-skills/tree/main/skills/lookml-modeling-guidelines
     title: LookML Modeling Guidelines
 ---
 

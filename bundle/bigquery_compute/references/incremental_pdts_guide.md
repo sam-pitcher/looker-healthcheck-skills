@@ -8,7 +8,7 @@ generated: { by: looker_healthcheck_agent/v0.2, at: "2026-08-24T12:00:00Z" }
 verified: { by: "human:sampitcher", at: "2026-08-24T14:00:00Z" }
 sources:
   - id: lookml-pdt-guidelines
-    resource: .agents/skills/lookml-pdt-guidelines/SKILL.md
+    resource: https://github.com/looker-open-source/looker-skills/tree/main/skills/lookml-pdt-guidelines
     title: LookML PDT Guidelines
   - id: warehouse-optimization
     resource: skills/custom/healthcheck/references/warehouse_optimization.md
