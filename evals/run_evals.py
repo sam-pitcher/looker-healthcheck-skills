@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """
-CLI Runner for Looker & BigQuery Healthcheck Skills & OKF Evaluation Suite.
+CLI Runner for Looker & BigQuery Healthcheck Skills Evaluation Suite.
 Executes:
-  1. Transcriber 0-4 scoring rubric benchmarks (fixtures)
-  2. Open Knowledge Format (OKF v0.2) conformance tests (bundle/)
+  1. Transcriber 0-4 scoring rubric benchmarks (evals/fixtures)
+  2. LookML quality rules auditor verification
   3. Agent Skills Standard & Manifest conformance tests (skills/)
 Outputs structured summary metrics, latency benchmarks, and evaluation status.
 """
@@ -17,7 +17,6 @@ ROOT_DIR = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT_DIR))
 
 from evals.test_transcriber_scoring import TestTranscriberScoring
-from evals.test_okf_conformance import TestOKFConformance
 from evals.test_skills_conformance import TestSkillsConformance
 
 CYAN = "\033[96m"
@@ -29,12 +28,11 @@ RESET = "\033[0m"
 
 
 def run_all_evaluations():
-    print(f"\n{BOLD}{CYAN}🧪 Looker & BigQuery Skills & OKF Bundle Evaluation Suite{RESET}\n" + "=" * 70, flush=True)
+    print(f"\n{BOLD}{CYAN}🧪 Looker & BigQuery Healthcheck Skills Evaluation Suite{RESET}\n" + "=" * 70, flush=True)
 
     suite_classes = [
         ("Layer 1: Transcriber 0–4 Scoring Rubric Benchmarks", TestTranscriberScoring),
-        ("Layer 2: Open Knowledge Format (OKF v0.2) Conformance Suite", TestOKFConformance),
-        ("Layer 3: Agent Skills Standard & Manifest Conformance", TestSkillsConformance),
+        ("Layer 2: Agent Skills Standard & Manifest Conformance", TestSkillsConformance),
     ]
 
     total_tests = 0
@@ -48,7 +46,6 @@ def run_all_evaluations():
 
         loader = unittest.TestLoader()
         suite = loader.loadTestsFromTestCase(test_class)
-        runner = unittest.TextTestRunner(stream=sys.stdout, verbosity=2)
 
         for test in suite:
             total_tests += 1
@@ -88,4 +85,3 @@ def run_all_evaluations():
 
 if __name__ == "__main__":
     run_all_evaluations()
-

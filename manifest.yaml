@@ -1,85 +1,48 @@
-version: "0.2"
-catalog_name: "Looker & BigQuery Healthcheck Knowledge & Skills Catalog"
-description: "Platform-agnostic Agent Skills and OKF v0.2 Knowledge Bundles for Looker and BigQuery performance auditing."
+version: "1.0.0"
+catalog_name: "Looker & BigQuery Healthcheck Skills Suite"
+description: "Master multi-agent Skills suite for end-to-end Looker and BigQuery performance auditing, LookML quality scoring, and technical design generation."
 author: "Google Cloud PSO / Looker Modernization Team"
 license: "Apache-2.0"
 
-upstream_repositories:
-  - name: "looker-skills"
-    source: "https://github.com/looker-open-source/looker-skills.git"
-    url: "https://github.com/looker-open-source/looker-skills"
-    ref: "main"
-    target: "skills/vendor/looker-skills"
-    description: "Official Google Cloud Looker developer & performance engineering skills."
-    paths:
-      - "skills/using-looker-cli"
-      - "skills/authenticating-looker-cli"
-      - "skills/installing-looker-cli"
-      - "skills/looker-performance-optimizer"
-      - "skills/lookml-reviewer"
-      - "skills/lookml-modeling-guidelines"
-      - "skills/lookml-liquid"
+orchestrator_skill: "skills/looker-bq-healthcheck/SKILL.md"
 
-
-bundles:
-  - id: "looker-healthcheck"
-    name: "Looker & BigQuery Healthcheck Master Suite"
-    version: "1.0.0"
-    type: "meta-bundle"
-    description: "Complete 3-pillar, 30-check healthcheck orchestrator for Looker and BigQuery, compiling an OKF v0.2 Technical Design Document."
-    entry_skill: "skills/looker-bq-healthcheck/SKILL.md"
-    path: "bundle"
-    includes:
-      - "bundle/**"
-      - "skills/looker-bq-healthcheck/**"
-    dependencies:
+skills:
+  - id: "looker-bq-healthcheck"
+    name: "Looker & BigQuery Healthcheck Master Orchestrator"
+    path: "skills/looker-bq-healthcheck"
+    entry_point: "skills/looker-bq-healthcheck/SKILL.md"
+    role: "Master Healthcheck Orchestrator"
+    description: "Autonomous 3-pillar healthcheck engine correlating telemetry across Looker JVM metrics, LookML modeling, and BigQuery slot usage."
+    subagents:
+      - "looker-performance-auditor"
+      - "lookml-quality-auditor"
       - "bq-jobs-diagnostics"
-    external_dependencies:
-      - "looker:using-looker-cli"
-      - "looker:authenticating-looker-cli"
-      - "looker:looker-performance-optimizer"
-      - "looker:lookml-reviewer"
 
-  - id: "looker-performance"
-    name: "Looker Query Lifecycle & Performance Knowledge Bundle"
-    version: "1.0.0"
-    type: "domain-bundle"
-    pillar: 1
-    description: "Audits query lifecycle latency (Looker JVM overhead % vs DB execution vs connection wait), tile density, auto-refresh, and schedule staggering."
-    entry_skill: "skills/looker-bq-healthcheck/SKILL.md"
-    path: "bundle/looker_performance"
-    includes:
-      - "bundle/looker_performance/**"
-      - "bundle/shared/playbooks/scoring_master_rubric.md"
-    external_dependencies:
-      - "looker:using-looker-cli"
-      - "looker:looker-performance-optimizer"
+  - id: "lookml-quality-auditor"
+    name: "LookML Quality & Transcriber Scoring Auditor"
+    path: "skills/lookml-quality-auditor"
+    entry_point: "skills/lookml-quality-auditor/SKILL.md"
+    role: "Pillar 1: LookML Modeling & Code Quality Specialist"
+    description: "Evaluates LookML against the 0-4 Transcriber scoring rubric, auditing primary key integrity, explicit relationships, masked keys, and Gemini readiness."
+    scripts:
+      - "skills/lookml-quality-auditor/scripts/audit_lookml_rules.py"
+      - "skills/lookml-quality-auditor/scripts/stream_lookml.sh"
+      - "skills/lookml-quality-auditor/scripts/validate_lookml.sh"
 
-  - id: "lookml-quality"
-    name: "LookML Modeling & Code Quality Bundle"
-    version: "1.0.0"
-    type: "domain-bundle"
-    pillar: 2
-    description: "Semantic modeling rules, primary key integrity (eliminating SUM_DISTINCT symmetric aggregate hashing), explicit relationships, and dead field vacuuming."
-    entry_skill: "skills/looker-bq-healthcheck/SKILL.md"
-    path: "bundle/lookml_quality"
-    includes:
-      - "bundle/lookml_quality/**"
-      - "bundle/shared/playbooks/scoring_master_rubric.md"
-    external_dependencies:
-      - "looker:lookml-reviewer"
-      - "looker:lookml-modeling-guidelines"
+  - id: "looker-performance-auditor"
+    name: "Looker Performance & Content Governance Auditor"
+    path: "skills/looker-performance-auditor"
+    entry_point: "skills/looker-performance-auditor/SKILL.md"
+    role: "Pillar 2: Query Lifecycle & Content Specialist"
+    description: "Audits query latency decomposition (Looker JVM overhead % vs DB execution vs connection wait), tile bloat, and schedule staggering."
+    scripts:
+      - "skills/looker-bq-healthcheck/scripts/safe_looker.sh"
 
-  - id: "bigquery-compute"
-    name: "BigQuery Engine & Warehouse Compute Bundle"
-    version: "1.0.0"
-    type: "domain-bundle"
-    pillar: 3
-    description: "Slot contention timelines, table partition and clustering DDL, memory/disk spills, datagroup ETL sync, and Aggregate Awareness LookML rollups."
-    entry_skill: "skills/bq-jobs-diagnostics/SKILL.md"
-    path: "bundle/bigquery_compute"
-    includes:
-      - "bundle/bigquery_compute/**"
-      - "skills/bq-jobs-diagnostics/**"
-      - "bundle/shared/playbooks/scoring_master_rubric.md"
-
+  - id: "bq-jobs-diagnostics"
+    name: "BigQuery Engine & Warehouse Diagnostics"
+    path: "skills/bq-jobs-diagnostics"
+    entry_point: "skills/bq-jobs-diagnostics/SKILL.md"
+    role: "Pillar 3: BigQuery Warehouse Specialist"
+    description: "Audits BigQuery slot contention timelines, query cost outliers, stage spills, table partitioning/clustering, and Aggregate Awareness."
+    scripts:
+      - "skills/bq-jobs-diagnostics/scripts/run_bq_query.sh"

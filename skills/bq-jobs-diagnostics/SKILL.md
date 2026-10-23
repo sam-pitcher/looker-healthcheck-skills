@@ -12,21 +12,22 @@ This skill guides an agent or engineer to audit BigQuery query workloads, diagno
 ## 🧭 When to Use This Skill
 
 Activate this skill when:
-* Auditing BigQuery slot saturation, reservation limits, or query queueing
-* Detecting large unpartitioned or unclustered full table scans from Looker
-* Investigating query stage memory spills to disk and expensive shuffle operations
-* Evaluating opportunities for LookML Aggregate Awareness rollups
+* Auditing BigQuery slot saturation, reservation limits, or query queueing.
+* Detecting large unpartitioned or unclustered full table scans originating from Looker.
+* Investigating query stage memory spills to disk and expensive shuffle operations.
+* Evaluating opportunities for LookML Aggregate Awareness rollups.
+* Sizing or tuning BigQuery BI Engine reservations.
 
+---
+
+## 🛠️ Tooling & Scripts
 
 * Uses Google Cloud Application Default Credentials (ADC) or active gcloud session (`gcloud auth login`).
-* **Required IAM Roles**:
-  - `roles/bigquery.jobUser` (run diagnostic queries)
-  - `roles/bigquery.metadataViewer` or `roles/bigquery.dataViewer` (inspect schema & `INFORMATION_SCHEMA`)
 * Standard execution command:
   ```bash
   bq query --use_legacy_sql=false --format=prettyjson "<SQL>"
   ```
-  Or use the helper wrapper:
+* Helper wrapper:
   ```bash
   bash skills/bq-jobs-diagnostics/scripts/run_bq_query.sh "<SQL>"
   ```
@@ -50,7 +51,7 @@ ORDER BY avg_slots_consumed DESC
 LIMIT 20;
 ```
 * **Target SLA**: Queued units = 0. If `queued_units > 0`, queries were throttled due to slot starvation.
-* Consult concept: [`bundle/bigquery_compute/computations/slot_consumption_timeline.md`](../../bundle/bigquery_compute/computations/slot_consumption_timeline.md)
+* Consult reference: [references/slot_consumption_timeline.md](references/slot_consumption_timeline.md)
 
 ### Step 2: Table Partitioning & Clustering Alignment
 Query `INFORMATION_SCHEMA.TABLE_STORAGE` and `INFORMATION_SCHEMA.COLUMNS` to find fact tables over 10M rows lacking partitioning or clustering:
@@ -67,7 +68,7 @@ ORDER BY total_logical_bytes DESC
 LIMIT 15;
 ```
 * **Rule**: Any fact table with >10M rows MUST be partitioned by date/timestamp and clustered by high-cardinality filter columns.
-* Consult concept: [`bundle/bigquery_compute/computations/table_partition_ddl.md`](../../bundle/bigquery_compute/computations/table_partition_ddl.md)
+* Consult reference: [references/table_partition_ddl.md](references/table_partition_ddl.md)
 
 ### Step 3: Query Costs & Bytes Billed Outliers
 Inspect `region-us.INFORMATION_SCHEMA.JOBS_BY_PROJECT` for expensive runaway queries:
@@ -85,16 +86,20 @@ WHERE creation_time >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 24 HOUR)
 ORDER BY total_bytes_billed DESC
 LIMIT 10;
 ```
-* Consult concept: [`bundle/bigquery_compute/computations/bytes_billed_by_model.md`](../../bundle/bigquery_compute/computations/bytes_billed_by_model.md)
+* Consult reference: [references/bytes_billed_by_model.md](references/bytes_billed_by_model.md)
 
 ### Step 4: Aggregate Awareness Candidates
 Identify queries scanning billions of rows for summary metrics (e.g. daily sales, active users). Recommend LookML `aggregate_table` rollups to eliminate repeat raw table scans.
-* Consult concept: [`bundle/bigquery_compute/references/aggregate_awareness_and_architecture.md`](../../bundle/bigquery_compute/references/aggregate_awareness_and_architecture.md)
+* Consult reference: [references/aggregate_awareness_and_architecture.md](references/aggregate_awareness_and_architecture.md)
 
 ---
 
-## 📚 Related OKF Knowledge Assets
+## 📚 Deep-Dive References
 
-* [Warehouse Optimization Guide](../../bundle/bigquery_compute/references/warehouse_optimization.md)
-* [BI Engine Optimization](../../bundle/bigquery_compute/references/bi_engine_optimization.md)
-* [Scoring Rubric: BigQuery Compute](../../bundle/bigquery_compute/playbooks/scoring_bigquery_compute.md)
+* [BigQuery Compute Playbook](references/playbook_bigquery_compute.md)
+* [BigQuery Scoring Rubric](references/scoring_bigquery_compute.md)
+* [Warehouse Optimization Guide](references/warehouse_optimization.md)
+* [BI Engine Optimization](references/bi_engine_optimization.md)
+* [Looker BigQuery Pipeline Architecture](references/looker_bigquery_pipeline_architecture.md)
+* [Incremental PDTs Guide](references/incremental_pdts_guide.md)
+* [BigQuery Search Indexes](references/bigquery_search_indexes.md)
