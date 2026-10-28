@@ -67,7 +67,11 @@ The lead consultant or agent conducts structured discovery across three key stak
 Establish high-level operational baseline telemetry across the 30-day lookback window:
 * **Query Volume & Execution Mix**: Capture total queries run vs database queries hitting warehouse compute.
 * **Macro Latency Metrics**: Capture instance-wide average for `async_processing_average`, `execute_main_query_average`, and `acquire_connection_average`.
-* **Telemetry Extraction**: Run via automated diagnostic tool `run_system_activity_kpis()` or reference the baseline query catalog in [system_activity_queries.md](../references/system_activity_queries.md).
+* **Telemetry Extraction**: Reference the baseline query catalog in [system_activity_queries.md](system_activity_queries.md).
+
+### E. Required Customer Permissions (Read-Only Least-Privilege)
+* **Looker**: `Admin` role, or a custom role on `system__activity` and target models with `see_system_activity`, `develop` (or `see_lookml`), `use_sql_runner`, `see_lookml_dashboards`, `see_user_dashboards`, and `see_schedules`, plus Looker CLI OAuth enabled.
+* **BigQuery (Project IAM)**: `roles/bigquery.resourceViewer` (required for `bigquery.jobs.listAll` on `JOBS_BY_PROJECT` and `JOBS_TIMELINE_BY_PROJECT` — `bigquery.dataEditor` alone is insufficient), `roles/bigquery.jobUser` (to run `bq query`), and `roles/bigquery.metadataViewer` (to inspect `TABLE_STORAGE` and `COLUMNS`).
 
 ---
 

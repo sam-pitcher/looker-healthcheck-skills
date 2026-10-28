@@ -1,3 +1,0 @@
-# Optional dependencies for running local test evals and OKF bundle exporter:
-pyyaml>=6.0
-
